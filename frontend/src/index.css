@@ -1,0 +1,217 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+@plugin "daisyui/theme" {
+  name: "obsidian";
+  default: true;
+  color-scheme: light;
+  --color-primary: #7c3aed;
+  --color-primary-content: #ffffff;
+  --color-secondary: #6d28d9;
+  --color-secondary-content: #ffffff;
+  --color-accent: #a78bfa;
+  --color-accent-content: #1a1a1a;
+  --color-neutral: #525252;
+  --color-neutral-content: #fafafa;
+  --color-base-100: #ffffff;
+  --color-base-200: #fafafa;
+  --color-base-300: #e5e5e5;
+  --color-base-content: #1a1a1a;
+  --color-info: #3b82f6;
+  --color-info-content: #ffffff;
+  --color-success: #22c55e;
+  --color-success-content: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-content: #1a1a1a;
+  --color-error: #ef4444;
+  --color-error-content: #ffffff;
+}
+
+@plugin "daisyui/theme" {
+  name: "obsidian-dark";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-primary: #7c3aed;
+  --color-primary-content: #ffffff;
+  --color-secondary: #6d28d9;
+  --color-secondary-content: #ffffff;
+  --color-accent: #a78bfa;
+  --color-accent-content: #1a1a1a;
+  --color-neutral: #404040;
+  --color-neutral-content: #e8e8e8;
+  --color-base-100: #1a1a1a;
+  --color-base-200: #111111;
+  --color-base-300: #2a2a2a;
+  --color-base-content: #e8e8e8;
+  --color-info: #3b82f6;
+  --color-info-content: #ffffff;
+  --color-success: #22c55e;
+  --color-success-content: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-content: #1a1a1a;
+  --color-error: #ef4444;
+  --color-error-content: #ffffff;
+}
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+:root,
+[data-theme="obsidian"],
+[data-theme="obsidian-dark"] {
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light theme legacy variables */
+:root,
+[data-theme="obsidian"] {
+  --obsidian-bg: #fafafa;
+  --obsidian-surface: #ffffff;
+  --obsidian-border: #e5e5e5;
+  --obsidian-text-primary: #1a1a1a;
+  --obsidian-text-secondary: rgba(26, 26, 26, 0.7);
+  --obsidian-text-tertiary: rgba(26, 26, 26, 0.5);
+  --obsidian-text-muted: rgba(26, 26, 26, 0.4);
+  --obsidian-accent-primary: #7c3aed;
+  --obsidian-accent-secondary: #6d28d9;
+  --obsidian-accent-pale: rgba(124, 58, 237, 0.1);
+  --obsidian-warning: #f59e0b;
+  --obsidian-success: #22c55e;
+}
+
+/* Dark theme legacy variables */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --obsidian-bg: #111111;
+    --obsidian-surface: #1a1a1a;
+    --obsidian-border: #2a2a2a;
+    --obsidian-text-primary: #e8e8e8;
+    --obsidian-text-secondary: rgba(232, 232, 232, 0.7);
+    --obsidian-text-tertiary: rgba(232, 232, 232, 0.5);
+    --obsidian-text-muted: rgba(232, 232, 232, 0.4);
+    --obsidian-accent-primary: #7c3aed;
+    --obsidian-accent-secondary: #6d28d9;
+    --obsidian-accent-pale: rgba(124, 58, 237, 0.15);
+    --obsidian-warning: #f59e0b;
+    --obsidian-success: #22c55e;
+  }
+}
+
+[data-theme="obsidian-dark"] {
+  --obsidian-bg: #111111;
+  --obsidian-surface: #1a1a1a;
+  --obsidian-border: #2a2a2a;
+  --obsidian-text-primary: #e8e8e8;
+  --obsidian-text-secondary: rgba(232, 232, 232, 0.7);
+  --obsidian-text-tertiary: rgba(232, 232, 232, 0.5);
+  --obsidian-text-muted: rgba(232, 232, 232, 0.4);
+  --obsidian-accent-primary: #7c3aed;
+  --obsidian-accent-secondary: #6d28d9;
+  --obsidian-accent-pale: rgba(124, 58, 237, 0.15);
+  --obsidian-warning: #f59e0b;
+  --obsidian-success: #22c55e;
+}
+
+::selection {
+  background-color: #FDFF6E;
+  color: #000000;
+}
+
+/* daisyUI's `.list` component sets display:flex; flex-direction:column, which
+   collides with the syntax-highlighter token <span class="token list punctuation">
+   inside MDEditor and forces the bullet onto its own line, desyncing the
+   highlight overlay from the textarea. */
+.w-md-editor-content .list {
+  display: inline;
+  flex-direction: unset;
+  font-size: unset;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+button:hover, a:hover, [role="button"]:hover {
+  cursor: crosshair;
+}
+
+a {
+  text-decoration: none;
+  transition: opacity 150ms ease;
+}
+
+a:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.interactive-section {
+  transition: opacity 150ms ease;
+}
+
+.interactive-section:hover {
+  opacity: 0.7;
+}
+
+.obsidian-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.1) transparent;
+}
+
+.obsidian-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.obsidian-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.obsidian-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.1);
+  border-radius: 2px;
+}
+
+.obsidian-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .obsidian-scrollbar {
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+  :root:not([data-theme]) .obsidian-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+  }
+  :root:not([data-theme]) .obsidian-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.2);
+  }
+}
+
+[data-theme="obsidian-dark"] .obsidian-scrollbar {
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+[data-theme="obsidian-dark"] .obsidian-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+}
+
+[data-theme="obsidian-dark"] .obsidian-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}

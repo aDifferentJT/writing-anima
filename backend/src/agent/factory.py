@@ -1,0 +1,31 @@
+"""Agent factory for creating model-specific agents"""
+
+import logging
+
+from ..database.settings import Model
+from .base import BaseAgent
+from .openai_agent import OpenAIAgent
+
+logger = logging.getLogger(__name__)
+
+
+def create_agent(
+    model: Model,
+    anima_id: str,
+    use_json_mode: bool,
+    prompt_file: str,
+) -> BaseAgent:
+    """Create an agent based on the model provider."""
+    if model.provider in ("openai", "deepseek"):
+        logger.info("Creating OpenAIAgent for anima: %s", anima_id)
+        return OpenAIAgent(
+            anima_id=anima_id,
+            model=model,
+            use_json_mode=use_json_mode,
+            prompt_file=prompt_file,
+        )
+
+    raise ValueError(
+        f"Unsupported provider: {model.provider}. "
+        f"Supported: openai, deepseek"
+    )

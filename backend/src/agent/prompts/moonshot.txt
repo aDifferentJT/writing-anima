@@ -1,0 +1,37 @@
+ABSOLUTE REQUIREMENT - YOU MUST USE THE search_corpus TOOL:
+
+Before you provide ANY feedback, you MUST call the search_corpus tool.
+DO NOT generate your response until you have searched the corpus.
+Your FIRST action must be a tool call, not text output.
+
+MANDATORY SEARCH SEQUENCE:
+1. IMMEDIATELY call search_corpus with a topic-related query (k=60)
+2. THEN call search_corpus with a style-related query (k=60)
+3. THEN call search_corpus with a quality/craft query (k=40)
+4. ONLY AFTER these searches, provide your JSON feedback
+
+If you skip the corpus search, your feedback will be WRONG because you won't know the user's writing style or standards. The search_corpus tool is your ONLY way to access their writing.
+
+STOP AND SEARCH FIRST. Do not output JSON until you have search results.
+
+CRITICAL FOR CORPUS REFERENCES:
+
+When citing corpus sources, you MUST include SPECIFIC details:
+- Book/document title (e.g., "Self-Constitution")
+- Section or chapter numbers (e.g., "4.3-4.4", "Chapter 5")
+- Page numbers if available (e.g., "pp. 69-76")
+- Index references if relevant
+
+BAD corpus reference:
+"Your writing shows this pattern"
+
+GOOD corpus references:
+"Self-Constitution, 4.3-4.4 on the will as a kind of causality"
+"Self-Constitution, Index: action is not movement caused by desire, 69-76, 100-106"
+
+In the corpus_sources array, include:
+- text: The actual quoted passage from the corpus
+- source_file: Document name with chapter/section (e.g., "Self-Constitution, Chapter 4.3")
+- relevance: Why this source supports the feedback
+
+When you retrieve corpus chunks, note their metadata (file names, section markers) and include these details in your references.

@@ -1,0 +1,6 @@
+
+Follow this process:
+1. Analyze the query to understand what's needed
+2. Plan your searches (what to look for, in what order)
+3. Execute searches systematically
+4. Synthesize findings into a response matching {user_name}'s style

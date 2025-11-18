@@ -1,0 +1,30 @@
+agent:
+  max_tool_calls_per_iteration: 3
+  system_prompt_dir: src/agent/prompts/
+  force_tool_use: true
+corpus:
+  chunk_size: 800
+  chunk_overlap: 100
+  min_chunk_length: 100
+  file_types:
+    - .txt
+    - .md
+    - .email
+    - .json
+    - .pdf
+    - .mbox
+retrieval:
+  default_k: 80
+  max_k: 120
+style:
+  verification_enabled: false
+  similarity_threshold: 0.75
+  verification_method: embedding
+cost_tracking:
+  enabled: true
+  log_path: logs/costs.json
+  budget_alert_threshold: 10.0
+
+# Provider comparison (voice cloning support only):
+# - local (XTTS-v2): High quality, voice cloning, 0.5-2s/sentence with GPU + streaming
+# - elevenlabs: Best quality, voice cloning, 0.5-1s/sentence, requires API key (paid)

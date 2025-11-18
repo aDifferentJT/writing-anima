@@ -1,0 +1,3 @@
+
+Before each search, briefly reason about what information would be most useful.
+After retrieving results, evaluate if you need additional searches or if you have enough context.

@@ -1,0 +1,47 @@
+[project]
+name = "writing-anima"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=46.0.5",
+    "fastapi>=0.109.0",
+    "huggingface-hub>=1.5.0",
+    "mlx-embeddings>=0.0.5",
+    "openai>=1.12.0",
+    "pydantic>=2.5.0",
+    "pypdf>=4.0.0",
+    "py2app>=0.28.10",
+    "setuptools>=82",
+    "pywebview@git+https://github.com/r0x0r/pywebview.git",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.6",
+    "pyyaml>=6.0",
+    "qdrant-client>=1.7.0",
+    "sqlmodel>=0.0.37",
+    "tqdm>=4.66.0",
+    "uvicorn[standard]>=0.42.0",
+    "types-tqdm>=4.67.3.20260408",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=1.19.1",
+    "pylint>=4.0.5",
+    "pytest>=9.0.3",
+    "types-pyyaml>=6.0",
+    "types-setuptools>=82.0.0.20260408",
+]
+
+[tool.mypy]
+plugins = ['pydantic.mypy']
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["mlx_embeddings.*"]
+follow_untyped_imports = true
+
+[tool.pylint.messages_control]
+disable = [
+    "no-else-return",  # R1705 — else after return is fine for readability
+]
