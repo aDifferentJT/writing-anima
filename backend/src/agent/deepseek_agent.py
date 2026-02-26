@@ -44,6 +44,11 @@ class DeepSeekAgent(BaseAgent):
 
         model_config = getattr(self.config.model, config_section)
 
+        # Resolve base URL first (needed for localhost API key detection)
+        resolved_base_url = (
+            base_url or model_config.base_url or self.config.model.deepseek.base_url
+        )
+
         # Get API key: explicit override > config > "no-key" for local backends
         resolved_api_key = (
             api_key
@@ -51,14 +56,12 @@ class DeepSeekAgent(BaseAgent):
             or self.config.get_api_key("deepseek")
         )
         if not resolved_api_key:
-            if base_url and ("localhost" in base_url or "127.0.0.1" in base_url):
-                resolved_api_key = "no-key-required"
+            if resolved_base_url and (
+                "localhost" in resolved_base_url or "127.0.0.1" in resolved_base_url
+            ):
+                resolved_api_key = ""
             else:
                 raise ValueError("DEEPSEEK_API_KEY not found in environment variables")
-
-        resolved_base_url = (
-            base_url or model_config.base_url or self.config.model.deepseek.base_url
-        )
 
         self.client = OpenAI(
             api_key=resolved_api_key,
