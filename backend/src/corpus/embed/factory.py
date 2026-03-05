@@ -5,6 +5,7 @@ from typing import Optional, Union
 
 from ...config import Config, get_config
 from .base import BaseEmbeddingGenerator
+from .mlx import MlxEmbeddingGenerator
 from .openai import OpenAIEmbeddingGenerator
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ class EmbeddingGeneratorFactory:
 
         if config.embedding.provider == "openai":
             return OpenAIEmbeddingGenerator(config)
+        elif config.embedding.provider == "mlx":
+            return MlxEmbeddingGenerator(config)
         else:
             raise ValueError(
                 f"Unsupported embedding generator provider: {config.embedding.provider}."
