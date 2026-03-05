@@ -48,7 +48,6 @@ backend/
 │   ├── corpus/      # Corpus ingestion and processing
 │   ├── api/         # FastAPI routes and endpoints
 │   └── config.py    # Configuration management
-├── tests/           # Test suite
 ├── main.py          # Application entry point
 └── requirements.txt # Python dependencies
 ```

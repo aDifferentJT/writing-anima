@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Dict
 from datetime import datetime
 from uuid import uuid4
 
-from .embed import EmbeddingGenerator
+from .embed.factory import EmbeddingGeneratorFactory
 from .pdf_extractor import PDFExtractor, is_pdf_available
 from .mbox_parser import MboxParser
 from .claude_parser import ClaudeConversationParser
@@ -34,7 +34,7 @@ class CorpusIngester:
 
         self.config = config
         self.collection_name = collection_name
-        self.embedder = EmbeddingGenerator(config)
+        self.embedder = EmbeddingGeneratorFactory.create(config)
         self.db = VectorDatabase(collection_name, config)
 
         # Initialize PDF extractor if available

@@ -114,7 +114,7 @@ model:
     max_iterations: 25
   exo:
     base_url: http://localhost:52415/v1
-    model: deepseek-ai/DeepSeek-V3.1
+    model: mlx-community/DeepSeek-V3.1-8bit
     max_tokens: 4096
     temperature: 1.0
     max_iterations: 25
@@ -133,10 +133,20 @@ vector_db:
   host: localhost
   port: 6333
 embedding:
+  #  provider: openai
+  #  api_key_env: OPENAI_API_KEY
+  #  model: text-embedding-3-small
+  #  dimensions: 1536
+  #  batch_size: 100
   provider: openai
+  api_key_env: OPENAI_API_KEY
   model: text-embedding-3-large
   dimensions: 3072
   batch_size: 100
+  #  provider: mlx
+  #  model: mlx-community/Qwen3-Embedding-8B-mxfp8
+  #  dimensions: 4096
+  #  batch_size: 100
 corpus:
   chunk_size: 800
   chunk_overlap: 100

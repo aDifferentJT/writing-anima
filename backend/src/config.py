@@ -96,6 +96,7 @@ class EmbeddingConfig(BaseModel):
     """Embedding configuration"""
 
     provider: str = "openai"
+    api_key_env: Optional[str] = None
     model: str = "text-embedding-3-small"
     dimensions: int = 1536
     batch_size: int = 100

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from openai import OpenAI
 
 from ..config import get_config
-from ..corpus.embed import EmbeddingGenerator
+from ..corpus.embed.factory import EmbeddingGeneratorFactory
 from ..database.schema import SearchFilters, SearchResult, SourceType
 from ..database.vector_db import VectorDatabase
 
@@ -31,7 +31,7 @@ class CorpusSearchTool:
         self.config = config
         self.collection_name = collection_name
         self.db = VectorDatabase(collection_name, config)
-        self.embedder = EmbeddingGenerator(config)
+        self.embedder = EmbeddingGeneratorFactory.create(config)
         self._style_pack_cache = None  # Cache diverse style examples
 
     def get_style_pack(self) -> List[Dict[str, Any]]:
@@ -280,7 +280,7 @@ class IncrementalReasoningTool:
         self.collection_name = collection_name
         self.persona_name = persona_name
         self.db = VectorDatabase(collection_name, config)
-        self.embedder = EmbeddingGenerator(config)
+        self.embedder = EmbeddingGeneratorFactory.create(config)
 
         # Initialize OpenAI client for OOD checks
         api_key = os.getenv("OPENAI_API_KEY")
