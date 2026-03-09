@@ -48,8 +48,6 @@ personas:
     corpus_path: data/corpus/sasha/
     collection_name: persona_sasha
     description: A. S. Arridge - Philosopher
-    voice_enabled: true
-    voice_id: a._s._arridge_voice
 default_persona: jules
 model:
   primary: gpt-5
@@ -176,18 +174,6 @@ cost_tracking:
   enabled: true
   log_path: logs/costs.json
   budget_alert_threshold: 10.0
-tts:
-  enabled: false
-  provider: local # Options: "local" (XTTS-v2, voice cloning), "kokoro" (fast), "elevenlabs" (paid)
-  use_streaming: true # Stream audio sentence-by-sentence (better UX)
-  use_gpu: true # Use GPU acceleration if available (M1/M2/M3, CUDA)
-  api_key_env: ELEVENLABS_API_KEY
-  model: eleven_multilingual_v2
-  voice_stability: 0.5
-  voice_similarity_boost: 0.75
-  auto_play: true
-  save_audio: false
-  audio_output_dir: outputs/audio
 
 # Provider comparison (voice cloning support only):
 # - local (XTTS-v2): High quality, voice cloning, 0.5-2s/sentence with GPU + streaming

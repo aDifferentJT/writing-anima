@@ -17,7 +17,6 @@ export const UnifiedAgentCustomizationPanel = ({
   onClose,
   initialTab = 'agents',
   embedded = false,
-  multiAgentSystem,
   onAgentsUpdated
 }) => {
   const [agents, setAgents] = useState([]);

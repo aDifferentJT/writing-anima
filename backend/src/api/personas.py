@@ -371,15 +371,16 @@ async def upload_corpus(
         total_size = 0
 
         for file in files:
-            # Save file
-            file_path = os.path.join(temp_dir, file.filename)
-            content = await file.read()
-            total_size += len(content)
+            if file.filename:
+                # Save file
+                file_path = os.path.join(temp_dir, file.filename)
+                content = await file.read()
+                total_size += len(content)
 
-            with open(file_path, "wb") as f:
-                f.write(content)
+                with open(file_path, "wb") as f:
+                    f.write(content)
 
-            saved_files.append(file_path)
+                saved_files.append(file_path)
 
         # Ingest corpus
         collection_name = persona["collection_name"]
@@ -400,7 +401,7 @@ async def upload_corpus(
         vector_db = VectorDatabase(collection_name)
         try:
             collection_info = vector_db.client.get_collection(collection_name)
-            total_chunks = collection_info.points_count
+            total_chunks: int = collection_info.points_count
         except:
             total_chunks = persona.get("chunk_count", 0) + total_chunks_added
 

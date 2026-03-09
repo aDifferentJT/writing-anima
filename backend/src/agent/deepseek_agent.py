@@ -8,7 +8,8 @@ from typing import Any, Dict, Generator, List, Optional
 
 from openai import OpenAI
 
-from .base import BaseAgent
+from .base import BaseAgent, ToolCall
+from .tools import WritingSample
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,8 @@ class DeepSeekAgent(BaseAgent):
         model: str = "deepseek-chat",
         use_json_mode: bool = False,
         prompt_file: str = "base.txt",
-        base_url: str = None,
-        api_key: str = None,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
         config_section: str = "deepseek",
     ):
         """
@@ -79,7 +80,7 @@ class DeepSeekAgent(BaseAgent):
         )
 
     def _rewrite_in_style(
-        self, feedback_json: str, retrieved_samples: List[Dict] = None
+        self, feedback_json: str, retrieved_samples: Optional[List[WritingSample]] = None
     ) -> str:
         """
         Rewrite feedback content in the author's distinctive style.
@@ -111,7 +112,7 @@ class DeepSeekAgent(BaseAgent):
         style_examples = ""
         for i, sample in enumerate(samples[:10], 1):
             # Handle both dict formats (from tool results vs style pack)
-            text = sample.get("text", "")
+            text = sample.text
             if len(text) > 800:
                 text = text[:800] + "..."
             style_examples += f"\n--- Example {i} ---\n{text}\n"
@@ -406,9 +407,9 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
         else:
             messages = [{"role": "user", "content": query}]
 
-        tool_calls_log = []
+        tool_calls_log: List[ToolCall] = []
         tools_called_count = 0  # Track for tool_choice logic
-        retrieved_samples = []  # Collect corpus samples for style rewrite
+        retrieved_samples: List[WritingSample] = []  # Collect corpus samples for style rewrite
 
         logger.info(f"Starting streaming agent loop for query: {query[:100]}...")
 
@@ -465,7 +466,7 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
 
                 # Collect response
                 collected_content = ""
-                collected_tool_calls = []
+                collected_tool_calls: List[Dict[str, Any]] = []
 
                 for chunk in stream:
                     delta = chunk.choices[0].delta
@@ -598,15 +599,11 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                         result = self._execute_tool(tool_use)
                         tool_results.append(result)
                         tools_called_count += 1
-                        tool_calls_log.append(
-                            {
-                                "tool": tool_use["name"],
-                                "input": tool_use["input"],
-                                "result_count": len(result)
-                                if isinstance(result, list)
-                                else 1,
-                            }
-                        )
+                        tool_calls_log.append(ToolCall(
+                            tool=tool_use["name"],
+                            input=tool_use["input"],
+                            result_count=len(result) if isinstance(result, list) else 1,
+                        ))
 
                         # Detailed search logging and collect samples for style rewrite
                         if tool_use["name"] == "search_corpus":

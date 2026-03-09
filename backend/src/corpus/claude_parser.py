@@ -81,7 +81,7 @@ class ClaudeConversationParser:
         conversation_text = "\n\n".join(formatted_messages)
 
         # Extract metadata
-        metadata = {
+        metadata: Dict[str, Any] = {
             "message_count": len(formatted_messages),
         }
 

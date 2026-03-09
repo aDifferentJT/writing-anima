@@ -7,7 +7,7 @@ import logging
 import re
 import time
 import uuid
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
@@ -59,7 +59,7 @@ def get_persona(persona_id: str, user_id: str) -> Dict:
 
 
 def parse_json_feedback(
-    response_text: str, persona_name: str, model: str = None
+    response_text: str, persona_name: str, model: Optional[str] = None
 ) -> List[FeedbackItem]:
     """
     Parse JSON feedback from Anima's structured output.
@@ -307,116 +307,6 @@ def parse_json_feedback(
         return []
 
 
-@router.post("/analyze", response_model=AnalysisResponse)
-async def analyze_writing(request: AnalysisRequest):
-    """
-    Analyze writing with Anima and return structured feedback
-    """
-    # Get and verify persona
-    persona = get_persona(request.persona_id, request.user_id)
-    if not persona:
-        raise HTTPException(status_code=404, detail="Persona not found")
-
-    try:
-        start_time = time.time()
-
-        # Get configuration
-        config = get_config()
-
-        # Add persona to config dynamically if not present
-        # This allows the BaseAgent to find it when it calls config.get_persona()
-        if request.persona_id not in config.personas:
-            from ..config import PersonaConfig
-
-            persona_config = PersonaConfig(
-                name=persona["name"],
-                corpus_path="",  # Not needed for dynamic personas
-                collection_name=persona["collection_name"],
-                description=persona.get("description", ""),
-            )
-            config.personas[request.persona_id] = persona_config
-
-        # Get the model: prefer request override, then persona setting, then config primary
-        selected_model = request.model or persona.get("model") or config.model.primary
-        logger.info(
-            f"Using model: {selected_model} for persona: {persona['name']} (override: {request.model})"
-        )
-
-        # Create agent using factory with persona's selected model
-        agent = AgentFactory.create(
-            model_name=selected_model,
-            persona_id=request.persona_id,
-            config=config,
-        )
-        # Set JSON mode and prompt file for structured feedback
-        # Note: DeepSeek/exo/openrouter don't support strict JSON schema, so skip for those agents
-        model_lower = selected_model.lower()
-        if (
-            "deepseek" not in model_lower
-            and "exo" not in model_lower
-            and "openrouter" not in model_lower
-        ):
-            agent.use_json_mode = True
-        agent.prompt_file = "writing_critic.txt"
-
-        # Build analysis query with context
-        query = f"Please analyze the following writing"
-
-        if request.context and request.context.purpose:
-            query += f" (Purpose: {request.context.purpose})"
-
-        if request.context and request.context.criteria:
-            criteria_text = ", ".join(request.context.criteria)
-            query += f"\nEvaluation criteria: {criteria_text}"
-
-        query += f"\n\nText to analyze:\n{request.content}"
-
-        query += "\n\nProvide specific, actionable feedback grounded in your corpus. Return your response as a JSON array of feedback items as specified in your instructions."
-
-        # Get response from Anima
-        conversation_history = []
-        if request.context and request.context.feedback_history:
-            # Convert feedback history to conversation format
-            for item in request.context.feedback_history[-3:]:  # Last 3 exchanges
-                if item.get("role") == "user":
-                    conversation_history.append(
-                        {"role": "user", "content": item["content"]}
-                    )
-                elif item.get("role") == "assistant":
-                    conversation_history.append(
-                        {"role": "assistant", "content": item["content"]}
-                    )
-
-        result = agent.respond(query, conversation_history=conversation_history)
-
-        # Parse JSON feedback
-        response_text = result.get("response", "")
-        feedback_items = parse_json_feedback(
-            response_text, persona["name"], selected_model
-        )
-
-        # Limit to max items
-        feedback_items = feedback_items[: request.max_feedback_items]
-
-        processing_time = time.time() - start_time
-
-        return AnalysisResponse(
-            persona_id=request.persona_id,
-            persona_name=persona["name"],
-            feedback=feedback_items,
-            metadata={
-                "iterations": result.get("iteration_count", 0),
-                "tool_calls": result.get("total_tool_calls", 0),
-                "model": config.model.primary,
-            },
-            processing_time=processing_time,
-        )
-
-    except Exception as e:
-        logger.error(f"Error analyzing writing: {e}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
-
-
 @router.websocket("/analyze/stream")
 async def analyze_writing_stream(websocket: WebSocket):
     """
@@ -532,6 +422,7 @@ async def analyze_writing_stream(websocket: WebSocket):
                     conversation_history.append(
                         {"role": "assistant", "content": item["content"]}
                     )
+            
 
         # Use streaming if available
         result = None
@@ -581,7 +472,7 @@ async def analyze_writing_stream(websocket: WebSocket):
             await websocket.close()
             return
 
-        response_text = result.get("response", "")
+        response_text = result.response
         logger.info(f"Response text length: {len(response_text)}")
         logger.info(f"Response preview (first 1000 chars): {response_text[:1000]}")
 
@@ -605,12 +496,12 @@ async def analyze_writing_stream(websocket: WebSocket):
         logger.info(f"After max limit: {len(feedback_items)} feedback items")
 
         # Stream each feedback item
-        for i, item in enumerate(feedback_items):
+        for i, feedback_item in enumerate(feedback_items):
             try:
                 logger.info(
-                    f"Sending feedback item {i + 1}/{len(feedback_items)}: {item.title}"
+                    f"Sending feedback item {i + 1}/{len(feedback_items)}: {feedback_item.title}"
                 )
-                await websocket.send_json(StreamFeedback(item=item).dict())
+                await websocket.send_json(StreamFeedback(item=feedback_item).dict())
                 logger.debug(f"Successfully sent item {i + 1}")
             except Exception as e:
                 logger.error(
@@ -643,64 +534,6 @@ async def analyze_writing_stream(websocket: WebSocket):
             await websocket.close()
         except:
             pass
-
-
-@router.post("/chat", response_model=ChatResponse)
-async def chat_with_persona(request: ChatRequest):
-    """
-    Chat with a persona in their voice. Uses base.txt prompt (conversational mode)
-    with corpus grounding — no structured feedback, just natural conversation.
-    """
-    persona = get_persona(request.persona_id, request.user_id)
-    if not persona:
-        raise HTTPException(status_code=404, detail="Persona not found")
-
-    try:
-        config = get_config()
-
-        # Add persona to config dynamically if not present
-        if request.persona_id not in config.personas:
-            from ..config import PersonaConfig
-
-            persona_config = PersonaConfig(
-                name=persona["name"],
-                corpus_path="",
-                collection_name=persona["collection_name"],
-                description=persona.get("description", ""),
-            )
-            config.personas[request.persona_id] = persona_config
-
-        selected_model = request.model or persona.get("model") or config.model.primary
-        logger.info(
-            f"Chat using model: {selected_model} for persona: {persona['name']}"
-        )
-
-        agent = AgentFactory.create(
-            model_name=selected_model,
-            persona_id=request.persona_id,
-            config=config,
-        )
-        # Conversational mode: use base.txt prompt, no JSON mode
-        # base.txt is the default prompt_file, so no need to set it
-
-        conversation_history = [
-            {"role": msg.role, "content": msg.content}
-            for msg in request.conversation_history
-        ]
-
-        result = agent.respond(
-            request.message, conversation_history=conversation_history
-        )
-
-        return ChatResponse(
-            response=result.get("response", ""),
-            persona_name=persona["name"],
-            persona_id=request.persona_id,
-        )
-
-    except Exception as e:
-        logger.error(f"Error in chat: {e}")
-        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
 @router.websocket("/chat/stream")
@@ -757,9 +590,7 @@ async def chat_with_persona_stream(websocket: WebSocket):
                 description=persona.get("description", ""),
             )
 
-        selected_model = (
-            request_dict.get("model") or persona.get("model") or config.model.primary
-        )
+        selected_model = request_dict.get("model") or persona.get("model") or config.model.primary
 
         agent = AgentFactory.create(
             model_name=selected_model,
@@ -795,7 +626,7 @@ async def chat_with_persona_stream(websocket: WebSocket):
             await websocket.send_json({"type": "complete", "response": full_response})
         else:
             result = agent.respond(message, conversation_history=conversation_history)
-            response_text = result.get("response", "")
+            response_text = result.response,
             await websocket.send_json({"type": "token", "content": response_text})
             await websocket.send_json({"type": "complete", "response": response_text})
 

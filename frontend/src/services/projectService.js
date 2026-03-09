@@ -32,7 +32,6 @@ class ProjectService {
         title: projectData.title || 'Untitled Project',
         purpose: projectData.purpose || '',
         content: projectData.content || '',
-        inquiryComplexes: projectData.inquiryComplexes || [],
         feedback: projectData.feedback || [],
         writingCriteria: projectData.writingCriteria || null,
         flows: projectData.flows || {
@@ -169,23 +168,6 @@ class ProjectService {
   }
 
   /**
-   * Update inquiry complexes
-   */
-  async updateInquiryComplexes(projectId, inquiryComplexes) {
-    try {
-      const docRef = doc(db, 'projects', projectId);
-      
-      await updateDoc(docRef, {
-        inquiryComplexes,
-        updatedAt: serverTimestamp()
-      });
-    } catch (error) {
-      console.error('Error updating inquiry complexes:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Delete a project (archive it)
    */
   async deleteProject(projectId) {
@@ -277,7 +259,6 @@ class ProjectService {
         title: `${originalProject.title} (Copy)`,
         purpose: originalProject.purpose,
         content: originalProject.content,
-        inquiryComplexes: originalProject.inquiryComplexes,
         feedback: [], // Reset feedback for new project
         settings: originalProject.settings
       };

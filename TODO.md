@@ -1,0 +1,7 @@
+- Try to eliminate `grep -r "\[\"[A-Za-z0-9_]\+\"\]" src`
+- Satisfy typechecker
+- Unify persistence
+- Remove unused stuff in frontend/src/services inlcuding uploadCorpus
+- Anima corpus progress bar
+- Global model selector
+- Project embedding selector

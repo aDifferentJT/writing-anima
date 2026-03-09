@@ -50,9 +50,7 @@ class AgentFactory:
             return OpenAIAgent(
                 persona_id=persona_id,
                 config=config,
-                model=model_name
-                if model_name.startswith("gpt")
-                else config.model.openai.model,
+                model=model_name if model_name.startswith("gpt") else config.model.openai.model,
             )
 
         # Claude
@@ -61,9 +59,7 @@ class AgentFactory:
             return ClaudeAgent(
                 persona_id=persona_id,
                 config=config,
-                model=model_name
-                if model_name.startswith("claude")
-                else config.model.primary,
+                model=model_name if model_name.startswith("claude") else config.model.primary,
             )
 
         # DeepSeek V3.1 via OpenRouter (remote)
@@ -138,39 +134,3 @@ class AgentFactory:
                 f"Unsupported model: {model_name}. "
                 f"Supported: openai (gpt-4, gpt-3.5), claude, deepseek, deepseek-v3.1 (exo), kimi-multi, moonshot, hermes"
             )
-
-    @staticmethod
-    def create_primary(persona_id: str, config: Optional[Config] = None) -> BaseAgent:
-        """
-        Create agent using the primary model from config.
-
-        Args:
-            persona_id: Persona identifier (e.g., "jules", "heidegger")
-            config: Optional configuration object
-
-        Returns:
-            Agent instance for primary model
-        """
-        if config is None:
-            config = get_config()
-
-        logger.info(f"Creating primary agent: {config.model.primary}")
-        return AgentFactory.create(config.model.primary, persona_id, config)
-
-    @staticmethod
-    def create_fallback(persona_id: str, config: Optional[Config] = None) -> BaseAgent:
-        """
-        Create agent using the fallback model from config.
-
-        Args:
-            persona_id: Persona identifier (e.g., "jules", "heidegger")
-            config: Optional configuration object
-
-        Returns:
-            Agent instance for fallback model
-        """
-        if config is None:
-            config = get_config()
-
-        logger.info(f"Creating fallback agent: {config.model.fallback}")
-        return AgentFactory.create(config.model.fallback, persona_id, config)

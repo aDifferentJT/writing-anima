@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from openai import OpenAI
 
@@ -12,6 +12,12 @@ from ..database.schema import SearchFilters, SearchResult, SourceType
 from ..database.vector_db import VectorDatabase
 
 logger = logging.getLogger(__name__)
+
+
+class WritingSample(NamedTuple):
+    text: str
+    metadata: Dict[str, Any]
+    similarity: float
 
 
 class CorpusSearchTool:
@@ -32,9 +38,9 @@ class CorpusSearchTool:
         self.collection_name = collection_name
         self.db = VectorDatabase(collection_name, config)
         self.embedder = EmbeddingGeneratorFactory.create(config)
-        self._style_pack_cache = None  # Cache diverse style examples
+        self._style_pack_cache: Optional[List[WritingSample]] = None  # Cache diverse style examples
 
-    def get_style_pack(self) -> List[Dict[str, Any]]:
+    def get_style_pack(self) -> List[WritingSample]:
         """
         Get diverse representative writing samples for style grounding.
         Uses caching to avoid recomputing.
@@ -67,7 +73,7 @@ class CorpusSearchTool:
             return []
 
         # Simple diversity selection: pick documents from different sources/times
-        diverse_samples = []
+        diverse_samples: List[WritingSample] = []
         seen_sources = set()
 
         for result in candidates:
@@ -79,11 +85,11 @@ class CorpusSearchTool:
 
             if key not in seen_sources or len(diverse_samples) < size:
                 diverse_samples.append(
-                    {
-                        "text": result.text,
-                        "metadata": result.metadata,
-                        "similarity": result.similarity,
-                    }
+                    WritingSample(
+                        text=result.text,
+                        metadata=result.metadata,
+                        similarity=result.similarity,
+                    )
                 )
                 seen_sources.add(key)
 
@@ -132,9 +138,10 @@ class CorpusSearchTool:
         if time_range or source_filter:
             filters = SearchFilters(
                 time_range=time_range,
-                source_filter=[SourceType(s) for s in source_filter]
-                if source_filter
-                else None,
+                source_filter=
+                    [SourceType(s) for s in source_filter]
+                    if source_filter
+                    else None,
             )
 
         # Execute hybrid search (combines semantic + keyword matching)
@@ -417,6 +424,8 @@ Respond in JSON format:
 }}"""
 
         try:
+            assert(self.client)
+
             response = self.client.chat.completions.create(
                 model=self.config.retrieval.incremental_mode.ood_check_model,
                 messages=[{"role": "user", "content": prompt}],
@@ -427,7 +436,9 @@ Respond in JSON format:
 
             import json
 
-            result = json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            assert(content)
+            result = json.loads(content)
 
             logger.debug(f"OOD check result: {result}")
             return result

@@ -26,6 +26,7 @@ pypdf>=4.0.0
 
 # Utilities
 pyyaml>=6.0
+types-pyyaml>=6.0
 tqdm>=4.66.0
 tiktoken>=0.6.0
 rich>=13.7.0
@@ -39,6 +40,3 @@ scikit-learn>=1.4.0
 
 # Extras
 mlx-embeddings>=0.0.5
-pydub>=0.25.1
-simpleaudio>=1.0.4
-torch>=2.10.0

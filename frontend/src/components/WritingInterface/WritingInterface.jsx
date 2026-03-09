@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import WritingArea from "../WritingArea";
 import FeedbackPanel from "../FeedbackPanel";
-import APITestPanel from "../Debug/APITestPanel";
 import ThoughtProcess from "../ThoughtProcess/ThoughtProcess";
-import { useWritingAnalysis } from "../../hooks/useWritingAnalysis";
-import { useMultiAgentAnalysis } from "../../hooks/useMultiAgentAnalysis";
-import { useUnifiedAgentCustomization } from "../../hooks/useUnifiedAgentCustomization";
 import UnifiedAgentCustomizationPanel from "../AgentCustomization/UnifiedAgentCustomizationPanel";
 import feedbackHistoryService from "../../services/feedbackHistoryService";
 import animaService from "../../services/animaService";
@@ -31,7 +27,6 @@ const WritingInterface = ({
   const [multiAgentFeedback, setMultiAgentFeedback] = useState([]);
   const [resolvedFeedback, setResolvedFeedback] = useState([]); // Separate storage for resolved feedback
   const [showResolvedFeedback, setShowResolvedFeedback] = useState(false); // Toggle for viewing resolved
-  const [showAPITest, setShowAPITest] = useState(false);
   const [showAgentCustomization, setShowAgentCustomization] = useState(false);
   const [isExecutingFlow, setIsExecutingFlow] = useState(false);
   const [availablePersonas, setAvailablePersonas] = useState([]);
@@ -49,22 +44,6 @@ const WritingInterface = ({
   const [corpusViewerOpen, setCorpusViewerOpen] = useState(false);
   const [corpusHighlightSource, setCorpusHighlightSource] = useState(null);
   const isExecutingRef = useRef(false);
-
-  // Legacy writing analysis hook - DISABLED (using flow-based agents only)
-  // eslint-disable-next-line no-unused-vars
-  const _legacyAnalysis = useWritingAnalysis(
-    content,
-    purpose,
-    false,
-    writingCriteria,
-  ); // Always disabled - kept for potential future use
-
-  // New multi-agent analysis hook
-  const multiAgentAnalysis = useMultiAgentAnalysis();
-
-  // Unified agent customization hook
-  // eslint-disable-next-line no-unused-vars
-  const _agentCustomization = useUnifiedAgentCustomization(); // Reserved for future customization features
 
   // Multi-agent feedback management functions
   const handleMultiAgentDismiss = (feedbackId) => {
@@ -490,19 +469,6 @@ const WritingInterface = ({
   // Only use passed feedback for initial state synchronization
   const activeFeedback = currentAnalysis.feedback || [];
 
-  // Sync multi-agent results to local feedback state - DISABLED
-  useEffect(() => {
-    // Legacy multi-agent system disabled - using flow-based execution only
-    console.log("[WritingInterface] Multi-agent system disabled, using flows");
-  }, [useMultiAgentSystem, multiAgentAnalysis.results?.insights]);
-
-  // Auto-analyze content with multi-agent system when monitoring is enabled
-  // DISABLED: Now using flow-based execution instead
-  useEffect(() => {
-    // Legacy auto-analysis disabled - use flow execution instead
-    console.log("Auto-analysis disabled - using flow execution");
-  }, [content, isMonitoring, useMultiAgentSystem, purpose]);
-
   // Remove local handleToggleMonitoring since it's now passed as prop
 
   const handleFeedbackHover = (feedbackId) => {
@@ -706,7 +672,6 @@ const WritingInterface = ({
         isOpen={showAgentCustomization}
         onClose={() => setShowAgentCustomization(false)}
         initialTab="control" // Start with the control tab
-        multiAgentSystem={multiAgentAnalysis.system}
         onAgentsUpdated={() => {
           console.log(
             "Agents updated - analysis will use new configuration on next run",
@@ -725,36 +690,6 @@ const WritingInterface = ({
         userId={currentUser?.uid}
         highlightSource={corpusHighlightSource}
       />
-
-      {/* API Test Panel */}
-      {showAPITest && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50"
-            onClick={() => setShowAPITest(false)}
-          />
-          <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-xl">
-            <div className="flex h-full flex-col">
-              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    API Configuration Test
-                  </h2>
-                  <button
-                    onClick={() => setShowAPITest(false)}
-                    className="rounded-md p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <APITestPanel />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

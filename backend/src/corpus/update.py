@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from .ingest import CorpusIngester
 from ..database.schema import SourceType
@@ -17,7 +17,7 @@ class CorpusUpdater:
         """Initialize corpus updater"""
         self.ingester = CorpusIngester(config)
 
-    def add_file(self, file_path: str, source_type: SourceType = None) -> int:
+    def add_file(self, file_path: str, source_type: Optional[SourceType] = None) -> int:
         """
         Add a single file to the corpus.
 

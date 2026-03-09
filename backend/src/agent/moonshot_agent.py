@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional, Generator
 from pathlib import Path
 
 from openai import OpenAI
-from .base import BaseAgent
+from .base import BaseAgent, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -248,7 +248,7 @@ class MoonshotAgent(BaseAgent):
 
                 # Collect response
                 collected_content = ""
-                collected_tool_calls = []
+                collected_tool_calls: List[Dict[str, Any]] = []
 
                 for chunk in stream:
                     delta = chunk.choices[0].delta

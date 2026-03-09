@@ -3,12 +3,26 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from ..config import get_config
 from .tools import CorpusSearchTool, IncrementalReasoningTool
 
 logger = logging.getLogger(__name__)
+
+
+class ToolCall(NamedTuple):
+    tool: str
+    input: str
+    result_count: int
+
+
+class Response(NamedTuple):
+    response: str
+    tool_calls: List[ToolCall]
+    iterations: int
+    model: str
+    error: Optional[str] = None
 
 
 class BaseAgent(ABC):
@@ -34,6 +48,8 @@ class BaseAgent(ABC):
         self.reasoning_tool = IncrementalReasoningTool(
             self.persona.collection_name, self.persona.name, config
         )
+
+        self.prompt_file: Optional[str] = None
 
     @abstractmethod
     def _call_model(self, system: str, messages: List[Dict]) -> Any:
@@ -145,8 +161,8 @@ class BaseAgent(ABC):
                 prompt += f"The following are representative samples of how {self.user_name} writes. Use these to match their style, tone, and communication patterns.\n\n"
 
                 for i, sample in enumerate(style_pack, 1):
-                    source = sample["metadata"].get("source", "unknown")
-                    file_path = sample["metadata"].get("file_path", "")
+                    source = sample.metadata.get("source", "unknown")
+                    file_path = sample.metadata.get("file_path", "")
                     # Extract filename from path for better reference
                     if file_path:
                         import os
@@ -154,7 +170,7 @@ class BaseAgent(ABC):
                         source = os.path.basename(file_path)
                     prompt += f"\n--- Example {i} (from {source}) ---\n"
                     # Use longer samples to capture style better (1000 chars)
-                    text = sample["text"]
+                    text = sample.text
                     if len(text) > 1000:
                         text = text[:1000] + "..."
                     prompt += text + "\n"
@@ -199,6 +215,7 @@ class BaseAgent(ABC):
         Returns:
             Tool execution result
         """
+        result: Any
         if tool_use["name"] == "search_corpus":
             try:
                 result = self.search_tool.search(**tool_use["input"])
@@ -223,7 +240,7 @@ class BaseAgent(ABC):
 
     def respond(
         self, query: str, conversation_history: Optional[List[Dict]] = None
-    ) -> Dict:
+    ) -> Response:
         """
         Main agent loop - model self-orchestrates retrieval.
 
@@ -235,7 +252,7 @@ class BaseAgent(ABC):
             Dict with response, tool_calls, iterations, and model name
         """
         # Use custom prompt file if agent has one
-        prompt_file = getattr(self, "prompt_file", "base.txt")
+        prompt_file = self.prompt_file or "base.txt"
         system_prompt = self._build_system_prompt(prompt_file)
 
         # Start with conversation history if provided
@@ -245,7 +262,7 @@ class BaseAgent(ABC):
         else:
             messages = [{"role": "user", "content": query}]
 
-        tool_calls_log = []
+        tool_calls_log: List[ToolCall] = []
         self._current_tool_calls_count = 0  # Track for tool_choice logic
 
         logger.info(f"Starting agent loop for query: {query[:100]}...")
@@ -263,12 +280,12 @@ class BaseAgent(ABC):
                     logger.info(
                         f"Agent completed in {iteration + 1} iterations with {len(tool_calls_log)} tool calls"
                     )
-                    return {
-                        "response": final_response,
-                        "tool_calls": tool_calls_log,
-                        "iterations": iteration + 1,
-                        "model": self.__class__.__name__,
-                    }
+                    return Response(
+                        response=final_response,
+                        tool_calls=tool_calls_log,
+                        iterations=iteration + 1,
+                        model=self.__class__.__name__,
+                    )
 
                 # Execute tool calls
                 tool_uses = self._parse_tool_use(response)
@@ -278,13 +295,11 @@ class BaseAgent(ABC):
                         result = self._execute_tool(tool_use)
                         tool_results.append(result)
                         tool_calls_log.append(
-                            {
-                                "tool": tool_use["name"],
-                                "input": tool_use["input"],
-                                "result_count": len(result)
-                                if isinstance(result, list)
-                                else 1,
-                            }
+                            ToolCall(
+                                tool=tool_use["name"],
+                                input=tool_use["input"],
+                                result_count=len(result) if isinstance(result, list) else 1,
+                            )
                         )
                         self._current_tool_calls_count += 1  # Increment counter
 
@@ -295,27 +310,27 @@ class BaseAgent(ABC):
                     text = self._extract_text(response)
                     if text:
                         logger.info(f"Agent completed with text response")
-                        return {
-                            "response": text,
-                            "tool_calls": tool_calls_log,
-                            "iterations": iteration + 1,
-                            "model": self.__class__.__name__,
-                        }
+                        return Response(
+                            response=text,
+                            tool_calls=tool_calls_log,
+                            iterations=iteration + 1,
+                            model=self.__class__.__name__,
+                        )
 
             except Exception as e:
                 logger.error(f"Error in iteration {iteration + 1}: {e}")
-                return {
-                    "response": f"Error: {str(e)}",
-                    "tool_calls": tool_calls_log,
-                    "iterations": iteration + 1,
-                    "model": self.__class__.__name__,
-                    "error": str(e),
-                }
+                return Response(
+                    response=f"Error: {str(e)}",
+                    tool_calls=tool_calls_log,
+                    iterations=iteration + 1,
+                    model=self.__class__.__name__,
+                    error=str(e),
+                )
 
         logger.warning(f"Max iterations ({self.max_iterations}) reached")
-        return {
-            "response": "Max iterations reached without completion",
-            "tool_calls": tool_calls_log,
-            "iterations": self.max_iterations,
-            "model": self.__class__.__name__,
-        }
+        return Response(
+            response="Max iterations reached without completion",
+            tool_calls=tool_calls_log,
+            iterations=self.max_iterations,
+            model=self.__class__.__name__,
+        )

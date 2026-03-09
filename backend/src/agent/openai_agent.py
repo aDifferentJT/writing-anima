@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional, Generator
 from pathlib import Path
 
 from openai import OpenAI
-from .base import BaseAgent
+from .base import BaseAgent, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +220,7 @@ class OpenAIAgent(BaseAgent):
         else:
             messages = [{"role": "user", "content": query}]
 
-        tool_calls_log = []
+        tool_calls_log: List[ToolCall] = []
         tools_called_count = 0  # Track for tool_choice logic
 
         logger.info(f"Starting streaming agent loop for query: {query[:100]}...")
@@ -272,7 +272,7 @@ class OpenAIAgent(BaseAgent):
 
                 # Collect response
                 collected_content = ""
-                collected_tool_calls = []
+                collected_tool_calls: List[Dict[str, Any]] = []
 
                 for chunk in stream:
                     delta = chunk.choices[0].delta
@@ -355,11 +355,11 @@ class OpenAIAgent(BaseAgent):
                         result = self._execute_tool(tool_use)
                         tool_results.append(result)
                         tools_called_count += 1  # Increment counter
-                        tool_calls_log.append({
-                            "tool": tool_use["name"],
-                            "input": tool_use["input"],
-                            "result_count": len(result) if isinstance(result, list) else 1,
-                        })
+                        tool_calls_log.append(ToolCall(
+                            tool=tool_use["name"],
+                            input=tool_use["input"],
+                            result_count=len(result) if isinstance(result, list) else 1,
+                        ))
 
                         # Detailed search logging
                         if tool_use["name"] == "search_corpus":

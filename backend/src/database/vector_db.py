@@ -2,12 +2,14 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+import typing
+from typing import Any, Dict, List, NamedTuple, Optional
 from uuid import uuid4
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
+    Condition,
     Distance,
     FieldCondition,
     Filter,
@@ -181,41 +183,10 @@ class VectorDatabase:
         self,
         query_vector: List[float],
         k: int = 5,
-        filters: Optional[SearchFilters] = None,
     ) -> List[SearchResult]:
         """Search for similar documents"""
         # Build Qdrant filter
         qdrant_filter = None
-        if filters:
-            conditions = []
-
-            # Time range filter
-            if filters.time_range:
-                time_condition = {}
-                if filters.time_range.get("start"):
-                    time_condition["gte"] = filters.time_range["start"]
-                if filters.time_range.get("end"):
-                    time_condition["lte"] = filters.time_range["end"]
-
-                if time_condition:
-                    conditions.append(
-                        FieldCondition(
-                            key="metadata.timestamp",
-                            range=Range(**time_condition),
-                        )
-                    )
-
-            # Source type filter
-            if filters.source_filter:
-                conditions.append(
-                    FieldCondition(
-                        key="metadata.source",
-                        match=MatchAny(any=[s.value for s in filters.source_filter]),
-                    )
-                )
-
-            if conditions:
-                qdrant_filter = Filter(must=conditions)
 
         # Execute search
         results = self.client.query_points(
@@ -228,14 +199,15 @@ class VectorDatabase:
         # Convert to SearchResult objects
         search_results = []
         for result in results:
-            search_results.append(
-                SearchResult(
-                    text=result.payload["text"],
-                    metadata=result.payload["metadata"],
-                    similarity=result.score,
-                    document_id=result.id,
+            if result.payload:
+                search_results.append(
+                    SearchResult(
+                        text=result.payload["text"],
+                        metadata=result.payload["metadata"],
+                        similarity=result.score,
+                        document_id=str(result.id),
+                    )
                 )
-            )
 
         return search_results
 
@@ -263,7 +235,7 @@ class VectorDatabase:
         # Build base filter
         qdrant_filter = None
         if filters:
-            conditions = []
+            conditions: List[Condition] = []
 
             if filters.time_range:
                 time_condition = {}
@@ -307,9 +279,12 @@ class VectorDatabase:
         keyword_results = []
 
         if len(keywords) > 0:
-            keyword_filter_conditions = []
+            keyword_filter_conditions: List[Condition] = []
             if qdrant_filter and qdrant_filter.must:
-                keyword_filter_conditions.extend(qdrant_filter.must)
+                if isinstance(qdrant_filter.must, list):
+                    keyword_filter_conditions.extend(qdrant_filter.must)
+                elif isinstance(qdrant_filter, typing.get_args(Condition)):
+                    keyword_filter_conditions.append(qdrant_filter.must)
 
             # Add text matching condition
             keyword_filter_conditions.append(
@@ -343,33 +318,39 @@ class VectorDatabase:
                 keyword_results = []
 
         # 3. Combine results using Reciprocal Rank Fusion (RRF)
-        result_scores = {}  # document_id -> (semantic_score, keyword_rank, text, metadata)
+        class ResultScore(NamedTuple):
+            semantic_score: float
+            semantic_rank: Optional[int]
+            keyword_rank: Optional[int]
+            text: str
+            metadata: Dict[str, Any]
+        result_scores: Dict[str, ResultScore] = {}  # document_id -> (semantic_score, keyword_rank, text, metadata)
 
         # Process semantic results
         for rank, result in enumerate(semantic_results, 1):
-            doc_id = result.id
-            result_scores[doc_id] = {
-                "semantic_score": result.score,
-                "semantic_rank": rank,
-                "keyword_rank": None,
-                "text": result.payload["text"],
-                "metadata": result.payload["metadata"],
-            }
+            doc_id = str(result.id)
+            result_scores[doc_id] = ResultScore(
+                semantic_score=result.score,
+                semantic_rank=rank,
+                keyword_rank=None,
+                text=result.payload["text"] if result.payload else "",
+                metadata=result.payload["metadata"] if result.payload else {},
+            )
 
         # Process keyword results (if any)
         if keyword_results:
             for rank, result in enumerate(keyword_results, 1):
-                doc_id = result.id
+                doc_id = str(result.id)
                 if doc_id in result_scores:
-                    result_scores[doc_id]["keyword_rank"] = rank
+                    result_scores[doc_id] = result_scores[doc_id]._replace(keyword_rank=rank)
                 else:
-                    result_scores[doc_id] = {
-                        "semantic_score": result.score,
-                        "semantic_rank": None,
-                        "keyword_rank": rank,
-                        "text": result.payload["text"],
-                        "metadata": result.payload["metadata"],
-                    }
+                    result_scores[doc_id] = ResultScore(
+                        semantic_score=result.score,
+                        semantic_rank=None,
+                        keyword_rank=rank,
+                        text=result.payload["text"] if result.payload else "",
+                        metadata=result.payload["metadata"] if result.payload else {},
+                    )
 
         # Calculate hybrid scores
         final_results = []
@@ -379,9 +360,9 @@ class VectorDatabase:
             for doc_id, info in result_scores.items():
                 final_results.append(
                     SearchResult(
-                        text=info["text"],
-                        metadata=info["metadata"],
-                        similarity=info["semantic_score"],  # Use raw semantic score
+                        text=info.text,
+                        metadata=info.metadata,
+                        similarity=info.semantic_score,  # Use raw semantic score
                         document_id=doc_id,
                     )
                 )
@@ -393,32 +374,36 @@ class VectorDatabase:
 
             for doc_id, info in result_scores.items():
                 # Semantic component
-                semantic_component = 0
-                if info["semantic_rank"] is not None:
+                semantic_component: float
+                if info.semantic_rank is not None:
                     semantic_component = semantic_weight / (
-                        k_rrf + info["semantic_rank"]
+                        k_rrf + info.semantic_rank
                     )
+                else:
+                    semantic_component = 0
 
                 # Keyword component
-                keyword_component = 0
-                if info["keyword_rank"] is not None:
+                keyword_component: float
+                if info.keyword_rank is not None:
                     keyword_component = (1 - semantic_weight) / (
-                        k_rrf + info["keyword_rank"]
+                        k_rrf + info.keyword_rank
                     )
+                else:
+                    keyword_component = 0
 
                 hybrid_score = semantic_component + keyword_component
 
                 # Bonus: if document appears in both results, it gets extra points
                 if (
-                    info["semantic_rank"] is not None
-                    and info["keyword_rank"] is not None
+                    info.semantic_rank is not None
+                    and info.keyword_rank is not None
                 ):
                     hybrid_score *= 1.2  # 20% boost for appearing in both
 
                 final_results.append(
                     SearchResult(
-                        text=info["text"],
-                        metadata=info["metadata"],
+                        text=info.text,
+                        metadata=info.metadata,
                         similarity=hybrid_score,  # Use hybrid score as similarity
                         document_id=doc_id,
                     )
@@ -457,12 +442,13 @@ class VectorDatabase:
                 )
 
                 for point in results:
-                    all_docs.append(
-                        {
-                            "text": point.payload.get("text", ""),
-                            "metadata": point.payload.get("metadata", {}),
-                        }
-                    )
+                    if point.payload:
+                        all_docs.append(
+                            {
+                                "text": point.payload.get("text", ""),
+                                "metadata": point.payload.get("metadata", {}),
+                            }
+                        )
 
                 if next_offset is None:
                     break
@@ -476,20 +462,6 @@ class VectorDatabase:
         except Exception as e:
             logger.error(f"Error retrieving all documents: {e}")
             raise
-
-    def get_collection_info(self) -> Dict[str, Any]:
-        """Get information about the collection"""
-        try:
-            info = self.client.get_collection(self.collection_name)
-            return {
-                "name": info.config.params.vectors.size,
-                "vectors_count": info.vectors_count,
-                "points_count": info.points_count,
-                "status": info.status,
-            }
-        except Exception as e:
-            logger.error(f"Error getting collection info: {e}")
-            return {}
 
     def delete_collection(self) -> None:
         """Delete the collection"""

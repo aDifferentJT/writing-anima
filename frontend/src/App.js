@@ -5,14 +5,12 @@ import AuthModal from './components/Auth/AuthModal';
 import ProjectDashboard from './components/Projects/ProjectDashboard';
 import PurposeStep from './components/PurposeStep/PurposeStep';
 import WritingInterface from './components/WritingInterface';
-import InquiryComplexManager from './components/InquiryComplex/InquiryComplexManager';
 import PersonaManager from './components/PersonaManager/PersonaManager';
-import inquiryComplexService from './services/inquiryComplexService';
 import projectService from './services/projectService';
 
 function AppContent() {
   const { currentUser, logout } = useAuth();
-  const [currentMode, setCurrentMode] = useState('dashboard'); // 'dashboard' | 'home' | 'writing' | 'inquiry' | 'personas'
+  const [currentMode, setCurrentMode] = useState('dashboard'); // 'dashboard' | 'home' | 'writing' | 'personas'
   const [currentProject, setCurrentProject] = useState(null);
   const [purpose, setPurpose] = useState('');
   const [content, setContent] = useState(''); // Lift content state to App level
@@ -34,23 +32,11 @@ function AppContent() {
       const hasContentChanges = content !== currentProject.content;
       const hasFeedbackChanges = JSON.stringify(feedback) !== JSON.stringify(currentProject.feedback || []);
       
-      // Check for inquiry complex changes
-      const currentComplexes = inquiryComplexService.getAllComplexes();
-      const hasComplexChanges = JSON.stringify(currentComplexes.map(c => c.id)) !== 
-        JSON.stringify((currentProject.inquiryComplexes || []).map(c => c.id));
-      
       // Check for writing criteria changes
       const hasCriteriaChanges = JSON.stringify(writingCriteria) !== JSON.stringify(currentProject.writingCriteria);
       
-      if (hasContentChanges || hasFeedbackChanges || hasComplexChanges || hasCriteriaChanges) {
+      if (hasContentChanges || hasFeedbackChanges || hasCriteriaChanges) {
         try {
-          // Save complexes to project first if they changed
-          if (hasComplexChanges && currentComplexes.length > 0) {
-            console.log('Auto-saving inquiry complexes:', currentComplexes.length);
-            const serializedComplexes = currentComplexes.map(c => inquiryComplexService.serializeComplex(c));
-            await projectService.updateInquiryComplexes(currentProject.id, serializedComplexes);
-          }
-          
           // Save writing criteria if they changed
           if (hasCriteriaChanges) {
             console.log('Auto-saving writing criteria');
@@ -65,7 +51,6 @@ function AppContent() {
           });
           
           // Update current project reference to avoid repeated saves
-          const serializedComplexes = currentComplexes.map(c => inquiryComplexService.serializeComplex(c));
           setCurrentProject(prev => {
             if (!prev) return prev; // Guard against null
             return {
@@ -74,7 +59,6 @@ function AppContent() {
               feedback: [...feedback],
               purpose,
               writingCriteria,
-              inquiryComplexes: serializedComplexes
             };
           });
         } catch (error) {
@@ -104,7 +88,6 @@ function AppContent() {
       setContent('');
       setPurpose('');
       setWritingCriteria(null);
-      inquiryComplexService.clearAll();
 
       // Then load new project data
       setCurrentProject(project);
@@ -112,23 +95,6 @@ function AppContent() {
       setContent(project.content || '');
       setFeedback(project.feedback || []); // Load saved feedback
       setWritingCriteria(project.writingCriteria || null); // Load saved writing criteria
-      
-      // Clear existing complexes and load complexes for this project
-      inquiryComplexService.clearAll();
-      if (project.inquiryComplexes && project.inquiryComplexes.length > 0) {
-        console.log('Loading inquiry complexes:', project.inquiryComplexes);
-        // Load complexes into the inquiry complex service
-        project.inquiryComplexes.forEach((complex, index) => {
-          try {
-            inquiryComplexService.loadComplex(complex);
-            console.log(`Loaded complex ${index + 1}:`, complex.centralQuestion);
-          } catch (error) {
-            console.error(`Failed to load complex ${index + 1}:`, error);
-          }
-        });
-      } else {
-        console.log('No inquiry complexes to load for this project');
-      }
       
       setCurrentMode(project.purpose ? 'writing' : 'home');
       console.log('Project loaded successfully, mode set to:', project.purpose ? 'writing' : 'home');
@@ -144,7 +110,6 @@ function AppContent() {
         setContent(project.content || '');
         setFeedback([]);
         setWritingCriteria(null); // Clear criteria for error state
-        inquiryComplexService.clearAll(); // Clear complexes for error state
         setCurrentMode('home');
       }
       // Clear switching flag on error as well
@@ -166,7 +131,6 @@ function AppContent() {
     setContent('');
     setPurpose('');
     setWritingCriteria(null);
-    inquiryComplexService.clearAll();
 
     setCurrentProject(project);
     setCurrentMode('home');
@@ -227,7 +191,6 @@ function AppContent() {
     setContent('');
     setFeedback([]); // Clear feedback when leaving project
     setWritingCriteria(null); // Clear criteria when leaving project
-    inquiryComplexService.clearAll(); // Clear complexes when leaving project
 
     // Clear switching flag after state cleared
     setTimeout(() => setIsProjectSwitching(false), 100);
@@ -240,7 +203,6 @@ function AppContent() {
       setCurrentProject(null);
       setPurpose('');
       setContent('');
-      inquiryComplexService.clearAll(); // Clear complexes on logout
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -345,18 +307,6 @@ function AppContent() {
               </button>
 
               <button
-                onClick={() => setCurrentMode('inquiry')}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                  currentMode === 'inquiry'
-                    ? 'bg-obsidian-accent-pale text-obsidian-accent-primary font-medium'
-                    : 'text-obsidian-text-secondary hover:text-obsidian-text-primary hover:bg-obsidian-bg'
-                }`}
-              >
-                <Target className="w-3 h-3" />
-                <span>Inquiry</span>
-              </button>
-
-              <button
                 onClick={() => setCurrentMode('personas')}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
                   currentMode === 'personas'
@@ -422,11 +372,7 @@ function AppContent() {
         ) : currentMode === 'personas' ? (
           <PersonaManager />
         ) : (
-          <InquiryComplexManager
-            content={content}
-            purpose={purpose}
-            project={currentProject}
-          />
+          "Unknown Mode"
         )}
       </div>
     </div>

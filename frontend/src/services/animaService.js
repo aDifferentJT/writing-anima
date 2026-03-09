@@ -8,54 +8,6 @@ const WS_URL = process.env.REACT_APP_WS_URL || "ws://localhost:8000";
 
 class AnimaService {
   /**
-   * Analyze writing with Anima (synchronous)
-   * @param {string} content - The writing content to analyze
-   * @param {string} personaId - ID of the persona to use
-   * @param {string} userId - Firebase UID
-   * @param {object} context - Optional context (purpose, criteria, history)
-   * @param {number} maxFeedbackItems - Maximum number of feedback items
-   * @returns {Promise<object>} Analysis response with feedback items
-   */
-  async analyzeWriting(
-    content,
-    personaId,
-    userId,
-    context = {},
-    maxFeedbackItems = 10,
-  ) {
-    try {
-      const response = await fetch(`${API_URL}/api/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content,
-          persona_id: personaId,
-          user_id: userId,
-          context: {
-            purpose: context.purpose || null,
-            criteria: context.criteria || [],
-            feedback_history: context.feedbackHistory || [],
-          },
-          max_feedback_items: maxFeedbackItems,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Analysis failed");
-      }
-
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error("Error analyzing writing:", error);
-      throw error;
-    }
-  }
-
-  /**
    * Analyze writing with streaming updates via WebSocket
    * @param {string} content - The writing content to analyze
    * @param {string} personaId - ID of the persona to use
@@ -413,49 +365,6 @@ class AnimaService {
       return await response.json();
     } catch (error) {
       console.error("Error fetching corpus documents:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Chat with a persona in their voice (conversational mode)
-   * @param {string} message - User's message
-   * @param {string} personaId - ID of the persona to chat with
-   * @param {string} userId - Firebase UID
-   * @param {Array} conversationHistory - Previous messages [{role, content}]
-   * @param {string} model - Optional model override
-   * @returns {Promise<object>} { response, persona_name, persona_id }
-   */
-  async chatWithPersona(
-    message,
-    personaId,
-    userId,
-    conversationHistory = [],
-    model = null,
-  ) {
-    try {
-      const response = await fetch(`${API_URL}/api/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message,
-          persona_id: personaId,
-          user_id: userId,
-          conversation_history: conversationHistory,
-          model,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Chat failed");
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error chatting with persona:", error);
       throw error;
     }
   }
