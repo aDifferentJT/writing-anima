@@ -4,9 +4,11 @@ Pydantic models for API request/response validation
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
+
+from ..database.general import Persona
 
 
 class FeedbackType(str, Enum):
@@ -32,24 +34,14 @@ class PersonaCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    user_id: str = Field(..., description="Firebase UID")
     model: str = Field(default="gpt-5", description="LLM model ID for this persona")
 
 
 class PersonaResponse(BaseModel):
     """Response model for persona"""
 
-    id: str
-    name: str
-    description: Optional[str]
-    user_id: str
-    collection_name: str
-    model: str = "gpt-5"
-    corpus_file_count: int = 0
-    chunk_count: int = 0
+    persona: Persona
     corpus_available: bool = True  # Whether the Qdrant collection exists
-    created_at: datetime
-    updated_at: datetime
 
 
 class PersonaUpdate(BaseModel):
@@ -72,13 +64,13 @@ class AvailableModel(BaseModel):
 class AvailableModelsResponse(BaseModel):
     """Response containing available models"""
 
-    models: List[AvailableModel]
+    models: list[AvailableModel]
 
 
 class PersonaList(BaseModel):
     """List of personas"""
 
-    personas: List[PersonaResponse]
+    personas: list[PersonaResponse]
     total: int
 
 
@@ -117,8 +109,8 @@ class AnalysisContext(BaseModel):
     """Context for writing analysis"""
 
     purpose: Optional[str] = None
-    criteria: List[str] = Field(default_factory=list)
-    feedback_history: List[Dict[str, Any]] = Field(default_factory=list)
+    criteria: list[str] = Field(default_factory=list)
+    feedback_history: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AnalysisRequest(BaseModel):
@@ -126,10 +118,9 @@ class AnalysisRequest(BaseModel):
 
     content: str = Field(..., min_length=1)
     persona_id: str
-    user_id: str
-    model: Optional[str] = Field(None, description="Model override from frontend")
-    context: Optional[AnalysisContext] = None
-    max_feedback_items: int = Field(default=10, ge=1, le=50)
+    model: str
+    context: AnalysisContext
+    max_feedback_items: int = Field(ge=1, le=50)
 
 
 class TextPosition(BaseModel):
@@ -158,12 +149,12 @@ class FeedbackItem(BaseModel):
     content: str
     severity: FeedbackSeverity
     confidence: float = Field(..., ge=0.0, le=1.0)
-    sources: List[str] = Field(default_factory=list)  # Corpus chunk IDs (deprecated)
-    corpus_sources: List[CorpusSource] = Field(
+    sources: list[str] = Field(default_factory=list)  # Corpus chunk IDs (deprecated)
+    corpus_sources: list[CorpusSource] = Field(
         default_factory=list
     )  # Actual corpus passages
     position: Optional[int] = None  # Deprecated: use positions instead
-    positions: List[TextPosition] = Field(
+    positions: list[TextPosition] = Field(
         default_factory=list
     )  # Text positions for highlighting
     model: Optional[str] = (
@@ -176,8 +167,8 @@ class AnalysisResponse(BaseModel):
 
     persona_id: str
     persona_name: str
-    feedback: List[FeedbackItem]
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    feedback: list[FeedbackItem]
+    metadata: dict[str, Any] = Field(default_factory=dict)
     processing_time: float
 
 
@@ -221,14 +212,14 @@ class CorpusFileModel(BaseModel):
     file_path: str
     filename: str
     chunk_count: int
-    chunks: List[CorpusChunk]
+    chunks: list[CorpusChunk]
 
 
 class CorpusDocumentsResponse(BaseModel):
     """Response containing all corpus documents for a persona"""
 
     persona_id: str
-    files: List[CorpusFileModel]
+    files: list[CorpusFileModel]
 
 
 # Chat Models
@@ -244,9 +235,8 @@ class ChatRequest(BaseModel):
 
     message: str = Field(..., min_length=1)
     persona_id: str
-    user_id: str
-    conversation_history: List[ChatMessage] = Field(default_factory=list)
-    model: Optional[str] = Field(None, description="Model override")
+    conversation_history: list[ChatMessage] = Field(default_factory=list)
+    model: str
 
 
 class ChatResponse(BaseModel):
@@ -262,5 +252,5 @@ class HealthResponse(BaseModel):
     """Health check response"""
 
     status: str
-    services: Dict[str, str]
+    services: dict[str, str]
     version: str = "1.0.0"

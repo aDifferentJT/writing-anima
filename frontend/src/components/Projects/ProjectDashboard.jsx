@@ -10,11 +10,9 @@ import {
   ArrowRight,
   Filter
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
 import projectService from '../../services/projectService';
 
 const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
-  const { currentUser } = useAuth();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,15 +21,12 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
 
   useEffect(() => {
     loadProjects();
-  }, [currentUser]);
+  }, []);
 
   const loadProjects = async () => {
-    if (!currentUser) return;
-    
     try {
       setLoading(true);
-      const userProjects = await projectService.getUserProjects(currentUser.uid);
-      setProjects(userProjects);
+      setProjects(await projectService.getProjects());
     } catch (error) {
       console.error('Error loading projects:', error);
     } finally {
@@ -41,11 +36,7 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
 
   const handleCreateProject = async () => {
     try {
-      const newProject = await projectService.createProject(currentUser.uid, {
-        title: 'New Project',
-        purpose: '',
-        content: ''
-      });
+      const newProject = await projectService.createProject();
       
       setProjects(prev => [newProject, ...prev]);
       onCreateProject?.(newProject);
@@ -71,7 +62,7 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
     e.stopPropagation();
     
     try {
-      const duplicatedProject = await projectService.duplicateProject(projectId, currentUser.uid);
+      const duplicatedProject = await projectService.duplicateProject(projectId);
       setProjects(prev => [duplicatedProject, ...prev]);
     } catch (error) {
       console.error('Error duplicating project:', error);

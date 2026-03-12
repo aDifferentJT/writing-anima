@@ -11,10 +11,8 @@ import {
 import CreatePersonaModal from "./CreatePersonaModal";
 import CorpusUploadModal from "./CorpusUploadModal";
 import AnimaChat from "../AnimaChat/AnimaChat";
-import { useAuth } from "../../contexts/AuthContext";
 
 const PersonaManager = () => {
-  const { currentUser } = useAuth();
   const [personas, setPersonas] = useState([]);
   const [selectedPersona, setSelectedPersona] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -26,18 +24,13 @@ const PersonaManager = () => {
   const [sortBy, setSortBy] = useState("created");
 
   const loadPersonas = useCallback(async () => {
-    if (!currentUser) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
       const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
       const response = await fetch(
-        `${API_URL}/api/personas?user_id=${currentUser.uid}`,
+        `${API_URL}/api/personas`,
       );
 
       if (!response.ok) {
@@ -53,7 +46,7 @@ const PersonaManager = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, []);
 
   useEffect(() => {
     loadPersonas();
@@ -69,7 +62,6 @@ const PersonaManager = () => {
         },
         body: JSON.stringify({
           ...personaData,
-          user_id: currentUser.uid,
         }),
       });
 
@@ -104,7 +96,7 @@ const PersonaManager = () => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}?user_id=${currentUser.uid}`,
+        `${API_URL}/api/personas/${personaId}`,
         { method: "DELETE" },
       );
 
@@ -363,7 +355,6 @@ const PersonaManager = () => {
               setSelectedPersona(null);
             }}
             persona={selectedPersona}
-            userId={currentUser.uid}
             onUploaded={handleCorpusUploaded}
           />
         )}
@@ -375,7 +366,6 @@ const PersonaManager = () => {
             setSelectedPersona(null);
           }}
           persona={selectedPersona}
-          userId={currentUser?.uid}
         />
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import yaml
 from dotenv import load_dotenv
@@ -26,39 +26,17 @@ class PersonaConfig(BaseModel):
     similarity_threshold: Optional[float] = None
 
 
-class ModelSpecificConfig(BaseModel):
-    """Model-specific configuration"""
-
-    api_key_env: Optional[str] = None
-    base_url: Optional[str] = None
-    model: Optional[str] = None
-    max_tokens: int = 4096
-    temperature: float = 1.0
-    max_iterations: int = 20
-
-
-class AvailableModelConfig(BaseModel):
+class ModelConfig(BaseModel):
     """Configuration for a model available in the UI"""
 
-    id: str
     name: str
     provider: str
+    model: str
     description: str
-
-
-class ModelConfig(BaseModel):
-    """Model configuration"""
-
-    primary: str
-    fallback: str
-    available_models: List[AvailableModelConfig] = Field(default_factory=list)
-    openai: ModelSpecificConfig
-    claude: ModelSpecificConfig
-    deepseek: ModelSpecificConfig
-    openrouter: ModelSpecificConfig = Field(default_factory=ModelSpecificConfig)
-    exo: ModelSpecificConfig = Field(default_factory=ModelSpecificConfig)
-    moonshot: ModelSpecificConfig = Field(default_factory=ModelSpecificConfig)
-    hermes: ModelSpecificConfig
+    base_url: str
+    api_key_env: Optional[str]
+    temperature: float
+    max_iterations: int
 
 
 class AgentConfig(BaseModel):
@@ -77,16 +55,31 @@ class VectorDBConfig(BaseModel):
     port: int = 6333
     api_key: Optional[str] = None
 
-    def __init__(self, **data):
+    def __init__(
+        self,
+        provider: str = "qdrant",
+        host: str = "localhost",
+        port: int = 6333,
+        api_key: Optional[str] = None,
+    ) -> None:
         """Override with environment variables if present"""
-        # Environment variables always take precedence over config file
-        if os.getenv("QDRANT_HOST"):
-            data["host"] = os.getenv("QDRANT_HOST")
-        if os.getenv("QDRANT_PORT"):
-            data["port"] = int(os.getenv("QDRANT_PORT"))
-        if os.getenv("QDRANT_API_KEY"):
-            data["api_key"] = os.getenv("QDRANT_API_KEY")
-        super().__init__(**data)
+
+        self.provider = provider
+
+        if host_env := os.getenv("QDRANT_HOST"):
+            self.host = host_env
+        else:
+            self.host = host
+
+        if port_env := os.getenv("QDRANT_PORT"):
+            self.port = int(port_env)
+        else:
+            self.port = port
+
+        if api_key_env := os.getenv("QDRANT_API_KEY"):
+            self.api_key = api_key_env
+        else:
+            self.api_key = api_key
 
 
 class EmbeddingConfig(BaseModel):
@@ -105,7 +98,7 @@ class CorpusConfig(BaseModel):
     chunk_size: int = 800
     chunk_overlap: int = 100
     min_chunk_length: int = 100
-    file_types: List[str] = Field(
+    file_types: list[str] = Field(
         default_factory=lambda: [".txt", ".md", ".email", ".json"]
     )
 
@@ -131,38 +124,19 @@ class RetrievalConfig(BaseModel):
     )
 
 
-class StyleConfig(BaseModel):
-    """Style verification configuration"""
-
-    verification_enabled: bool = False
-    similarity_threshold: float = 0.75
-    verification_method: str = "embedding"
-
-
-class CostTrackingConfig(BaseModel):
-    """Cost tracking configuration"""
-
-    enabled: bool = True
-    log_path: str = "logs/costs.json"
-    budget_alert_threshold: float = 10.0
-
-
 class Config(BaseModel):
     """Main configuration"""
 
     personas: dict[str, PersonaConfig]
-    default_persona: str
-    model: ModelConfig
+    models: dict[str, ModelConfig]
     agent: AgentConfig
     vector_db: VectorDBConfig
     embedding: EmbeddingConfig
     corpus: CorpusConfig
     retrieval: RetrievalConfig
-    style: StyleConfig
-    cost_tracking: CostTrackingConfig
 
     @classmethod
-    def from_yaml(cls, config_path: str = "config.yaml") -> "Config":
+    def from_yaml(cls, config_path: str) -> "Config":
         """Load configuration from YAML file"""
         config_file = Path(config_path)
         if not config_file.exists():
@@ -173,19 +147,12 @@ class Config(BaseModel):
 
         return cls(**config_data)
 
-    def get_api_key(self, model_type: str) -> Optional[str]:
-        """Get API key for specific model type"""
-        model_config = getattr(self.model, model_type, None)
-        if model_config and model_config.api_key_env:
-            return os.getenv(model_config.api_key_env)
-        return None
-
-    def get_persona(self, persona_id: Optional[str] = None) -> PersonaConfig:
+    def get_persona(self, persona_id: str) -> PersonaConfig:
         """
         Get persona configuration by ID.
 
         Args:
-            persona_id: Persona identifier. If None, returns default persona.
+            persona_id: Persona identifier
 
         Returns:
             PersonaConfig for the requested persona
@@ -193,9 +160,6 @@ class Config(BaseModel):
         Raises:
             ValueError: If persona_id not found
         """
-        if persona_id is None:
-            persona_id = self.default_persona
-
         if persona_id not in self.personas:
             available = ", ".join(self.personas.keys())
             raise ValueError(
@@ -204,21 +168,33 @@ class Config(BaseModel):
 
         return self.personas[persona_id]
 
+    def get_model(self, model_id: str) -> ModelConfig:
+        """
+        Get model configuration by ID.
+
+        Args:
+            model_id: Model identifier
+
+        Returns:
+            ModelConfig for the requested model
+
+        Raises:
+            ValueError: If model_id not found
+        """
+        if model_id not in self.models:
+            available = ", ".join(self.models.keys())
+            raise ValueError(
+                f"Model '{model_id}' not found. Available models: {available}"
+            )
+
+        return self.models[model_id]
+
 
 # Global config instance
-_config: Optional[Config] = None
+_config_path: str = "config.yaml"
+_config: Config = Config.from_yaml(_config_path)
 
 
-def get_config(config_path: str = "config.yaml") -> Config:
+def get_config() -> Config:
     """Get or create global configuration instance"""
-    global _config
-    if _config is None:
-        _config = Config.from_yaml(config_path)
-    return _config
-
-
-def reload_config(config_path: str = "config.yaml") -> Config:
-    """Reload configuration from file"""
-    global _config
-    _config = Config.from_yaml(config_path)
     return _config

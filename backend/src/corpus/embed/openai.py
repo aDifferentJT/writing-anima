@@ -2,10 +2,11 @@
 
 import os
 import logging
-from typing import List
+from typing import Optional
 from openai import OpenAI
 
 from .base import BaseEmbeddingGenerator
+from ...config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -13,15 +14,20 @@ logger = logging.getLogger(__name__)
 class OpenAIEmbeddingGenerator(BaseEmbeddingGenerator):
     """Generate embeddings for text using OpenAI API"""
 
-    def __init__(self, config):
+    def __init__(self, config: Config):
         """Initialize embedding generator"""
         super().__init__(config)
-        self.client = OpenAI(api_key=os.getenv(self.config.embedding.api_key_env))
+
+        api_key: Optional[str]
+        if self.config.embedding.api_key_env:
+            api_key = os.getenv(self.config.embedding.api_key_env)
+
+        self.client = OpenAI(api_key=api_key)
         self.model = self.config.embedding.model
 
         logger.info(f"Initialized embedding generator with model: {self.model}")
 
-    def _generate_batch(self, batch: List[str], batch_num: int) -> List[List[float]]:
+    def _generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
         try:
             logger.debug(f"Calling OpenAI API for batch {batch_num}...")

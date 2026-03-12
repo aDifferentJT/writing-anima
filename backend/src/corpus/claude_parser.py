@@ -1,9 +1,10 @@
 """Parser for Claude conversation JSON exports"""
 
+from fastapi import UploadFile
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, NamedTuple, Optional
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -12,10 +13,14 @@ logger = logging.getLogger(__name__)
 class ClaudeConversationParser:
     """Parse Claude conversation JSON exports"""
 
-    def __init__(self):
+    class Conversation(NamedTuple):
+        text: str
+        conversation_name: Optional[str]
+
+    def __init__(self) -> None:
         pass
 
-    def parse_message(self, message: Dict[str, Any]) -> str:
+    def parse_message(self, message: dict[str, Any]) -> str:
         """
         Extract text from a single message.
 
@@ -50,7 +55,7 @@ class ClaudeConversationParser:
         role_prefix = "User: " if role == "user" else "Assistant: "
         return f"{role_prefix}{text}"
 
-    def parse_conversation(self, conversation: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_conversation(self, conversation: dict[str, Any]) -> Conversation:
         """
         Parse a single conversation.
 
@@ -58,7 +63,7 @@ class ClaudeConversationParser:
             conversation: Conversation dict with messages
 
         Returns:
-            Dict with 'text' and 'metadata'
+            Conversation
         """
         messages = conversation.get("messages", [])
 
@@ -80,56 +85,39 @@ class ClaudeConversationParser:
         # Combine into conversation text
         conversation_text = "\n\n".join(formatted_messages)
 
-        # Extract metadata
-        metadata: Dict[str, Any] = {
-            "message_count": len(formatted_messages),
-        }
-
-        # Try to extract timestamp
-        if "created_at" in conversation:
-            metadata["created_at"] = conversation["created_at"]
-        elif "updated_at" in conversation:
-            metadata["created_at"] = conversation["updated_at"]
-
         # Try to extract conversation name/title
+        conversation_name: Optional[str]
         if "name" in conversation:
-            metadata["conversation_name"] = conversation["name"]
+            conversation_name = conversation["name"]
         elif "title" in conversation:
-            metadata["conversation_name"] = conversation["title"]
+            conversation_name = conversation["title"]
 
-        # Try to extract UUID
-        if "uuid" in conversation:
-            metadata["conversation_id"] = conversation["uuid"]
-        elif "id" in conversation:
-            metadata["conversation_id"] = str(conversation["id"])
+        return ClaudeConversationParser.Conversation(
+            text=conversation_text,
+            conversation_name=conversation_name,
+        )
 
-        return {
-            "text": conversation_text,
-            "metadata": metadata,
-        }
-
-    def parse_json_file(self, json_path: Path) -> List[Dict[str, Any]]:
+    def parse_json_file(self, json_file: UploadFile) -> list[Conversation]:
         """
         Parse Claude conversation JSON file.
 
         Args:
-            json_path: Path to JSON file
+            json_fil: JSON file
 
         Returns:
-            List of dicts with 'text' and 'metadata'
+            List of Conversations
         """
         try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = json.load(json_file.file)
 
-            conversations = []
+            conversations: list[ClaudeConversationParser.Conversation] = []
 
             # Handle different JSON structures
             if isinstance(data, list):
                 # Array of conversations
                 for conv in data:
                     parsed = self.parse_conversation(conv)
-                    if parsed["text"].strip():
+                    if parsed.text.strip():
                         conversations.append(parsed)
 
             elif isinstance(data, dict):
@@ -138,47 +126,47 @@ class ClaudeConversationParser:
                     # Wrapper with conversations array
                     for conv in data["conversations"]:
                         parsed = self.parse_conversation(conv)
-                        if parsed["text"].strip():
+                        if parsed.text.strip():
                             conversations.append(parsed)
                 elif "messages" in data or "chat_messages" in data:
                     # Single conversation
                     parsed = self.parse_conversation(data)
-                    if parsed["text"].strip():
+                    if parsed.text.strip():
                         conversations.append(parsed)
                 else:
-                    logger.warning(f"Unknown JSON structure in {json_path}")
+                    logger.warning(f"Unknown JSON structure in {json_file.filename}")
                     return []
 
-            logger.info(f"Parsed {len(conversations)} conversations from {json_path.name}")
+            logger.info(f"Parsed {len(conversations)} conversations from {json_file.filename}")
             return conversations
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in {json_path}: {e}")
+            logger.error(f"Invalid JSON in {json_file.filename}: {e}")
             return []
         except Exception as e:
-            logger.error(f"Error parsing {json_path}: {e}")
+            logger.error(f"Error parsing {json_file.filename}: {e}")
             return []
 
-    def parse_to_text(self, json_path: Path) -> str:
+    def parse_to_text(self, json_file: UploadFile) -> str:
         """
         Parse JSON file and return as single text string.
 
         Args:
-            json_path: Path to JSON file
+            json_file: JSON file
 
         Returns:
             Combined text from all conversations
         """
-        conversations = self.parse_json_file(json_path)
+        conversations = self.parse_json_file(json_file)
 
         # Combine all conversations with separators
         conversation_texts = []
         for i, conv in enumerate(conversations, 1):
             header = f"=== Conversation {i}"
-            if "conversation_name" in conv["metadata"]:
-                header += f": {conv['metadata']['conversation_name']}"
+            if conv.conversation_name is not None:
+                header += f": {conv.conversation_name}"
             header += " ==="
 
-            conversation_texts.append(f"{header}\n\n{conv['text']}")
+            conversation_texts.append(f"{header}\n\n{conv.text}")
 
         return "\n\n" + "="*70 + "\n\n".join(conversation_texts)

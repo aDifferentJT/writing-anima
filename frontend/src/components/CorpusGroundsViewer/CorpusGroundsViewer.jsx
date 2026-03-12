@@ -10,7 +10,6 @@ const CorpusGroundsViewer = ({
   isOpen,
   onClose,
   personaId,
-  userId,
   highlightSource,
 }) => {
   const [files, setFiles] = useState([]);
@@ -26,13 +25,13 @@ const CorpusGroundsViewer = ({
 
   // Fetch corpus documents (cached by personaId)
   const fetchDocuments = useCallback(async () => {
-    if (!personaId || !userId) return;
+    if (!personaId) return;
     if (cachedPersonaId === personaId && files.length > 0) return;
 
     setLoading(true);
     setError(null);
     try {
-      const data = await animaService.getCorpusDocuments(personaId, userId);
+      const data = await animaService.getCorpusDocuments(personaId);
       setFiles(data.files || []);
       setCachedPersonaId(personaId);
       setSelectedFileIndex(0);
@@ -43,7 +42,7 @@ const CorpusGroundsViewer = ({
     } finally {
       setLoading(false);
     }
-  }, [personaId, userId, cachedPersonaId, files.length]);
+  }, [personaId, cachedPersonaId, files.length]);
 
   // Fetch on open
   useEffect(() => {

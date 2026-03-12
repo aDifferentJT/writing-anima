@@ -2,9 +2,8 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import List
 
-from ...config import get_config
+from ...config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -12,20 +11,17 @@ logger = logging.getLogger(__name__)
 class BaseEmbeddingGenerator(ABC):
     """Generate embeddings for text"""
 
-    def __init__(self, config=None):
+    def __init__(self, config: Config):
         """Initialize embedding generator"""
-        if config is None:
-            config = get_config()
-
         self.config = config
         self.batch_size = config.embedding.batch_size
 
     @abstractmethod
-    def _generate_batch(self, batch: List[str], batch_num: int) -> List[List[float]]:
+    def _generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
         pass
 
-    def generate(self, texts: List[str]) -> List[List[float]]:
+    def generate(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a list of texts"""
         if not texts:
             return []
@@ -52,7 +48,7 @@ class BaseEmbeddingGenerator(ABC):
         logger.info(f"✓ Generated all {len(all_embeddings)} embeddings successfully")
         return all_embeddings
 
-    def generate_one(self, text: str) -> List[float]:
+    def generate_one(self, text: str) -> list[float]:
         """Generate embedding for a single text"""
         embeddings = self.generate([text])
         return embeddings[0] if embeddings else []

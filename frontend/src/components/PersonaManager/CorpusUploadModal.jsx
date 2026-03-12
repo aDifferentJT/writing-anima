@@ -12,7 +12,6 @@ const CorpusUploadModal = ({
   isOpen,
   onClose,
   persona,
-  userId,
   onUploaded,
 }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -46,7 +45,6 @@ const CorpusUploadModal = ({
 
     try {
       const formData = new FormData();
-      formData.append("user_id", userId);
 
       selectedFiles.forEach((file) => {
         formData.append("files", file);

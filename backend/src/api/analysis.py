@@ -7,12 +7,18 @@ import logging
 import re
 import time
 import uuid
-from typing import Dict, List, Optional
+from typing import NamedTuple, Optional
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from openai.types.chat import ChatCompletionMessageParam
+from sqlmodel import Session, select
 
 from ..agent.factory import AgentFactory
 from ..config import get_config
+from ..database.general import (
+    Persona,
+    general_db
+)
 from .models import (
     AnalysisRequest,
     AnalysisResponse,
@@ -25,42 +31,26 @@ from .models import (
     StreamFeedback,
     StreamStatus,
 )
-from .personas import db as firestore_db
-from .personas import personas_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["analysis"])
 
 
-def get_persona(persona_id: str, user_id: str) -> Dict:
-    """Get persona from Firestore or fallback to memory"""
-    persona = None
+def get_persona(persona_id: str) -> Optional[Persona]:
+    """Get persona from general database"""
+    with Session(general_db) as session:
+        statement = select(Persona).where(Persona.id == persona_id)
+        persona = session.exec(statement).one()
 
-    if firestore_db is not None:
-        # Try Firestore first
-        doc = firestore_db.collection("personas").document(persona_id).get()
-        if doc.exists:
-            persona = doc.to_dict()
-    else:
-        # Fallback to memory
-        if persona_id in personas_store:
-            persona = personas_store[persona_id]
+        if persona is None:
+            return None
 
-    if not persona:
-        return None
-
-    # Verify ownership
-    if persona.get("user_id") != user_id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to use this persona"
-        )
-
-    return persona
+        return persona
 
 
 def parse_json_feedback(
     response_text: str, persona_name: str, model: Optional[str] = None
-) -> List[FeedbackItem]:
+) -> list[FeedbackItem]:
     """
     Parse JSON feedback from Anima's structured output.
 
@@ -308,18 +298,16 @@ def parse_json_feedback(
 
 
 @router.websocket("/analyze/stream")
-async def analyze_writing_stream(websocket: WebSocket):
+async def analyze_writing_stream(websocket: WebSocket) -> None:
     """
     Analyze writing with streaming updates via WebSocket
     """
     await websocket.accept()
 
     try:
-        # Receive request data
         request_data = await websocket.receive_text()
         request_dict = json.loads(request_data)
 
-        # Validate request
         try:
             request = AnalysisRequest(**request_dict)
         except Exception as e:
@@ -331,7 +319,7 @@ async def analyze_writing_stream(websocket: WebSocket):
 
         # Get and verify persona
         try:
-            persona = get_persona(request.persona_id, request.user_id)
+            persona = get_persona(request.persona_id)
             if not persona:
                 await websocket.send_json(
                     {"type": "error", "message": "Persona not found"}
@@ -355,44 +343,37 @@ async def analyze_writing_stream(websocket: WebSocket):
 
         # Add persona to config dynamically if not present
         # This allows the BaseAgent to find it when it calls config.get_persona()
+        # TODO would it be better to just pass it in?
         if request.persona_id not in config.personas:
             from ..config import PersonaConfig
 
             persona_config = PersonaConfig(
-                name=persona["name"],
+                name=persona.name,
                 corpus_path="",  # Not needed for dynamic personas
-                collection_name=persona["collection_name"],
-                description=persona.get("description", ""),
+                collection_name=persona.collection_name,
+                description=persona.description,
             )
             config.personas[request.persona_id] = persona_config
 
-        # Get the model: prefer request override, then persona setting, then config primary
-        selected_model = request.model or persona.get("model") or config.model.primary
         logger.info(
-            f"Using model: {selected_model} for persona: {persona['name']} (override: {request.model})"
+            f"Using model: {request.model} for persona: {persona.name}"
         )
 
         # Create agent using factory with selected model
+        model = config.get_model(request.model)
         agent = AgentFactory.create(
-            model_name=selected_model,
+            model=model,
             persona_id=request.persona_id,
             config=config,
+            # Note: DeepSeek doesn't support strict JSON schema, so skip for those agents
+            use_json_mode = model.provider != "deepseek",
+            prompt_file="writing_critic.txt",
         )
-        # Set JSON mode and prompt file for structured feedback
-        # Note: DeepSeek/exo/openrouter don't support strict JSON schema, so skip for those agents
-        model_lower = selected_model.lower()
-        if (
-            "deepseek" not in model_lower
-            and "exo" not in model_lower
-            and "openrouter" not in model_lower
-        ):
-            agent.use_json_mode = True
-        agent.prompt_file = "writing_critic.txt"
 
         # Send status
         await websocket.send_json(
             StreamStatus(
-                message=f"Anima ready ({selected_model}), starting analysis...",
+                message=f"Anima ready ({request.model}), starting analysis...",
                 progress=0.2,
             ).dict()
         )
@@ -400,10 +381,10 @@ async def analyze_writing_stream(websocket: WebSocket):
         # Build query (same as non-streaming)
         query = f"Please analyze the following writing"
 
-        if request.context and request.context.purpose:
+        if request.context.purpose:
             query += f" (Purpose: {request.context.purpose})"
 
-        if request.context and request.context.criteria:
+        if request.context.criteria:
             criteria_text = ", ".join(request.context.criteria)
             query += f"\nEvaluation criteria: {criteria_text}"
 
@@ -411,7 +392,7 @@ async def analyze_writing_stream(websocket: WebSocket):
         query += "\n\nProvide specific, actionable feedback grounded in your corpus. Return your response as a JSON array of feedback items as specified in your instructions."
 
         # Prepare conversation history
-        conversation_history = []
+        conversation_history: list[ChatCompletionMessageParam] = []
         if request.context and request.context.feedback_history:
             for item in request.context.feedback_history[-3:]:
                 if item.get("role") == "user":
@@ -478,7 +459,7 @@ async def analyze_writing_stream(websocket: WebSocket):
 
         try:
             feedback_items = parse_json_feedback(
-                response_text, persona["name"], selected_model
+                response_text, persona.name, request.model
             )
             logger.info(f"Parsed {len(feedback_items)} feedback items")
         except Exception as parse_error:
@@ -537,12 +518,12 @@ async def analyze_writing_stream(websocket: WebSocket):
 
 
 @router.websocket("/chat/stream")
-async def chat_with_persona_stream(websocket: WebSocket):
+async def chat_with_persona_stream(websocket: WebSocket) -> None:
     """
     Chat with a persona via WebSocket with streaming text tokens.
-    Client sends: { message, persona_id, user_id, conversation_history, model? }
+    Client sends: { message, persona_id, conversation_history, model? }
     Server sends:
-      - {"type": "status", "message": str}       — tool/progress updates
+      - {"type": "status", "message": str}        — tool/progress updates
       - {"type": "token", "content": str}         — streamed text token
       - {"type": "complete", "response": str}     — full response when done
       - {"type": "error", "message": str}         — on failure
@@ -553,20 +534,21 @@ async def chat_with_persona_stream(websocket: WebSocket):
         request_data = await websocket.receive_text()
         request_dict = json.loads(request_data)
 
-        # Validate
-        message = request_dict.get("message", "").strip()
-        persona_id = request_dict.get("persona_id")
-        user_id = request_dict.get("user_id")
-        if not message or not persona_id or not user_id:
+        try:
+            request = ChatRequest(**request_dict)
+        except Exception as e:
             await websocket.send_json(
-                {"type": "error", "message": "Missing message, persona_id, or user_id"}
+                {"type": "error", "message": f"Invalid request: {str(e)}"}
             )
             await websocket.close()
             return
 
+        message = request.message.strip()
+        persona_id = request.persona_id
+
         # Get persona
         try:
-            persona = get_persona(persona_id, user_id)
+            persona = get_persona(persona_id)
             if not persona:
                 await websocket.send_json(
                     {"type": "error", "message": "Persona not found"}
@@ -584,21 +566,22 @@ async def chat_with_persona_stream(websocket: WebSocket):
             from ..config import PersonaConfig
 
             config.personas[persona_id] = PersonaConfig(
-                name=persona["name"],
+                name=persona.name,
                 corpus_path="",
-                collection_name=persona["collection_name"],
-                description=persona.get("description", ""),
+                collection_name=persona.collection_name,
+                description=persona.description,
             )
 
-        selected_model = request_dict.get("model") or persona.get("model") or config.model.primary
-
+        model = config.get_model(request.model)
         agent = AgentFactory.create(
-            model_name=selected_model,
+            model=model,
             persona_id=persona_id,
             config=config,
+            use_json_mode = False,
+            prompt_file="base.txt",
         )
 
-        conversation_history = [
+        conversation_history: list[ChatCompletionMessageParam] = [
             {"role": m["role"], "content": m["content"]}
             for m in request_dict.get("conversation_history", [])
         ]

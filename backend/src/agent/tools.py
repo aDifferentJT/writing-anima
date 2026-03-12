@@ -2,28 +2,36 @@
 
 import logging
 import os
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, cast
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionFunctionToolParam
+from openai.types.shared_params import FunctionDefinition
 
-from ..config import get_config
+from ..config import Config
 from ..corpus.embed.factory import EmbeddingGeneratorFactory
-from ..database.schema import SearchFilters, SearchResult, SourceType
-from ..database.vector_db import VectorDatabase
+from ..database.vector import VectorDatabase
+from ..database.vector.schema import SearchFilters, SearchResult, SourceType
 
 logger = logging.getLogger(__name__)
 
 
 class WritingSample(NamedTuple):
     text: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     similarity: float
+
+
+class OodResult(NamedTuple):
+    is_ood: bool
+    confidence: float
+    reasoning: str
 
 
 class CorpusSearchTool:
     """Search tool for corpus retrieval"""
 
-    def __init__(self, collection_name: str, config=None):
+    def __init__(self, collection_name: str, config: Config):
         """
         Initialize search tool.
 
@@ -31,16 +39,13 @@ class CorpusSearchTool:
             collection_name: Name of the collection to search (e.g., "persona_jules")
             config: Optional configuration object
         """
-        if config is None:
-            config = get_config()
-
         self.config = config
         self.collection_name = collection_name
         self.db = VectorDatabase(collection_name, config)
         self.embedder = EmbeddingGeneratorFactory.create(config)
-        self._style_pack_cache: Optional[List[WritingSample]] = None  # Cache diverse style examples
+        self._style_pack_cache: Optional[list[WritingSample]] = None  # Cache diverse style examples
 
-    def get_style_pack(self) -> List[WritingSample]:
+    def get_style_pack(self) -> list[WritingSample]:
         """
         Get diverse representative writing samples for style grounding.
         Uses caching to avoid recomputing.
@@ -73,7 +78,7 @@ class CorpusSearchTool:
             return []
 
         # Simple diversity selection: pick documents from different sources/times
-        diverse_samples: List[WritingSample] = []
+        diverse_samples: list[WritingSample] = []
         seen_sources = set()
 
         for result in candidates:
@@ -106,16 +111,14 @@ class CorpusSearchTool:
         self,
         query: str,
         k: Optional[int] = None,
-        time_range: Optional[Dict[str, Optional[str]]] = None,
-        source_filter: Optional[List[str]] = None,
-    ) -> List[Dict[str, Any]]:
+        source_filter: Optional[list[str]] = None,
+    ) -> list[dict[str, Any]]:
         """
         Search the user's corpus for relevant text.
 
         Args:
             query: Search query
             k: Number of results to return (default from config)
-            time_range: Optional time filter with 'start' and 'end' ISO timestamps
             source_filter: Optional list of source types to filter by
 
         Returns:
@@ -135,9 +138,8 @@ class CorpusSearchTool:
 
         # Build filters
         filters = None
-        if time_range or source_filter:
+        if source_filter:
             filters = SearchFilters(
-                time_range=time_range,
                 source_filter=
                     [SourceType(s) for s in source_filter]
                     if source_filter
@@ -183,50 +185,7 @@ class CorpusSearchTool:
             for result in results
         ]
 
-    def get_tool_definition_claude(self) -> Dict[str, Any]:
-        """Get tool definition for Claude API format"""
-        return {
-            "name": "search_corpus",
-            "description": "Search the user's writing corpus to retrieve examples of BOTH their ideas AND their writing style. Returns excerpts showing how they write, think, and express themselves. Use k=100 for comprehensive retrieval that provides both content and style grounding.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Search query - be specific about what you're looking for. Try different phrasings if first search doesn't return enough results.",
-                    },
-                    "k": {
-                        "type": "integer",
-                        "description": f"Number of results to return. Use k=100 for comprehensive content and style grounding. Max: {self.config.retrieval.max_k}.",
-                        "default": self.config.retrieval.default_k,
-                    },
-                    "time_range": {
-                        "type": "object",
-                        "description": "Optional time filter",
-                        "properties": {
-                            "start": {
-                                "type": "string",
-                                "description": "ISO datetime string or null",
-                            },
-                            "end": {
-                                "type": "string",
-                                "description": "ISO datetime string or null",
-                            },
-                        },
-                    },
-                    "source_filter": {
-                        "type": "array",
-                        "description": "Optional filter by source type",
-                        "items": {
-                            "enum": ["email", "chat", "document", "code", "note"]
-                        },
-                    },
-                },
-                "required": ["query"],
-            },
-        }
-
-    def get_tool_definition_openai(self) -> Dict[str, Any]:
+    def get_tool_definition_openai(self) -> ChatCompletionFunctionToolParam:
         """Get tool definition for OpenAI/DeepSeek API format"""
         return {
             "type": "function",
@@ -244,14 +203,6 @@ class CorpusSearchTool:
                             "type": "integer",
                             "description": f"Number of results to return. Use k=100 for comprehensive content and style grounding. Max: {self.config.retrieval.max_k}",
                             "default": self.config.retrieval.default_k,
-                        },
-                        "time_range": {
-                            "type": "object",
-                            "description": "Optional time filter",
-                            "properties": {
-                                "start": {"type": "string"},
-                                "end": {"type": "string"},
-                            },
                         },
                         "source_filter": {
                             "type": "array",
@@ -271,7 +222,7 @@ class CorpusSearchTool:
 class IncrementalReasoningTool:
     """Tool for detecting OOD queries and providing reasoning guidance"""
 
-    def __init__(self, collection_name: str, persona_name: str, config=None):
+    def __init__(self, collection_name: str, persona_name: str, config: Config):
         """
         Initialize incremental reasoning tool.
 
@@ -280,9 +231,6 @@ class IncrementalReasoningTool:
             persona_name: Name of the persona (for context in prompts)
             config: Optional configuration object
         """
-        if config is None:
-            config = get_config()
-
         self.config = config
         self.collection_name = collection_name
         self.persona_name = persona_name
@@ -299,7 +247,7 @@ class IncrementalReasoningTool:
         else:
             self.client = OpenAI(api_key=api_key)
 
-    def check_and_guide(self, query: str) -> Dict[str, Any]:
+    def check_and_guide(self, query: str) -> dict[str, Any]:
         """
         Check if query is out-of-distribution and provide reasoning guidance.
 
@@ -326,27 +274,27 @@ class IncrementalReasoningTool:
         # Step 2: Use LLM to check if query is OOD
         ood_result = self._check_ood(query, corpus_concepts)
 
-        if not ood_result["is_ood"]:
+        if not ood_result.is_ood:
             return {
                 "is_ood": False,
-                "confidence": ood_result["confidence"],
+                "confidence": ood_result.confidence,
                 "message": "Query appears to be within corpus distribution. Use standard corpus search.",
             }
 
         # Step 3: Generate reasoning guidance
         guidance = self._generate_guidance(query, corpus_concepts, ood_result)
 
-        logger.info(f"OOD detected (confidence: {ood_result['confidence']:.2f})")
+        logger.info(f"OOD detected (confidence: {ood_result.confidence:.2f})")
 
         return {
             "is_ood": True,
-            "confidence": ood_result["confidence"],
+            "confidence": ood_result.confidence,
             "guidance": guidance,
             "corpus_concepts": corpus_concepts,
-            "reasoning": ood_result.get("reasoning", ""),
+            "reasoning": ood_result.reasoning,
         }
 
-    def _find_related_concepts(self, query: str) -> List[str]:
+    def _find_related_concepts(self, query: str) -> list[str]:
         """
         Find related concepts in corpus using semantic search.
 
@@ -378,7 +326,7 @@ class IncrementalReasoningTool:
             logger.error(f"Error finding related concepts: {e}")
             return []
 
-    def _check_ood(self, query: str, corpus_concepts: List[str]) -> Dict[str, Any]:
+    def _check_ood(self, query: str, corpus_concepts: list[str]) -> OodResult:
         """
         Use LLM to determine if query is out-of-distribution.
 
@@ -438,21 +386,24 @@ Respond in JSON format:
 
             content = response.choices[0].message.content
             assert(content)
-            result = json.loads(content)
+            result = OodResult(**json.loads(content))
 
             logger.debug(f"OOD check result: {result}")
             return result
 
         except Exception as e:
             logger.error(f"Error in OOD check: {e}")
-            return {
-                "is_ood": False,
-                "confidence": 0.0,
-                "reasoning": f"Error during OOD check: {str(e)}",
-            }
+            return OodResult(
+                is_ood=False,
+                confidence=0.0,
+                reasoning=f"Error during OOD check: {str(e)}",
+            )
 
     def _generate_guidance(
-        self, query: str, corpus_concepts: List[str], ood_result: Dict[str, Any]
+        self,
+        query: str,
+        corpus_concepts: list[str],
+        ood_result: OodResult,
     ) -> str:
         """
         Generate natural language reasoning guidance for OOD query.
@@ -496,24 +447,7 @@ The goal is thoughtful extrapolation that feels authentic to your intellectual s
 
         return guidance
 
-    def get_tool_definition_claude(self) -> Dict[str, Any]:
-        """Get tool definition for Claude API format"""
-        return {
-            "name": "check_incremental_reasoning",
-            "description": "Check if a query is outside your corpus distribution and get guidance for incremental reasoning. Use this when a query seems to ask about topics you may not have directly written about. Returns whether the query is out-of-distribution along with a reasoning approach.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "The query to check for out-of-distribution content",
-                    }
-                },
-                "required": ["query"],
-            },
-        }
-
-    def get_tool_definition_openai(self) -> Dict[str, Any]:
+    def get_tool_definition_openai(self) -> ChatCompletionFunctionToolParam:
         """Get tool definition for OpenAI/DeepSeek API format"""
         return {
             "type": "function",

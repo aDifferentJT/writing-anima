@@ -11,7 +11,6 @@ class AnimaService {
    * Analyze writing with streaming updates via WebSocket
    * @param {string} content - The writing content to analyze
    * @param {string} personaId - ID of the persona to use
-   * @param {string} userId - Firebase UID
    * @param {object} context - Optional context (purpose, criteria, history)
    * @param {function} onStatus - Callback for status updates
    * @param {function} onFeedback - Callback for feedback items
@@ -22,7 +21,6 @@ class AnimaService {
   async streamAnalysis(
     content,
     personaId,
-    userId,
     context = {},
     callbacks = {},
   ) {
@@ -46,8 +44,7 @@ class AnimaService {
           JSON.stringify({
             content,
             persona_id: personaId,
-            user_id: userId,
-            model: context.model || null, // Model override from toolbar
+            model: context.model,
             context: {
               purpose: context.purpose || null,
               criteria: context.criteria || [],
@@ -136,12 +133,11 @@ class AnimaService {
 
   /**
    * Get all personas for a user
-   * @param {string} userId - Firebase UID
    * @returns {Promise<Array>} List of personas
    */
-  async getPersonas(userId) {
+  async getPersonas() {
     try {
-      const response = await fetch(`${API_URL}/api/personas?user_id=${userId}`);
+      const response = await fetch(`${API_URL}/api/personas`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch personas");
@@ -158,13 +154,12 @@ class AnimaService {
   /**
    * Get a specific persona
    * @param {string} personaId - Persona ID
-   * @param {string} userId - Firebase UID
    * @returns {Promise<object>} Persona details
    */
-  async getPersona(personaId, userId) {
+  async getPersona(personaId) {
     try {
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}?user_id=${userId}`,
+        `${API_URL}/api/personas/${personaId}`,
       );
 
       if (!response.ok) {
@@ -202,11 +197,10 @@ class AnimaService {
    * Create a new persona
    * @param {string} name - Persona name
    * @param {string} description - Persona description
-   * @param {string} userId - Firebase UID
    * @param {string} model - Model ID to use for this persona
    * @returns {Promise<object>} Created persona
    */
-  async createPersona(name, description, userId, model = "gpt-5") {
+  async createPersona(name, description, model = "gpt-5") {
     try {
       const response = await fetch(`${API_URL}/api/personas`, {
         method: "POST",
@@ -216,7 +210,6 @@ class AnimaService {
         body: JSON.stringify({
           name,
           description,
-          user_id: userId,
           model,
         }),
       });
@@ -236,14 +229,13 @@ class AnimaService {
   /**
    * Update a persona's settings
    * @param {string} personaId - Persona ID
-   * @param {string} userId - Firebase UID
    * @param {object} updates - Fields to update (name, description, model)
    * @returns {Promise<object>} Updated persona
    */
-  async updatePersona(personaId, userId, updates) {
+  async updatePersona(personaId, updates) {
     try {
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}?user_id=${userId}`,
+        `${API_URL}/api/personas/${personaId}`,
         {
           method: "PATCH",
           headers: {
@@ -268,13 +260,12 @@ class AnimaService {
   /**
    * Delete a persona
    * @param {string} personaId - Persona ID
-   * @param {string} userId - Firebase UID
    * @returns {Promise<void>}
    */
-  async deletePersona(personaId, userId) {
+  async deletePersona(personaId) {
     try {
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}?user_id=${userId}`,
+        `${API_URL}/api/personas/${personaId}`,
         { method: "DELETE" },
       );
 
@@ -290,14 +281,12 @@ class AnimaService {
   /**
    * Upload corpus files for a persona
    * @param {string} personaId - Persona ID
-   * @param {string} userId - Firebase UID
    * @param {FileList} files - Files to upload
    * @returns {Promise<object>} Upload response
    */
-  async uploadCorpus(personaId, userId, files) {
+  async uploadCorpus(personaId, files) {
     try {
       const formData = new FormData();
-      formData.append("user_id", userId);
 
       Array.from(files).forEach((file) => {
         formData.append("files", file);
@@ -326,13 +315,12 @@ class AnimaService {
   /**
    * Get corpus ingestion status
    * @param {string} personaId - Persona ID
-   * @param {string} userId - Firebase UID
    * @returns {Promise<object>} Ingestion status
    */
-  async getIngestionStatus(personaId, userId) {
+  async getIngestionStatus(personaId) {
     try {
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}/corpus/status?user_id=${userId}`,
+        `${API_URL}/api/personas/${personaId}/corpus/status`,
       );
 
       if (!response.ok) {
@@ -349,13 +337,12 @@ class AnimaService {
   /**
    * Get all corpus documents for a persona, grouped by source file
    * @param {string} personaId - Persona ID
-   * @param {string} userId - Firebase UID
    * @returns {Promise<object>} Corpus documents response with files array
    */
-  async getCorpusDocuments(personaId, userId) {
+  async getCorpusDocuments(personaId) {
     try {
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}/corpus/documents?user_id=${userId}`,
+        `${API_URL}/api/personas/${personaId}/corpus/documents`,
       );
 
       if (!response.ok) {
@@ -373,19 +360,17 @@ class AnimaService {
    * Chat with a persona using streaming WebSocket
    * @param {string} message - User's message
    * @param {string} personaId - Persona ID
-   * @param {string} userId - Firebase UID
    * @param {Array} conversationHistory - Previous messages [{role, content}]
    * @param {object} callbacks - { onToken, onStatus, onComplete, onError }
-   * @param {string} model - Optional model override
+   * @param {string} model - Model to use
    * @returns {Promise<WebSocket>} WebSocket connection
    */
   streamChat(
     message,
     personaId,
-    userId,
-    conversationHistory = [],
-    callbacks = {},
-    model = null,
+    conversationHistory,
+    callbacks,
+    model,
   ) {
     const {
       onToken = () => {},
@@ -402,7 +387,6 @@ class AnimaService {
           JSON.stringify({
             message,
             persona_id: personaId,
-            user_id: userId,
             conversation_history: conversationHistory,
             model,
           }),

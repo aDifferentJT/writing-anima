@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
-from typing import Optional
+from typing import Any, AsyncGenerator, Never, Optional
 import logging
 import os
 
@@ -16,10 +16,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import API routers
-from src.api import personas_router, analysis_router
+from src.api import analysis_router, personas_router, projects_router
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, Never]:
     """Application lifespan manager"""
     logger.info("Starting Writing-Anima backend...")
     # Initialize Qdrant connection
@@ -51,7 +51,7 @@ app.add_middleware(
 )
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     """Root endpoint"""
     return {
         "message": "Writing-Anima API",
@@ -60,7 +60,7 @@ async def root():
     }
 
 @app.get("/api/health")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Health check endpoint"""
     # TODO: Add Qdrant connection check
     return {
@@ -72,8 +72,9 @@ async def health_check():
     }
 
 # Include API routers
-app.include_router(personas_router)
 app.include_router(analysis_router)
+app.include_router(personas_router)
+app.include_router(projects_router)
 
 if __name__ == "__main__":
     uvicorn.run(

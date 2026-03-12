@@ -1,14 +1,10 @@
 """MBOX email archive parser"""
 
-import mailbox
-import logging
-from pathlib import Path
-from typing import List, Optional, Dict
 from email.utils import parsedate_to_datetime
-from datetime import datetime
-import email
-from email.parser import BytesParser
-from email.policy import default
+import logging
+import mailbox
+from pathlib import Path
+from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +12,11 @@ logger = logging.getLogger(__name__)
 class MboxParser:
     """Parse MBOX email archives"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize MBOX parser"""
         pass
 
-    def extract_text_from_email(self, message) -> str:
+    def extract_text_from_email(self, message: mailbox.mboxMessage) -> str:
         """
         Extract text content from an email message.
 
@@ -63,7 +59,7 @@ class MboxParser:
                 # Get text parts
                 if content_type == "text/plain":
                     try:
-                        payload = part.get_payload(decode=True)
+                        payload = cast(Optional[bytes], part.get_payload(decode=True))
                         if payload:
                             text = payload.decode("utf-8", errors="ignore")
                             text_parts.append(text)
@@ -74,7 +70,7 @@ class MboxParser:
                 elif content_type == "text/html":
                     # Try to extract text from HTML (basic)
                     try:
-                        payload = part.get_payload(decode=True)
+                        payload = cast(Optional[bytes], part.get_payload(decode=True))
                         if payload:
                             html = payload.decode("utf-8", errors="ignore")
                             # Basic HTML stripping (remove tags)
@@ -90,7 +86,7 @@ class MboxParser:
         else:
             # Handle simple messages
             try:
-                payload = message.get_payload(decode=True)
+                payload = cast(Optional[bytes], message.get_payload(decode=True))
                 if payload:
                     text = payload.decode("utf-8", errors="ignore")
                     text_parts.append(text)
@@ -99,43 +95,7 @@ class MboxParser:
 
         return "\n".join(text_parts)
 
-    def get_email_metadata(self, message) -> Dict:
-        """
-        Extract metadata from email message.
-
-        Args:
-            message: Email message object
-
-        Returns:
-            Dictionary with metadata
-        """
-        metadata = {}
-
-        # Get basic fields
-        metadata["subject"] = message.get("Subject", "")
-        metadata["from"] = message.get("From", "")
-        metadata["to"] = message.get("To", "")
-        metadata["cc"] = message.get("Cc", "")
-
-        # Get date
-        date_str = message.get("Date")
-        if date_str:
-            try:
-                date_obj = parsedate_to_datetime(date_str)
-                metadata["date"] = date_obj.isoformat()
-            except Exception as e:
-                logger.debug(f"Error parsing date: {e}")
-                metadata["date"] = date_str
-
-        # Get message ID
-        metadata["message_id"] = message.get("Message-ID", "")
-
-        # Clean up empty values
-        metadata = {k: v for k, v in metadata.items() if v}
-
-        return metadata
-
-    def parse_mbox(self, mbox_path: Path) -> List[Dict]:
+    def parse_mbox(self, mbox_path: str) -> str:
         """
         Parse an MBOX file and extract all emails.
 
@@ -145,13 +105,13 @@ class MboxParser:
         Returns:
             List of dictionaries with email data
         """
-        emails = []
-
         try:
             # Open mbox file
-            mbox = mailbox.mbox(str(mbox_path))
+            mbox = mailbox.mbox(mbox_path)
 
             logger.info(f"Parsing MBOX file: {mbox_path}")
+
+            emails = []
 
             # Process each message
             for idx, message in enumerate(mbox):
@@ -163,42 +123,17 @@ class MboxParser:
                         logger.debug(f"Empty email at index {idx}")
                         continue
 
-                    # Extract metadata
-                    metadata = self.get_email_metadata(message)
-
                     # Add to results
-                    emails.append({
-                        "text": text,
-                        "metadata": metadata,
-                        "index": idx,
-                    })
+                    emails.append(text)
 
                 except Exception as e:
                     logger.warning(f"Error processing email {idx}: {e}")
                     continue
 
-            logger.info(f"Extracted {len(emails)} emails from {mbox_path.name}")
+            logger.info(f"Extracted {len(emails)} emails from {mbox_path}")
+
+            return ("\n\n" + "="*80 + "\n\n").join(emails)
 
         except Exception as e:
             logger.error(f"Error reading MBOX file {mbox_path}: {e}")
-
-        return emails
-
-    def parse_mbox_to_text(self, mbox_path: Path) -> str:
-        """
-        Parse MBOX file and return all emails as concatenated text.
-
-        Args:
-            mbox_path: Path to MBOX file
-
-        Returns:
-            All emails concatenated with separators
-        """
-        emails = self.parse_mbox(mbox_path)
-
-        text_parts = []
-        for email_data in emails:
-            text_parts.append(email_data["text"])
-            text_parts.append("\n" + "="*80 + "\n")  # Separator
-
-        return "\n".join(text_parts)
+            return ""

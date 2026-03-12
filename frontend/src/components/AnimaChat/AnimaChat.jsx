@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, Send, MessageCircle } from "lucide-react";
 import animaService from "../../services/animaService";
 
-const AnimaChat = ({ isOpen, onClose, persona, userId }) => {
+const AnimaChat = ({ isOpen, onClose, persona }) => {
   const [messages, setMessages] = useState([]);
   const [streamingContent, setStreamingContent] = useState("");
   const [input, setInput] = useState("");
@@ -81,7 +81,6 @@ const AnimaChat = ({ isOpen, onClose, persona, userId }) => {
       await animaService.streamChat(
         text,
         persona.id,
-        userId,
         history,
         {
           onToken: (token) => {
@@ -112,14 +111,14 @@ const AnimaChat = ({ isOpen, onClose, persona, userId }) => {
             setLoading(false);
           },
         },
-        selectedModel || persona.model || null,
+        selectedModel,
       );
     } catch (err) {
       console.error("Chat error:", err);
       setError(err.message || "Failed to connect");
       setLoading(false);
     }
-  }, [input, loading, persona, userId, messages, selectedModel]);
+  }, [input, loading, persona, messages, selectedModel]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {

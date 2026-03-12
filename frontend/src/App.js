@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Pen, Target, Home, User, LogOut, Users } from 'lucide-react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import AuthModal from './components/Auth/AuthModal';
 import ProjectDashboard from './components/Projects/ProjectDashboard';
 import PurposeStep from './components/PurposeStep/PurposeStep';
 import WritingInterface from './components/WritingInterface';
@@ -9,21 +7,18 @@ import PersonaManager from './components/PersonaManager/PersonaManager';
 import projectService from './services/projectService';
 
 function AppContent() {
-  const { currentUser, logout } = useAuth();
   const [currentMode, setCurrentMode] = useState('dashboard'); // 'dashboard' | 'home' | 'writing' | 'personas'
   const [currentProject, setCurrentProject] = useState(null);
   const [purpose, setPurpose] = useState('');
   const [content, setContent] = useState(''); // Lift content state to App level
   const [feedback, setFeedback] = useState([]); // Lift feedback state to App level
   const [writingCriteria, setWritingCriteria] = useState(null); // Store writing criteria
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState('login');
   const [isMonitoring, setIsMonitoring] = useState(true); // Global monitoring state for agents
   const [isProjectSwitching, setIsProjectSwitching] = useState(false); // Prevent auto-save during project switch
 
   // Auto-save project content and feedback
   useEffect(() => {
-    if (!currentProject || !currentUser || isProjectSwitching) return;
+    if (!currentProject || isProjectSwitching) return;
 
     const autoSaveInterval = setInterval(async () => {
       // Skip auto-save during project switching to prevent race conditions
@@ -196,18 +191,6 @@ function AppContent() {
     setTimeout(() => setIsProjectSwitching(false), 100);
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      setCurrentMode('dashboard');
-      setCurrentProject(null);
-      setPurpose('');
-      setContent('');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
-
   // Stable callback for feedback generation
   const handleFeedbackGenerated = useCallback((insights) => {
     const newFeedback = insights.map(insight => ({
@@ -220,38 +203,6 @@ function AppContent() {
 
     setFeedback(prev => [...prev, ...newFeedback]);
   }, []);
-
-  // Show auth modal if not logged in
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-obsidian-bg flex items-center justify-center p-2">
-        <div className="obsidian-panel p-8 max-w-sm w-full">
-          <p className="text-sm text-obsidian-text-secondary mb-6">AI-powered writing feedback and analysis</p>
-
-          <div className="space-y-2">
-            <button
-              onClick={() => { setAuthModalMode('login'); setAuthModalOpen(true); }}
-              className="obsidian-button-primary w-full text-sm"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => { setAuthModalMode('signup'); setAuthModalOpen(true); }}
-              className="obsidian-button-secondary w-full text-sm"
-            >
-              Create Account
-            </button>
-          </div>
-        </div>
-
-        <AuthModal
-          isOpen={authModalOpen}
-          onClose={() => setAuthModalOpen(false)}
-          initialMode={authModalMode}
-        />
-      </div>
-    );
-  }
 
   const renderNavigation = () => (
     <div className="bg-obsidian-surface border-b border-obsidian-border px-2 py-2">
@@ -319,21 +270,6 @@ function AppContent() {
               </button>
             </>
           )}
-
-          <div className="h-4 w-px bg-obsidian-border mx-2"></div>
-
-          <div className="flex items-center gap-1.5 text-xs text-obsidian-text-muted">
-            <User className="w-3 h-3" />
-            <span className="max-w-[120px] truncate">{currentUser.displayName || currentUser.email}</span>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="p-1 text-obsidian-text-muted hover:text-obsidian-text-primary hover:bg-obsidian-bg rounded transition-colors ml-1"
-            title="Sign out"
-          >
-            <LogOut className="w-3 h-3" />
-          </button>
         </div>
       </div>
     </div>
@@ -381,9 +317,7 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <AppContent />
   );
 }
 

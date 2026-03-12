@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 import typing
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, TypedDict, cast
 from uuid import uuid4
 
 from qdrant_client import QdrantClient
@@ -23,16 +23,21 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from ..config import get_config
+from ...config import Config
 from .schema import CorpusDocument, SearchFilters, SearchResult, SourceType
 
 logger = logging.getLogger(__name__)
 
 
+class Document(TypedDict):
+    text: str
+    metadata: dict[str, Any]
+
+
 class VectorDatabase:
     """Vector database interface for corpus storage and retrieval"""
 
-    def __init__(self, collection_name: str, config=None):
+    def __init__(self, collection_name: str, config: Config):
         """
         Initialize vector database connection.
 
@@ -40,9 +45,6 @@ class VectorDatabase:
             collection_name: Name of the collection to use (e.g., "persona_jules")
             config: Optional configuration object
         """
-        if config is None:
-            config = get_config()
-
         self.config = config
         self.collection_name = collection_name
 
@@ -50,35 +52,30 @@ class VectorDatabase:
         try:
             # Check if we're using a cloud URL (has https:// or contains cloud.qdrant.io)
             host = config.vector_db.host
+            port = config.vector_db.port
             is_cloud = host.startswith("https://") or "cloud.qdrant.io" in host
 
             if is_cloud:
                 # For Qdrant Cloud, use URL parameter with HTTPS
                 # Construct full URL if not already complete
                 if not host.startswith("https://"):
-                    url = f"https://{host}:{config.vector_db.port}"
+                    url = f"https://{host}:{port}"
                 else:
                     url = host
 
-                client_kwargs = {
-                    "url": url,
-                    "api_key": config.vector_db.api_key,
-                    "https": True,  # Force HTTPS
-                }
                 logger.info(f"Connecting to Qdrant Cloud at {url}")
+                self.client = QdrantClient(
+                    url=url,
+                    api_key=config.vector_db.api_key,
+                    https=True,  # Force HTTPS
+                )
             else:
                 # For local Qdrant, use host/port
-                client_kwargs = {
-                    "host": host,
-                    "port": config.vector_db.port,
-                }
-
-                # Add API key if provided
-                if config.vector_db.api_key:
-                    client_kwargs["api_key"] = config.vector_db.api_key
-                    logger.info(f"Using Qdrant API key authentication")
-
-            self.client = QdrantClient(**client_kwargs)
+                self.client = QdrantClient(
+                    host=host,
+                    port=port,
+                    api_key=config.vector_db.api_key,
+                )
 
             # Test connection by getting collections
             self.client.get_collections()
@@ -137,7 +134,7 @@ class VectorDatabase:
             raise
 
     def add_documents(
-        self, documents: List[CorpusDocument], batch_size: int = 100
+        self, documents: list[CorpusDocument], batch_size: int = 100
     ) -> None:
         """Add documents to the collection in batches"""
         if not documents:
@@ -153,10 +150,13 @@ class VectorDatabase:
             point = PointStruct(
                 id=doc.id,
                 vector=doc.embedding,
-                payload={
-                    "text": doc.text,
-                    "metadata": doc.metadata,
-                },
+                payload=cast(
+                    dict[str, Any],
+                    Document(
+                        text=doc.text,
+                        metadata=dict(doc.metadata),
+                    ),
+                ),
             )
             points.append(point)
 
@@ -181,9 +181,9 @@ class VectorDatabase:
 
     def search(
         self,
-        query_vector: List[float],
+        query_vector: list[float],
         k: int = 5,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Search for similar documents"""
         # Build Qdrant filter
         qdrant_filter = None
@@ -214,11 +214,11 @@ class VectorDatabase:
     def hybrid_search(
         self,
         query_text: str,
-        query_vector: List[float],
+        query_vector: list[float],
         k: int = 5,
         filters: Optional[SearchFilters] = None,
         semantic_weight: float = 0.7,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """
         Hybrid search combining semantic similarity and keyword matching.
 
@@ -235,22 +235,7 @@ class VectorDatabase:
         # Build base filter
         qdrant_filter = None
         if filters:
-            conditions: List[Condition] = []
-
-            if filters.time_range:
-                time_condition = {}
-                if filters.time_range.get("start"):
-                    time_condition["gte"] = filters.time_range["start"]
-                if filters.time_range.get("end"):
-                    time_condition["lte"] = filters.time_range["end"]
-
-                if time_condition:
-                    conditions.append(
-                        FieldCondition(
-                            key="metadata.timestamp",
-                            range=Range(**time_condition),
-                        )
-                    )
+            conditions: list[Condition] = []
 
             if filters.source_filter:
                 conditions.append(
@@ -279,7 +264,7 @@ class VectorDatabase:
         keyword_results = []
 
         if len(keywords) > 0:
-            keyword_filter_conditions: List[Condition] = []
+            keyword_filter_conditions: list[Condition] = []
             if qdrant_filter and qdrant_filter.must:
                 if isinstance(qdrant_filter.must, list):
                     keyword_filter_conditions.extend(qdrant_filter.must)
@@ -323,8 +308,8 @@ class VectorDatabase:
             semantic_rank: Optional[int]
             keyword_rank: Optional[int]
             text: str
-            metadata: Dict[str, Any]
-        result_scores: Dict[str, ResultScore] = {}  # document_id -> (semantic_score, keyword_rank, text, metadata)
+            metadata: dict[str, Any]
+        result_scores: dict[str, ResultScore] = {}  # document_id -> (semantic_score, keyword_rank, text, metadata)
 
         # Process semantic results
         for rank, result in enumerate(semantic_results, 1):
@@ -420,12 +405,12 @@ class VectorDatabase:
 
         return final_results[:k]
 
-    def get_all_documents(self) -> List[Dict[str, Any]]:
+    def get_all_documents(self) -> list[Document]:
         """
         Retrieve all documents from the collection using scroll pagination.
 
         Returns:
-            List of dicts with 'text' and 'metadata' keys
+            List of documents
         """
         all_docs = []
         offset = None
@@ -444,10 +429,10 @@ class VectorDatabase:
                 for point in results:
                     if point.payload:
                         all_docs.append(
-                            {
-                                "text": point.payload.get("text", ""),
-                                "metadata": point.payload.get("metadata", {}),
-                            }
+                            Document(
+                                text=point.payload.get("text", ""),
+                                metadata=point.payload.get("metadata", {}),
+                            )
                         )
 
                 if next_offset is None:

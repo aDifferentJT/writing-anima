@@ -1,1 +1,0 @@
-"""Database components for Anima"""

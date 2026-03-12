@@ -6,7 +6,6 @@ import UnifiedAgentCustomizationPanel from "../AgentCustomization/UnifiedAgentCu
 import feedbackHistoryService from "../../services/feedbackHistoryService";
 import animaService from "../../services/animaService";
 import CorpusGroundsViewer from "../CorpusGroundsViewer/CorpusGroundsViewer";
-import { useAuth } from "../../contexts/AuthContext";
 
 const WritingInterface = ({
   purpose,
@@ -21,7 +20,6 @@ const WritingInterface = ({
   onToggleMonitoring,
   onFeedbackGenerated,
 }) => {
-  const { currentUser } = useAuth();
   const [hoveredFeedback, setHoveredFeedback] = useState(null);
   const [useMultiAgentSystem] = useState(false); // Disabled - using flow-based agents only
   const [multiAgentFeedback, setMultiAgentFeedback] = useState([]);
@@ -146,33 +144,31 @@ const WritingInterface = ({
 
   // Load available personas
   useEffect(() => {
-    if (currentUser) {
-      animaService
-        .getPersonas(currentUser.uid)
-        .then((personas) => {
-          setAvailablePersonas(personas);
+    animaService
+      .getPersonas()
+      .then((personas) => {
+        setAvailablePersonas(personas);
 
-          // Check if persisted persona exists in available personas
-          const persistedId = localStorage.getItem("selectedPersonaId");
-          const persistedPersonaExists =
-            persistedId && personas.some((p) => p.id === persistedId);
+        // Check if persisted persona exists in available personas
+        const persistedId = localStorage.getItem("selectedPersonaId");
+        const persistedPersonaExists =
+          persistedId && personas.some((p) => p.id === persistedId);
 
-          // Only auto-select if no valid persisted selection
-          // Using setSelectedPersonaId callback to avoid dependency on selectedPersonaId
-          setSelectedPersonaId((currentId) => {
-            if (!persistedPersonaExists && !currentId) {
-              // Find a persona with corpus that is also available
-              const personaWithCorpus = personas.find(
-                (p) => p.chunk_count > 0 && p.corpus_available !== false,
-              );
-              return personaWithCorpus ? personaWithCorpus.id : currentId;
-            }
-            return currentId;
-          });
-        })
-        .catch((error) => console.error("Error loading personas:", error));
-    }
-  }, [currentUser]);
+        // Only auto-select if no valid persisted selection
+        // Using setSelectedPersonaId callback to avoid dependency on selectedPersonaId
+        setSelectedPersonaId((currentId) => {
+          if (!persistedPersonaExists && !currentId) {
+            // Find a persona with corpus that is also available
+            const personaWithCorpus = personas.find(
+              (p) => p.chunk_count > 0 && p.corpus_available !== false,
+            );
+            return personaWithCorpus ? personaWithCorpus.id : currentId;
+          }
+          return currentId;
+        });
+      })
+      .catch((error) => console.error("Error loading personas:", error));
+  }, []);
 
   // Handle Anima analysis with streaming
   const handleExecuteFlowClick = useCallback(async () => {
@@ -215,7 +211,6 @@ const WritingInterface = ({
       personaId: selectedPersonaId,
       model: selectedModel,
       contentLength: content.length,
-      userId: currentUser.uid,
     });
 
     let statusClearTimeout = null;
@@ -236,7 +231,6 @@ const WritingInterface = ({
       await animaService.streamAnalysis(
         content,
         selectedPersonaId,
-        currentUser.uid,
         {
           purpose: purposeText,
           criteria: writingCriteria?.criteria || [],
@@ -405,7 +399,6 @@ const WritingInterface = ({
     selectedPersonaId,
     selectedModel,
     content,
-    currentUser,
     purpose,
     writingCriteria,
     feedback,
@@ -687,7 +680,6 @@ const WritingInterface = ({
           setCorpusHighlightSource(null);
         }}
         personaId={selectedPersonaId}
-        userId={currentUser?.uid}
         highlightSource={corpusHighlightSource}
       />
     </>

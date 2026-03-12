@@ -3,9 +3,11 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, Literal
 
-from ..config import get_config
+from openai.types.chat import ChatCompletionMessageParam
+
+from ..config import Config
 from .tools import CorpusSearchTool, IncrementalReasoningTool
 
 logger = logging.getLogger(__name__)
@@ -13,13 +15,20 @@ logger = logging.getLogger(__name__)
 
 class ToolCall(NamedTuple):
     tool: str
-    input: str
+    input: dict[str, Any]
     result_count: int
+
+
+# TODO should this just be the same as ToolCall?
+class ToolUse(NamedTuple):
+    id: str
+    name: str
+    input: dict[str, Any]
 
 
 class Response(NamedTuple):
     response: str
-    tool_calls: List[ToolCall]
+    tool_calls: list[ToolCall]
     iterations: int
     model: str
     error: Optional[str] = None
@@ -28,18 +37,21 @@ class Response(NamedTuple):
 class BaseAgent(ABC):
     """Abstract base class for all model agents"""
 
-    def __init__(self, persona_id: str, config=None):
+    def __init__(
+        self,
+        persona_id: str,
+        config: Config,
+        use_json_mode: bool,
+    ):
         """
         Initialize base agent.
 
         Args:
             persona_id: Persona identifier (e.g., "jules", "heidegger")
-            config: Optional configuration object
+            config: Configuration object
         """
-        if config is None:
-            config = get_config()
-
         self.config = config
+        self.use_json_mode = use_json_mode
         self.persona_id = persona_id
         self.persona = config.get_persona(persona_id)
         self.user_name = self.persona.name  # For backwards compatibility
@@ -52,7 +64,7 @@ class BaseAgent(ABC):
         self.prompt_file: Optional[str] = None
 
     @abstractmethod
-    def _call_model(self, system: str, messages: List[Dict]) -> Any:
+    def _call_model(self, system: str, messages: list[ChatCompletionMessageParam]) -> Any:
         """
         Call the underlying model API.
 
@@ -66,7 +78,7 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    def _parse_tool_use(self, response: Any) -> List[Dict]:
+    def _parse_tool_use(self, response: Any) -> list[ToolUse]:
         """
         Extract tool calls from model response.
 
@@ -106,8 +118,8 @@ class BaseAgent(ABC):
 
     @abstractmethod
     def _update_messages(
-        self, messages: List[Dict], response: Any, tool_results: List[Any]
-    ) -> List[Dict]:
+        self, messages: list[ChatCompletionMessageParam], response: Any, tool_results: list[Any]
+    ) -> list[ChatCompletionMessageParam]:
         """
         Update message list with assistant response and tool results.
 
@@ -205,7 +217,7 @@ class BaseAgent(ABC):
         """
         return self.config.agent.force_tool_use and self._current_tool_calls_count == 0
 
-    def _execute_tool(self, tool_use: Dict) -> Any:
+    def _execute_tool(self, tool_use: ToolUse) -> Any:
         """
         Execute a tool call.
 
@@ -216,17 +228,17 @@ class BaseAgent(ABC):
             Tool execution result
         """
         result: Any
-        if tool_use["name"] == "search_corpus":
+        if tool_use.name == "search_corpus":
             try:
-                result = self.search_tool.search(**tool_use["input"])
+                result = self.search_tool.search(**tool_use.input)
                 logger.debug(f"Tool search returned {len(result)} results")
                 return result
             except Exception as e:
                 logger.error(f"Error executing search_corpus: {e}")
                 return {"error": str(e)}
-        elif tool_use["name"] == "check_incremental_reasoning":
+        elif tool_use.name == "check_incremental_reasoning":
             try:
-                result = self.reasoning_tool.check_and_guide(**tool_use["input"])
+                result = self.reasoning_tool.check_and_guide(**tool_use.input)
                 logger.debug(
                     f"Incremental reasoning check: OOD={result.get('is_ood', False)}"
                 )
@@ -235,11 +247,12 @@ class BaseAgent(ABC):
                 logger.error(f"Error executing check_incremental_reasoning: {e}")
                 return {"error": str(e)}
         else:
-            logger.error(f"Unknown tool: {tool_use['name']}")
-            return {"error": f"Unknown tool: {tool_use['name']}"}
+            e2 = f"Unknown tool: {tool_use.name}"
+            logger.error(e2)
+            return {"error": e2}
 
     def respond(
-        self, query: str, conversation_history: Optional[List[Dict]] = None
+        self, query: str, conversation_history: Optional[list[ChatCompletionMessageParam]] = None
     ) -> Response:
         """
         Main agent loop - model self-orchestrates retrieval.
@@ -258,11 +271,12 @@ class BaseAgent(ABC):
         # Start with conversation history if provided
         if conversation_history:
             messages = conversation_history.copy()
-            messages.append({"role": "user", "content": query})
         else:
-            messages = [{"role": "user", "content": query}]
+            messages = []
 
-        tool_calls_log: List[ToolCall] = []
+        messages.append({"role": "user", "content": query})
+
+        tool_calls_log: list[ToolCall] = []
         self._current_tool_calls_count = 0  # Track for tool_choice logic
 
         logger.info(f"Starting agent loop for query: {query[:100]}...")
@@ -296,8 +310,8 @@ class BaseAgent(ABC):
                         tool_results.append(result)
                         tool_calls_log.append(
                             ToolCall(
-                                tool=tool_use["name"],
-                                input=tool_use["input"],
+                                tool=tool_use.name,
+                                input=tool_use.input,
                                 result_count=len(result) if isinstance(result, list) else 1,
                             )
                         )

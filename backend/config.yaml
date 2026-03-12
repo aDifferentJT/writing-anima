@@ -49,79 +49,42 @@ personas:
     collection_name: persona_sasha
     description: A. S. Arridge - Philosopher
 default_persona: jules
-model:
-  primary: gpt-5
-  fallback: gpt-4o
-  # Available models for user selection in the UI
-  available_models:
-    - id: gpt-5
-      name: GPT-5
-      provider: openai
-      description: OpenAI's most advanced model with superior reasoning
-    - id: deepseek-chat
-      name: DeepSeek V3
-      provider: deepseek
-      description: DeepSeek's V3 model with strong reasoning and tool use
-    - id: deepseek-v3.1
-      name: DeepSeek V3.1 (Local)
-      provider: exo
-      description: DeepSeek V3.1 running locally via exo-labs cluster
-    - id: deepseek-v3.1-openrouter
-      name: DeepSeek V3.1 (OpenRouter)
-      provider: openrouter
-      description: DeepSeek V3.1 via OpenRouter for remote testing
-    - id: kimi-k2
-      name: Kimi K2
-      provider: moonshot
-      description: Moonshot's flagship MoE model with 1T parameters and 128K context
-    - id: kimi-multi
-      name: Kimi K2 Multi-Agent
-      provider: moonshot
-      description: Multi-agent pipeline with worldview immersion for deeper critique
-  openai:
+models:
+  gpt-5:
+    name: GPT-5
+    provider: openai
+    model: gpt-5
+    description: OpenAI's most advanced model with superior reasoning
+    base_url: https://api.openai.com/v1
     api_key_env: OPENAI_API_KEY
-    model: gpt-4o
-    max_tokens: 4096
     temperature: 1.0
     max_iterations: 20
-  claude:
-    api_key_env: ANTHROPIC_API_KEY
-    max_tokens: 4096
-    temperature: 1.0
-    max_iterations: 20
-  deepseek:
-    api_key_env: DEEPSEEK_API_KEY
-    base_url: https://api.deepseek.com
+  deepseek-chat:
+    name: DeepSeek V3
+    provider: deepseek
     model: deepseek-chat
-    max_tokens: 4096
+    description: DeepSeek's V3 model with strong reasoning and tool use
+    base_url: https://api.deepseek.com
+    api_key_env: DEEPSEEK_API_KEY
     temperature: 1.0
     max_iterations: 20
-  moonshot:
-    api_key_env: MOONSHOT_API_KEY
-    base_url: https://api.moonshot.ai/v1
-    model: kimi-k2-0711-preview
-    max_tokens: 4096
-    temperature: 0.6
-    max_iterations: 20
-  openrouter:
-    api_key_env: OPENROUTER_API_KEY
-    base_url: https://openrouter.ai/api/v1
-    model: deepseek/deepseek-chat-v3.1
-    max_tokens: 4096
-    temperature: 1.0
-    max_iterations: 25
-  exo:
-    base_url: http://localhost:52415/v1
+  deepseek-v3.1:
+    name: DeepSeek V3.1 (Local)
+    provider: deepseek
     model: mlx-community/DeepSeek-V3.1-8bit
-    max_tokens: 4096
+    description: DeepSeek V3.1 running locally via exo-labs cluster
+    base_url: http://localhost:52415/v1
     temperature: 1.0
     max_iterations: 25
-  hermes:
-    base_url: http://localhost:8000/v1
-    model: NousResearch/Hermes-2-Pro-Llama-3-70B
-    max_tokens: 2048
-    temperature: 0.7
-    max_iterations: 15
+  deepseek-v3.1-openrouter:
+    name: DeepSeek V3.1 (OpenRouter)
+    provider: deepseek
+    model: deepseek/deepseek-chat-v3.1
+    description: DeepSeek V3.1 via OpenRouter for remote testing
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    temperature: 1.0
+    max_iterations: 25
 agent:
   max_tool_calls_per_iteration: 3
   system_prompt_dir: src/agent/prompts/

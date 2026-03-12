@@ -3,7 +3,7 @@
 import logging
 from typing import Optional, Union
 
-from ...config import Config, get_config
+from ...config import Config
 from .base import BaseEmbeddingGenerator
 from .mlx import MlxEmbeddingGenerator
 from .openai import OpenAIEmbeddingGenerator
@@ -15,9 +15,7 @@ class EmbeddingGeneratorFactory:
     """Factory for creating appropriate embedding generator based on provider selection"""
 
     @staticmethod
-    def create(
-        config: Optional[Config] = None,
-    ) -> BaseEmbeddingGenerator:
+    def create(config: Config) -> BaseEmbeddingGenerator:
         """
         Create the embedding generator instance.
 
@@ -30,9 +28,6 @@ class EmbeddingGeneratorFactory:
         Raises:
             ValueError: If config.embedding.provider is not supported
         """
-        if config is None:
-            config = get_config()
-
         if config.embedding.provider == "openai":
             return OpenAIEmbeddingGenerator(config)
         elif config.embedding.provider == "mlx":
