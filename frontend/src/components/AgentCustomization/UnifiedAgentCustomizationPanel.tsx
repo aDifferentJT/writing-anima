@@ -4,30 +4,39 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, Save, Trash2, Copy, Power, Settings, 
+import {
+  Plus, Save, Trash2, Copy, Power, Settings,
   Zap, Brain, Search, Target, FileText, Users,
   ChevronDown, ChevronUp, AlertCircle, CheckCircle,
   Layout, Edit3, X, Download, Upload
 } from 'lucide-react';
 import userAgentService, { AGENT_TEMPLATES } from '../../services/userAgentService';
+import { UserAgent, AgentTemplate, AgentConfig } from '../../types';
 
-export const UnifiedAgentCustomizationPanel = ({ 
-  isOpen, 
+interface UnifiedAgentCustomizationPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialTab?: string;
+  embedded?: boolean;
+  onAgentsUpdated?: () => void;
+}
+
+export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationPanelProps> = ({
+  isOpen,
   onClose,
   initialTab = 'agents',
   embedded = false,
   onAgentsUpdated
 }) => {
-  const [agents, setAgents] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [selectedAgent, setSelectedAgent] = useState(null);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [agents, setAgents] = useState<UserAgent[]>([]);
+  const [templates, setTemplates] = useState<AgentTemplate[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<UserAgent | null>(null);
+  const [showTemplates, setShowTemplates] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editForm, setEditForm] = useState<AgentConfig>({});
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Load data
   useEffect(() => {
@@ -36,20 +45,20 @@ export const UnifiedAgentCustomizationPanel = ({
     }
   }, [isOpen]);
 
-  const loadData = async () => {
+  const loadData = async (): Promise<void> => {
     try {
       setLoading(true);
       const userAgents = userAgentService.getAllAgents();
       const availableTemplates = userAgentService.getTemplates();
-      
+
       setAgents(userAgents);
       setTemplates(availableTemplates);
-      
+
       // Auto-select first agent if none selected
       if (!selectedAgent && userAgents.length > 0) {
         setSelectedAgent(userAgents[0]);
       }
-      
+
     } catch (err) {
       console.error('Failed to load agents:', err);
       setError('Failed to load agents');
@@ -58,19 +67,19 @@ export const UnifiedAgentCustomizationPanel = ({
     }
   };
 
-  const handleCreateAgent = (templateId = null) => {
+  const handleCreateAgent = (templateId: string | null = null): void => {
     if (templateId) {
       // Create from template
       const template = templates.find(t => t.id === templateId);
       setEditForm({
-        name: template.name,
-        description: template.description,
-        category: template.category,
-        icon: template.icon,
-        defaultTier: template.defaultTier,
-        capabilities: template.capabilities,
-        responseFormat: template.responseFormat,
-        prompt: template.basePrompt,
+        name: template!.name,
+        description: template!.description,
+        category: template!.category,
+        icon: template!.icon,
+        defaultTier: template!.defaultTier,
+        capabilities: template!.capabilities,
+        responseFormat: template!.responseFormat,
+        prompt: template!.basePrompt,
         enabled: true,
         templateId: templateId
       });
@@ -88,17 +97,17 @@ export const UnifiedAgentCustomizationPanel = ({
         enabled: true
       });
     }
-    
+
     setIsEditing(true);
     setSelectedAgent(null);
     setShowTemplates(false);
   };
 
-  const handleSaveAgent = async () => {
+  const handleSaveAgent = async (): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
-      
+
       if (selectedAgent) {
         // Update existing agent
         await userAgentService.updateAgent(selectedAgent.id, editForm);
@@ -109,26 +118,26 @@ export const UnifiedAgentCustomizationPanel = ({
         setSelectedAgent(newAgent);
         setSuccess('Agent created successfully');
       }
-      
+
       setIsEditing(false);
       await loadData();
-      
+
       // Notify parent about agent changes
       if (onAgentsUpdated) {
         onAgentsUpdated();
       }
-      
+
     } catch (err) {
       console.error('Failed to save agent:', err);
-      setError('Failed to save agent: ' + err.message);
+      setError('Failed to save agent: ' + (err as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteAgent = async (agentId) => {
+  const handleDeleteAgent = async (agentId: string): Promise<void> => {
     // Create custom confirmation dialog to bypass blocked browser popups
-    const confirmed = await new Promise((resolve) => {
+    const confirmed = await new Promise<boolean>((resolve) => {
       const dialog = document.createElement('div');
       dialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
       dialog.innerHTML = `
@@ -141,82 +150,82 @@ export const UnifiedAgentCustomizationPanel = ({
           </div>
         </div>
       `;
-      
+
       document.body.appendChild(dialog);
-      
-      dialog.querySelector('#cancel-delete').onclick = () => {
+
+      (dialog.querySelector('#cancel-delete') as HTMLElement).onclick = () => {
         document.body.removeChild(dialog);
         resolve(false);
       };
-      
-      dialog.querySelector('#confirm-delete').onclick = () => {
+
+      (dialog.querySelector('#confirm-delete') as HTMLElement).onclick = () => {
         document.body.removeChild(dialog);
         resolve(true);
       };
-      
+
       // Close on background click
-      dialog.onclick = (e) => {
+      dialog.onclick = (e: MouseEvent) => {
         if (e.target === dialog) {
           document.body.removeChild(dialog);
           resolve(false);
         }
       };
     });
-    
+
     if (!confirmed) return;
-    
+
     try {
       setLoading(true);
       console.log('[UnifiedAgentPanel] Deleting agent:', agentId);
       const result = await userAgentService.deleteAgent(agentId);
       console.log('[UnifiedAgentPanel] Delete result:', result);
-      
+
       if (selectedAgent && selectedAgent.id === agentId) {
         setSelectedAgent(null);
       }
-      
+
       await loadData();
       setSuccess('Agent deleted successfully');
-      
+
       if (onAgentsUpdated) {
         onAgentsUpdated();
       }
-      
+
     } catch (err) {
       console.error('Failed to delete agent:', err);
-      setError('Failed to delete agent: ' + err.message);
+      setError('Failed to delete agent: ' + (err as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleAgent = async (agentId, enabled) => {
+  const handleToggleAgent = async (agentId: string, enabled: boolean): Promise<void> => {
     try {
       await userAgentService.toggleAgent(agentId, enabled);
       await loadData();
-      
+
       // Update selected agent if it's the one being toggled
       if (selectedAgent && selectedAgent.id === agentId) {
         setSelectedAgent({ ...selectedAgent, enabled });
       }
-      
+
       if (onAgentsUpdated) {
         onAgentsUpdated();
       }
-      
+
     } catch (err) {
       console.error('Failed to toggle agent:', err);
       setError('Failed to toggle agent');
     }
   };
 
-  const handleCloneAgent = async (agentId) => {
+  const handleCloneAgent = async (agentId: string): Promise<void> => {
     try {
       const clonedAgent = await userAgentService.cloneAgent(agentId);
       setSelectedAgent(clonedAgent);
       await loadData();
       setSuccess('Agent cloned successfully');
-      
+
       if (onAgentsUpdated) {
         onAgentsUpdated();
       }
@@ -226,15 +235,15 @@ export const UnifiedAgentCustomizationPanel = ({
     }
   };
 
-  const handleExportAgent = async (agentId) => {
+  const handleExportAgent = async (agentId: string): Promise<void> => {
     try {
       const exportData = userAgentService.exportAgent(agentId);
       const agent = agents.find(a => a.id === agentId);
-      
+
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
         type: 'application/json'
       });
-      
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -243,7 +252,7 @@ export const UnifiedAgentCustomizationPanel = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       setSuccess('Agent exported successfully');
     } catch (err) {
       console.error('Failed to export agent:', err);
@@ -251,14 +260,14 @@ export const UnifiedAgentCustomizationPanel = ({
     }
   };
 
-  const handleExportAllAgents = async () => {
+  const handleExportAllAgents = async (): Promise<void> => {
     try {
       const exportData = userAgentService.exportAllAgents();
-      
+
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
         type: 'application/json'
       });
-      
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -267,7 +276,7 @@ export const UnifiedAgentCustomizationPanel = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       setSuccess(`Exported ${exportData.totalAgents} agents successfully`);
     } catch (err) {
       console.error('Failed to export all agents:', err);
@@ -275,26 +284,26 @@ export const UnifiedAgentCustomizationPanel = ({
     }
   };
 
-  const handleImportAgent = async (event) => {
-    const file = event.target.files[0];
+  const handleImportAgent = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0];
     if (!file) return;
-    
+
     try {
       const text = await file.text();
       const config = JSON.parse(text);
-      
+
       // Check if it's a bulk export (multiple agents) or single agent
       if (config.agents && Array.isArray(config.agents)) {
         // Bulk import
         const results = await userAgentService.importMultipleAgents(config);
         await loadData();
-        
+
         let message = `Imported ${results.imported.length} agent(s) successfully`;
         if (results.errors.length > 0) {
-          message += `. ${results.errors.length} failed: ${results.errors.map(e => e.agentName).join(', ')}`;
+          message += `. ${results.errors.length} failed: ${results.errors.map((e: { agentName: string; error: string }) => e.agentName).join(', ')}`;
         }
         setSuccess(message);
-        
+
         // Select first imported agent
         if (results.imported.length > 0) {
           setSelectedAgent(results.imported[0]);
@@ -306,20 +315,20 @@ export const UnifiedAgentCustomizationPanel = ({
         await loadData();
         setSuccess(`Agent "${importedAgent.name}" imported successfully`);
       }
-      
+
       if (onAgentsUpdated) {
         onAgentsUpdated();
       }
     } catch (err) {
       console.error('Failed to import agent(s):', err);
-      setError(err.message || 'Failed to import agent(s). Please check the file format.');
+      setError((err as Error).message || 'Failed to import agent(s). Please check the file format.');
     }
-    
+
     // Reset file input
     event.target.value = '';
   };
 
-  const handleEditAgent = (agent) => {
+  const handleEditAgent = (agent: UserAgent): void => {
     setSelectedAgent(agent);
     setEditForm({
       name: agent.name,
@@ -336,8 +345,8 @@ export const UnifiedAgentCustomizationPanel = ({
     setShowTemplates(false);
   };
 
-  const getCategoryIcon = (category) => {
-    const icons = {
+  const getCategoryIcon = (category: string): React.ComponentType => {
+    const icons: Record<string, React.ComponentType> = {
       writing: FileText,
       logic: Brain,
       research: Search,
@@ -347,10 +356,10 @@ export const UnifiedAgentCustomizationPanel = ({
     return icons[category] || Settings;
   };
 
-  const getTierBadgeColor = (tier) => {
-    const colors = {
+  const getTierBadgeColor = (tier: string): string => {
+    const colors: Record<string, string> = {
       fast: 'bg-gray-100 text-gray-700',
-      standard: 'bg-gray-100 text-gray-700', 
+      standard: 'bg-gray-100 text-gray-700',
       premium: 'bg-gray-100 text-gray-700'
     };
     return colors[tier] || 'bg-gray-100 text-gray-700';
@@ -436,7 +445,7 @@ export const UnifiedAgentCustomizationPanel = ({
                 id="import-agent-input"
               />
               <button
-                onClick={() => document.getElementById('import-agent-input').click()}
+                onClick={() => document.getElementById('import-agent-input')!.click()}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium"
               >
                 <Upload className="w-4 h-4" />
@@ -489,7 +498,7 @@ export const UnifiedAgentCustomizationPanel = ({
             <div className="p-3 bg-blue-50 border-b border-blue-100">
               <h3 className="font-medium text-blue-900 text-sm">My Agents ({agents.length})</h3>
             </div>
-            
+
             {agents.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <Settings className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -516,7 +525,7 @@ export const UnifiedAgentCustomizationPanel = ({
                           <span className="text-lg">{agent.icon}</span>
                           <h4 className="font-medium text-gray-900 text-sm">{agent.name}</h4>
                           <button
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
                               handleToggleAgent(agent.id, !agent.enabled);
                             }}
@@ -545,10 +554,10 @@ export const UnifiedAgentCustomizationPanel = ({
                           </span>
                         </div>
                       </div>
-                      
+
                       <div className="flex flex-col gap-1 ml-2">
                         <button
-                          onClick={(e) => {
+                          onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
                             handleEditAgent(agent);
                           }}
@@ -558,7 +567,7 @@ export const UnifiedAgentCustomizationPanel = ({
                           <Edit3 className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={(e) => {
+                          onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
                             handleCloneAgent(agent.id);
                           }}
@@ -568,7 +577,7 @@ export const UnifiedAgentCustomizationPanel = ({
                           <Copy className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={(e) => {
+                          onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
                             handleExportAgent(agent.id);
                           }}
@@ -578,7 +587,7 @@ export const UnifiedAgentCustomizationPanel = ({
                           <Download className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={(e) => {
+                          onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
                             handleDeleteAgent(agent.id);
                           }}
@@ -697,8 +706,8 @@ export const UnifiedAgentCustomizationPanel = ({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Agent Prompt
                       <span className="text-xs text-gray-500 ml-2">
-                        <br></br>• Give your agent clear instructions on how to support your writing. Try to give the agent a singular and well-defined set of instructions. 
-                        <br></br>• Your agent will automatically be aware of your current writing sample and your writing aims. 
+                        <br></br>• Give your agent clear instructions on how to support your writing. Try to give the agent a singular and well-defined set of instructions.
+                        <br></br>• Your agent will automatically be aware of your current writing sample and your writing aims.
                         <br></br>• We will automatically format and parse your feedback.
                       </span>
                     </label>
@@ -757,7 +766,7 @@ export const UnifiedAgentCustomizationPanel = ({
                       {selectedAgent.prompt}
                     </pre>
                   </div>
-                  
+
                   {selectedAgent.templateOrigin && (
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Template Origin</h4>
@@ -766,7 +775,7 @@ export const UnifiedAgentCustomizationPanel = ({
                       </p>
                     </div>
                   )}
-                  
+
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="font-medium text-gray-700">Category:</span>

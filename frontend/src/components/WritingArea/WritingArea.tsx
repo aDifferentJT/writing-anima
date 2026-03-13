@@ -3,27 +3,36 @@ import { FileEdit } from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
+import { FeedbackItem, FeedbackPosition, HighlightData } from '../../types';
 
-const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [], hoveredFeedback = null }) => {
-  const editorRef = useRef(null);
-  const textareaRef = useRef(null);
-  const highlightOverlayRef = useRef(null);
-  const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
-  const cycleIntervalRef = useRef(null);
+interface WritingAreaProps {
+  content: string;
+  onContentChange: (value: string) => void;
+  autoFocus?: boolean;
+  feedback?: FeedbackItem[];
+  hoveredFeedback?: string | null;
+}
+
+const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, autoFocus = false, feedback = [], hoveredFeedback = null }) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const highlightOverlayRef = useRef<HTMLDivElement>(null);
+  const [currentPositionIndex, setCurrentPositionIndex] = useState<number>(0);
+  const cycleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Memoize highlights to prevent recalculation on every render
-  const highlights = useMemo(() => {
+  const highlights: HighlightData[] = useMemo(() => {
     if (!content || feedback.length === 0) {
       return [];
     }
 
-    const result = [];
+    const result: HighlightData[] = [];
 
     // Collect all feedback positions (supporting both single and multi-position formats)
-    feedback.forEach((item) => {
-      const positions = item.positions || (item.position ? [item.position] : []);
+    feedback.forEach((item: FeedbackItem) => {
+      const positions: FeedbackPosition[] = item.positions || (item.position ? [item.position] : []);
 
-      positions.forEach((position, positionIndex) => {
+      positions.forEach((position: FeedbackPosition, positionIndex: number) => {
         if (position.start !== undefined && position.end !== undefined) {
           const start = Math.max(0, Math.min(position.start, content.length));
           const end = Math.max(start, Math.min(position.end, content.length));
@@ -76,13 +85,13 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
       });
     });
 
-    return result.sort((a, b) => a.start - b.start);
+    return result.sort((a: HighlightData, b: HighlightData) => a.start - b.start);
   }, [content, feedback, hoveredFeedback, currentPositionIndex]);
 
   // Get textarea reference after MDEditor mounts
   useEffect(() => {
     if (editorRef.current) {
-      const textarea = editorRef.current.querySelector('.w-md-editor-text-input');
+      const textarea = editorRef.current.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null;
       if (textarea) {
         textareaRef.current = textarea;
       }
@@ -113,9 +122,9 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
     }
 
     if (hoveredFeedback && textareaRef.current) {
-      const hoveredFeedbackData = feedback.find(f => f.id === hoveredFeedback);
+      const hoveredFeedbackData = feedback.find((f: FeedbackItem) => f.id === hoveredFeedback);
       if (hoveredFeedbackData) {
-        let positions;
+        let positions: FeedbackPosition[] | undefined;
         if (hoveredFeedbackData.positions && hoveredFeedbackData.positions.length > 0) {
           positions = hoveredFeedbackData.positions;
         } else if (hoveredFeedbackData.position) {
@@ -125,8 +134,8 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
         if (positions && positions.length > 0) {
           setCurrentPositionIndex(0);
 
-          const scrollToPosition = (positionIndex) => {
-            const targetPosition = positions[positionIndex];
+          const scrollToPosition = (positionIndex: number) => {
+            const targetPosition = positions![positionIndex];
             if (targetPosition && textareaRef.current) {
               // Calculate approximate line to scroll to
               const textBeforeHighlight = content.substring(0, targetPosition.start);
@@ -144,7 +153,7 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
           if (positions.length > 1) {
             let currentIndex = 0;
             cycleIntervalRef.current = setInterval(() => {
-              currentIndex = (currentIndex + 1) % positions.length;
+              currentIndex = (currentIndex + 1) % positions!.length;
               setCurrentPositionIndex(currentIndex);
               scrollToPosition(currentIndex);
             }, 2000);
@@ -165,7 +174,7 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
 
   useEffect(() => {
     if (autoFocus && editorRef.current) {
-      const textarea = editorRef.current.querySelector('.w-md-editor-text-input');
+      const textarea = editorRef.current.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null;
       if (textarea) {
         textarea.focus();
       }
@@ -173,13 +182,13 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
   }, [autoFocus]);
 
   // Render highlight overlays based on character positions
-  const renderHighlightOverlays = useCallback(() => {
+  const renderHighlightOverlays = useCallback((): React.ReactNode => {
     if (!content || highlights.length === 0) return null;
 
     const lines = content.split('\n');
-    const elements = [];
+    const elements: React.ReactElement[] = [];
 
-    highlights.forEach((highlight, idx) => {
+    highlights.forEach((highlight: HighlightData, idx: number) => {
       // Calculate line and column positions
       let currentPos = 0;
       let startLine = 0;
@@ -242,11 +251,11 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
     return elements;
   }, [content, highlights]);
 
-  const getHighlightClass = (type, severity, isHovered, isCurrentPosition) => {
+  const getHighlightClass = (type: string, severity: string, isHovered: boolean, isCurrentPosition: boolean): string => {
     const baseClasses = 'rounded transition-all duration-300';
 
     // Base type colors with proper opacity
-    const typeColors = {
+    const typeColors: Record<string, string> = {
       intellectual: 'bg-purple-200',
       stylistic: 'bg-blue-200',
       inquiry_integration: 'bg-green-200',
@@ -256,7 +265,7 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
     };
 
     // Opacity based on severity (always visible)
-    const severityOpacity = {
+    const severityOpacity: Record<string, string> = {
       high: 'opacity-60',
       medium: 'opacity-50',
       low: 'opacity-40'
@@ -287,7 +296,7 @@ const WritingArea = ({ content, onContentChange, autoFocus = false, feedback = [
       <div className="relative h-[calc(100%-36px)]" data-color-mode="dark" ref={editorRef}>
         <MDEditor
           value={content}
-          onChange={onContentChange}
+          onChange={(val) => onContentChange(val ?? '')}
           height="100%"
           preview="edit"
           hideToolbar={false}

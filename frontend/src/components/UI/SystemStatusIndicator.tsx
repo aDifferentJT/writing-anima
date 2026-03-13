@@ -4,21 +4,32 @@
  */
 
 import React from 'react';
+import type { SystemMetrics } from '../../types';
 
-export const SystemStatusIndicator = ({ 
-  systemReady, 
-  metrics, 
-  error, 
-  analysisMode, 
-  onModeChange 
+type AnalysisMode = 'quick' | 'progressive' | 'thorough';
+
+interface SystemStatusIndicatorProps {
+  systemReady: boolean;
+  metrics?: SystemMetrics;
+  error?: Error | null;
+  analysisMode: AnalysisMode;
+  onModeChange: (mode: AnalysisMode) => void;
+}
+
+export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
+  systemReady,
+  metrics,
+  error,
+  analysisMode,
+  onModeChange
 }) => {
-  const getStatusColor = () => {
+  const getStatusColor = (): string => {
     if (error) return 'text-red-600 bg-red-50';
     if (!systemReady) return 'text-yellow-600 bg-yellow-50';
     return 'text-green-600 bg-green-50';
   };
 
-  const getStatusIcon = () => {
+  const getStatusIcon = (): React.ReactElement => {
     if (error) {
       return (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,7 +37,7 @@ export const SystemStatusIndicator = ({
         </svg>
       );
     }
-    
+
     if (!systemReady) {
       return (
         <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +45,7 @@ export const SystemStatusIndicator = ({
         </svg>
       );
     }
-    
+
     return (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -42,14 +53,14 @@ export const SystemStatusIndicator = ({
     );
   };
 
-  const getStatusText = () => {
+  const getStatusText = (): string => {
     if (error) return 'System Error';
     if (!systemReady) return 'Initializing...';
     return 'Ready';
   };
 
-  const getModeColor = (mode) => {
-    const colors = {
+  const getModeColor = (mode: string): string => {
+    const colors: Record<string, string> = {
       'quick': 'bg-blue-100 text-blue-800',
       'progressive': 'bg-green-100 text-green-800',
       'thorough': 'bg-purple-100 text-purple-800'
@@ -57,8 +68,8 @@ export const SystemStatusIndicator = ({
     return colors[mode] || 'bg-gray-100 text-gray-800';
   };
 
-  const getModeDescription = (mode) => {
-    const descriptions = {
+  const getModeDescription = (mode: string): string => {
+    const descriptions: Record<string, string> = {
       'quick': 'Fast agents only (1-3s)',
       'progressive': 'Fast then research (1-30s)',
       'thorough': 'Full analysis (15-60s)'
@@ -68,14 +79,14 @@ export const SystemStatusIndicator = ({
 
   return (
     <div className="flex items-center space-x-4">
-      
+
       {/* System Status */}
       <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${getStatusColor()}`}>
         {getStatusIcon()}
         <span className="text-sm font-medium">
           {getStatusText()}
         </span>
-        
+
         {/* Agent Count */}
         {systemReady && metrics && (
           <span className="text-xs opacity-75">
@@ -89,7 +100,7 @@ export const SystemStatusIndicator = ({
         <div className="flex items-center space-x-2">
           <span className="text-sm text-gray-600">Mode:</span>
           <div className="flex items-center space-x-1">
-            {['quick', 'progressive', 'thorough'].map((mode) => (
+            {(['quick', 'progressive', 'thorough'] as AnalysisMode[]).map((mode: AnalysisMode) => (
               <button
                 key={mode}
                 onClick={() => onModeChange(mode)}
@@ -110,12 +121,12 @@ export const SystemStatusIndicator = ({
       {/* Performance Metrics */}
       {systemReady && metrics && (
         <div className="flex items-center space-x-3 text-xs text-gray-500 border-l border-gray-200 pl-3">
-          
+
           {/* Success Rate */}
           <div className="flex items-center space-x-1">
             <span>Success:</span>
             <span className={`font-medium ${
-              (metrics.orchestrator?.successRate || 0) > 0.8 ? 'text-green-600' : 
+              (metrics.orchestrator?.successRate || 0) > 0.8 ? 'text-green-600' :
               (metrics.orchestrator?.successRate || 0) > 0.6 ? 'text-yellow-600' : 'text-red-600'
             }`}>
               {Math.round((metrics.orchestrator?.successRate || 0) * 100)}%

@@ -11,17 +11,23 @@ import {
 import CreatePersonaModal from "./CreatePersonaModal";
 import CorpusUploadModal from "./CorpusUploadModal";
 import AnimaChat from "../AnimaChat/AnimaChat";
+import type { Persona } from "../../types";
 
-const PersonaManager = () => {
-  const [personas, setPersonas] = useState([]);
-  const [selectedPersona, setSelectedPersona] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("created");
+interface PersonaCreateData {
+  name: string;
+  description: string | null;
+}
+
+const PersonaManager: React.FC = () => {
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
+  const [showChat, setShowChat] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("created");
 
   const loadPersonas = useCallback(async () => {
     try {
@@ -40,9 +46,9 @@ const PersonaManager = () => {
       const data = await response.json();
       console.log("Loaded animas:", data.personas);
       setPersonas(data.personas || []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error loading animas:", err);
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -52,7 +58,7 @@ const PersonaManager = () => {
     loadPersonas();
   }, [loadPersonas]);
 
-  const handleCreatePersona = async (personaData) => {
+  const handleCreatePersona = async (personaData: PersonaCreateData) => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
       const response = await fetch(`${API_URL}/api/personas`, {
@@ -69,20 +75,20 @@ const PersonaManager = () => {
         throw new Error("Failed to create anima");
       }
 
-      const newPersona = await response.json();
+      const newPersona: Persona = await response.json();
       setPersonas((prev) => [...prev, newPersona]);
       setShowCreateModal(false);
 
       // Automatically open upload modal for new anima
       setSelectedPersona(newPersona);
       setShowUploadModal(true);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error creating anima:", err);
-      alert("Failed to create anima: " + err.message);
+      alert("Failed to create anima: " + (err as Error).message);
     }
   };
 
-  const handleDeletePersona = async (personaId, e) => {
+  const handleDeletePersona = async (personaId: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (
@@ -108,19 +114,19 @@ const PersonaManager = () => {
       if (selectedPersona?.id === personaId) {
         setSelectedPersona(null);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error deleting anima:", err);
-      alert("Failed to delete anima: " + err.message);
+      alert("Failed to delete anima: " + (err as Error).message);
     }
   };
 
-  const handleUploadCorpus = (persona, e) => {
+  const handleUploadCorpus = (persona: Persona, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedPersona(persona);
     setShowUploadModal(true);
   };
 
-  const handleOpenChat = (persona) => {
+  const handleOpenChat = (persona: Persona) => {
     setSelectedPersona(persona);
     setShowChat(true);
   };
@@ -131,12 +137,12 @@ const PersonaManager = () => {
     setShowUploadModal(false);
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return "Unknown";
 
     const date = new Date(dateString);
     const now = new Date();
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
 
     if (diffInMinutes < 1) return "Just now";
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
@@ -163,7 +169,7 @@ const PersonaManager = () => {
           return (b.chunk_count || 0) - (a.chunk_count || 0);
         case "created":
         default:
-          return new Date(b.created_at) - new Date(a.created_at);
+          return new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime();
       }
     });
 
@@ -209,14 +215,14 @@ const PersonaManager = () => {
                 type="text"
                 placeholder="Search..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                 className="obsidian-input w-full pl-8 pr-3"
               />
             </div>
 
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortBy(e.target.value)}
               className="obsidian-input"
             >
               <option value="created">Recent</option>
@@ -302,7 +308,7 @@ const PersonaManager = () => {
                       <div className="text-xs text-obsidian-text-secondary max-w-md truncate">
                         {persona.corpus_available === false
                           ? "Corpus unavailable - click to re-upload"
-                          : persona.description || "—"}
+                          : persona.description || "\u2014"}
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
@@ -318,14 +324,14 @@ const PersonaManager = () => {
                     <td className="px-3 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={(e) => handleUploadCorpus(persona, e)}
+                          onClick={(e: React.MouseEvent) => handleUploadCorpus(persona, e)}
                           className="p-1 text-obsidian-text-muted hover:text-obsidian-accent-primary hover:bg-obsidian-accent-pale rounded transition-colors"
                           title="Edit corpus"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={(e) => handleDeletePersona(persona.id, e)}
+                          onClick={(e: React.MouseEvent) => handleDeletePersona(persona.id, e)}
                           className="p-1 text-obsidian-text-muted hover:text-red-600 hover:bg-red-50/50 rounded transition-colors"
                           title="Delete"
                         >

@@ -5,16 +5,19 @@ import PurposeStep from './components/PurposeStep/PurposeStep';
 import WritingInterface from './components/WritingInterface';
 import PersonaManager from './components/PersonaManager/PersonaManager';
 import projectService from './services/projectService';
+import type { Project, FeedbackItem, Purpose, PurposeData, WritingCriteria } from './types';
 
-function AppContent() {
-  const [currentMode, setCurrentMode] = useState('dashboard'); // 'dashboard' | 'home' | 'writing' | 'personas'
-  const [currentProject, setCurrentProject] = useState(null);
-  const [purpose, setPurpose] = useState('');
-  const [content, setContent] = useState(''); // Lift content state to App level
-  const [feedback, setFeedback] = useState([]); // Lift feedback state to App level
-  const [writingCriteria, setWritingCriteria] = useState(null); // Store writing criteria
-  const [isMonitoring, setIsMonitoring] = useState(true); // Global monitoring state for agents
-  const [isProjectSwitching, setIsProjectSwitching] = useState(false); // Prevent auto-save during project switch
+type AppMode = 'dashboard' | 'home' | 'writing' | 'personas';
+
+function AppContent(): React.ReactElement {
+  const [currentMode, setCurrentMode] = useState<AppMode>('dashboard');
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [purpose, setPurpose] = useState<Purpose>('');
+  const [content, setContent] = useState<string>(''); // Lift content state to App level
+  const [feedback, setFeedback] = useState<FeedbackItem[]>([]); // Lift feedback state to App level
+  const [writingCriteria, setWritingCriteria] = useState<WritingCriteria | null>(null); // Store writing criteria
+  const [isMonitoring, setIsMonitoring] = useState<boolean>(true); // Global monitoring state for agents
+  const [isProjectSwitching, setIsProjectSwitching] = useState<boolean>(false); // Prevent auto-save during project switch
 
   // Auto-save project content and feedback
   useEffect(() => {
@@ -26,10 +29,10 @@ function AppContent() {
 
       const hasContentChanges = content !== currentProject.content;
       const hasFeedbackChanges = JSON.stringify(feedback) !== JSON.stringify(currentProject.feedback || []);
-      
+
       // Check for writing criteria changes
       const hasCriteriaChanges = JSON.stringify(writingCriteria) !== JSON.stringify(currentProject.writingCriteria);
-      
+
       if (hasContentChanges || hasFeedbackChanges || hasCriteriaChanges) {
         try {
           // Save writing criteria if they changed
@@ -37,16 +40,16 @@ function AppContent() {
             console.log('Auto-saving writing criteria');
             await projectService.updateWritingCriteria(currentProject.id, writingCriteria);
           }
-          
+
           // Then save other project data
           await projectService.updateProject(currentProject.id, {
             content,
             feedback,
             purpose
           });
-          
+
           // Update current project reference to avoid repeated saves
-          setCurrentProject(prev => {
+          setCurrentProject((prev: Project | null) => {
             if (!prev) return prev; // Guard against null
             return {
               ...prev,
@@ -63,9 +66,9 @@ function AppContent() {
     }, 3000); // Auto-save every 3 seconds
 
     return () => clearInterval(autoSaveInterval);
-  }, [currentProject, currentUser, content, feedback, purpose, writingCriteria, isProjectSwitching]);
+  }, [currentProject, content, feedback, purpose, writingCriteria, isProjectSwitching]);
 
-  const handleSelectProject = async (project) => {
+  const handleSelectProject = async (project: Project): Promise<void> => {
     try {
       // Safely handle null project
       if (!project) {
@@ -90,7 +93,7 @@ function AppContent() {
       setContent(project.content || '');
       setFeedback(project.feedback || []); // Load saved feedback
       setWritingCriteria(project.writingCriteria || null); // Load saved writing criteria
-      
+
       setCurrentMode(project.purpose ? 'writing' : 'home');
       console.log('Project loaded successfully, mode set to:', project.purpose ? 'writing' : 'home');
 
@@ -112,7 +115,7 @@ function AppContent() {
     }
   };
 
-  const handleCreateProject = (project) => {
+  const handleCreateProject = (project: Project): void => {
     if (!project) {
       console.error('[App] handleCreateProject called with null project');
       return;
@@ -134,13 +137,13 @@ function AppContent() {
     setTimeout(() => setIsProjectSwitching(false), 100);
   };
 
-  const handlePurposeSubmit = async (purposeText) => {
+  const handlePurposeSubmit = async (purposeText: Purpose): Promise<void> => {
     setPurpose(purposeText);
 
     // Generate title from purpose (handle both string and object formats)
     let projectTitle = 'Untitled Project';
     if (typeof purposeText === 'object' && purposeText !== null) {
-      projectTitle = purposeText.topic?.substring(0, 50) || 'Untitled Project';
+      projectTitle = (purposeText as PurposeData).topic?.substring(0, 50) || 'Untitled Project';
     } else if (typeof purposeText === 'string') {
       projectTitle = purposeText.split('.')[0].substring(0, 50) || 'Untitled Project';
     }
@@ -156,11 +159,11 @@ function AppContent() {
     setCurrentMode('writing');
   };
 
-  const handleBackToHome = () => {
+  const handleBackToHome = (): void => {
     setCurrentMode(currentProject ? 'home' : 'dashboard');
   };
 
-  const handleBackToDashboard = async () => {
+  const handleBackToDashboard = async (): Promise<void> => {
     // Set flag to prevent auto-save during transition
     setIsProjectSwitching(true);
 
@@ -172,8 +175,8 @@ function AppContent() {
           purpose,
           feedback, // Save current feedback
           title: typeof purpose === 'object' && purpose !== null
-            ? (purpose.topic?.substring(0, 50) || currentProject.title)
-            : (purpose?.split('.')[0].substring(0, 50) || currentProject.title)
+            ? ((purpose as PurposeData).topic?.substring(0, 50) || currentProject.title)
+            : ((purpose as string)?.split('.')[0].substring(0, 50) || currentProject.title)
         });
       } catch (error) {
         console.error('Failed to save project:', error);
@@ -192,8 +195,8 @@ function AppContent() {
   };
 
   // Stable callback for feedback generation
-  const handleFeedbackGenerated = useCallback((insights) => {
-    const newFeedback = insights.map(insight => ({
+  const handleFeedbackGenerated = useCallback((insights: FeedbackItem[]): void => {
+    const newFeedback: FeedbackItem[] = insights.map((insight: FeedbackItem) => ({
       ...insight,
       id: insight.id || `flow-${Date.now()}-${Math.random()}`,
       timestamp: insight.timestamp || new Date().toISOString(),
@@ -201,10 +204,10 @@ function AppContent() {
       source: 'flow' // Mark as coming from flow execution
     }));
 
-    setFeedback(prev => [...prev, ...newFeedback]);
+    setFeedback((prev: FeedbackItem[]) => [...prev, ...newFeedback]);
   }, []);
 
-  const renderNavigation = () => (
+  const renderNavigation = (): React.ReactElement => (
     <div className="bg-obsidian-surface border-b border-obsidian-border px-2 py-2">
       <div className="mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -278,10 +281,10 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {currentMode !== 'dashboard' && renderNavigation()}
-      
+
       <div className={currentMode !== 'dashboard' ? 'h-[calc(100vh-80px)]' : 'h-screen'}>
         {currentMode === 'dashboard' ? (
-          <ProjectDashboard 
+          <ProjectDashboard
             onSelectProject={handleSelectProject}
             onCreateProject={handleCreateProject}
           />
@@ -315,7 +318,7 @@ function AppContent() {
   );
 }
 
-function App() {
+function App(): React.ReactElement {
   return (
     <AppContent />
   );

@@ -1,26 +1,33 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, Send, MessageCircle } from "lucide-react";
 import animaService from "../../services/animaService";
+import type { ChatMessage, ModelInfo, Persona } from "../../types";
 
-const AnimaChat = ({ isOpen, onClose, persona }) => {
-  const [messages, setMessages] = useState([]);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [availableModels, setAvailableModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState(null);
+interface AnimaChatProps {
+  isOpen: boolean;
+  onClose: () => void;
+  persona: Persona | null;
+}
 
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
-  const panelRef = useRef(null);
-  const streamingRef = useRef("");
+const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streamingContent, setStreamingContent] = useState<string>("");
+  const [input, setInput] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const streamingRef = useRef<string>("");
 
   // Load available models once
   useEffect(() => {
     animaService
       .getAvailableModels()
-      .then((models) => setAvailableModels(models))
+      .then((models: ModelInfo[]) => setAvailableModels(models))
       .catch(() => {
         setAvailableModels([
           { id: "gpt-5", name: "GPT-5", provider: "openai" },
@@ -47,13 +54,13 @@ const AnimaChat = ({ isOpen, onClose, persona }) => {
 
   // Scroll to bottom on new messages or streaming content
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" as ScrollBehavior });
   }, [messages, streamingContent]);
 
   // Escape key handler
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -64,7 +71,7 @@ const AnimaChat = ({ isOpen, onClose, persona }) => {
     const text = input.trim();
     if (!text || loading || !persona) return;
 
-    const userMessage = { role: "user", content: text };
+    const userMessage: ChatMessage = { role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
@@ -83,11 +90,11 @@ const AnimaChat = ({ isOpen, onClose, persona }) => {
         persona.id,
         history,
         {
-          onToken: (token) => {
+          onToken: (token: string) => {
             streamingRef.current += token;
             setStreamingContent(streamingRef.current);
           },
-          onComplete: (fullResponse) => {
+          onComplete: (fullResponse: string) => {
             setMessages((prev) => [
               ...prev,
               { role: "assistant", content: fullResponse },
@@ -96,7 +103,7 @@ const AnimaChat = ({ isOpen, onClose, persona }) => {
             streamingRef.current = "";
             setLoading(false);
           },
-          onError: (err) => {
+          onError: (err: Error) => {
             console.error("Chat stream error:", err);
             // If we had partial content, keep it as a message
             if (streamingRef.current) {
@@ -111,16 +118,16 @@ const AnimaChat = ({ isOpen, onClose, persona }) => {
             setLoading(false);
           },
         },
-        selectedModel,
+        selectedModel ?? "gpt-5",
       );
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Chat error:", err);
-      setError(err.message || "Failed to connect");
+      setError((err as Error).message || "Failed to connect");
       setLoading(false);
     }
   }, [input, loading, persona, messages, selectedModel]);
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -158,7 +165,7 @@ const AnimaChat = ({ isOpen, onClose, persona }) => {
           </div>
           <select
             value={selectedModel || ""}
-            onChange={(e) => setSelectedModel(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModel(e.target.value)}
             className="obsidian-input text-xs py-1 px-2 max-w-[200px]"
             disabled={loading}
           >
@@ -264,7 +271,7 @@ const AnimaChat = ({ isOpen, onClose, persona }) => {
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={`Message ${persona?.name || "anima"}...`}
               rows={1}
@@ -273,10 +280,11 @@ const AnimaChat = ({ isOpen, onClose, persona }) => {
                 height: "auto",
                 minHeight: "36px",
               }}
-              onInput={(e) => {
-                e.target.style.height = "auto";
-                e.target.style.height =
-                  Math.min(e.target.scrollHeight, 128) + "px";
+              onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = "auto";
+                target.style.height =
+                  Math.min(target.scrollHeight, 128) + "px";
               }}
               disabled={loading}
             />

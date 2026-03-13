@@ -1,23 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  FileText, 
-  Clock, 
-  Edit3, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  FileText,
+  Clock,
+  Edit3,
+  Trash2,
   Copy,
   ArrowRight,
   Filter
 } from 'lucide-react';
 import projectService from '../../services/projectService';
+import type { Project, Purpose } from '../../types';
 
-const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('list'); // 'grid' or 'list'
-  const [sortBy, setSortBy] = useState('lastAccessed'); // 'lastAccessed', 'created', 'title'
+interface ProjectDashboardProps {
+  onSelectProject: (project: Project) => void;
+  onCreateProject?: (project: Project) => void;
+}
+
+const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, onCreateProject }) => {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [viewMode, setViewMode] = useState<string>('list'); // 'grid' or 'list'
+  const [sortBy, setSortBy] = useState<string>('lastAccessed'); // 'lastAccessed', 'created', 'title'
 
   useEffect(() => {
     loadProjects();
@@ -36,8 +42,8 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
 
   const handleCreateProject = async () => {
     try {
-      const newProject = await projectService.createProject();
-      
+      const newProject: Project = await projectService.createProject();
+
       setProjects(prev => [newProject, ...prev]);
       onCreateProject?.(newProject);
     } catch (error) {
@@ -45,9 +51,9 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
     }
   };
 
-  const handleDeleteProject = async (projectId, e) => {
+  const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (window.confirm('Are you sure you want to delete this project?')) {
       try {
         await projectService.deleteProject(projectId);
@@ -58,56 +64,57 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
     }
   };
 
-  const handleDuplicateProject = async (projectId, e) => {
+  const handleDuplicateProject = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     try {
-      const duplicatedProject = await projectService.duplicateProject(projectId);
+      const duplicatedProject: Project = await projectService.duplicateProject(projectId);
       setProjects(prev => [duplicatedProject, ...prev]);
     } catch (error) {
       console.error('Error duplicating project:', error);
     }
   };
 
-  const formatDate = (date) => {
+  const formatDate = (date: string | Date | undefined): string => {
     if (!date) return 'Unknown';
-    
+
+    const dateObj = date instanceof Date ? date : new Date(date);
     const now = new Date();
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    
+    const diffInMinutes = Math.floor((now.getTime() - dateObj.getTime()) / (1000 * 60));
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
     if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d ago`;
-    
-    return date.toLocaleDateString();
+
+    return dateObj.toLocaleDateString();
   };
 
-  const formatPurpose = (purpose) => {
+  const formatPurpose = (purpose: Purpose | null): string => {
     if (!purpose) return 'No purpose defined';
-    
+
     if (typeof purpose === 'object' && purpose !== null) {
-      const parts = [];
+      const parts: string[] = [];
       if (purpose.topic) parts.push(purpose.topic);
       if (purpose.context) parts.push(`(${purpose.context})`);
       return parts.join(' ') || 'No purpose defined';
     }
-    
+
     return purpose;
   };
 
-  const getPurposeSearchText = (purpose) => {
+  const getPurposeSearchText = (purpose: Purpose | null): string => {
     if (!purpose) return '';
-    
+
     if (typeof purpose === 'object' && purpose !== null) {
       return `${purpose.topic || ''} ${purpose.context || ''}`.toLowerCase();
     }
-    
+
     return purpose.toLowerCase();
   };
 
   const filteredAndSortedProjects = projects
-    .filter(project => 
+    .filter(project =>
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       getPurposeSearchText(project.purpose).includes(searchTerm.toLowerCase())
     )
@@ -116,10 +123,10 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
         case 'title':
           return a.title.localeCompare(b.title);
         case 'created':
-          return new Date(b.createdAt) - new Date(a.createdAt);
+          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
         case 'lastAccessed':
         default:
-          return new Date(b.lastAccessedAt) - new Date(a.lastAccessedAt);
+          return new Date(b.lastAccessedAt || '').getTime() - new Date(a.lastAccessedAt || '').getTime();
       }
     });
 
@@ -164,14 +171,14 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
                 type="text"
                 placeholder="Search..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                 className="obsidian-input w-full pl-8 pr-3"
               />
             </div>
 
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortBy(e.target.value)}
               className="obsidian-input"
             >
               <option value="lastAccessed">Recent</option>
@@ -238,7 +245,7 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="text-xs text-obsidian-text-secondary max-w-md truncate">
-                        {formatPurpose(project.purpose) || '—'}
+                        {formatPurpose(project.purpose) || '\u2014'}
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
@@ -254,14 +261,14 @@ const ProjectDashboard = ({ onSelectProject, onCreateProject }) => {
                     <td className="px-3 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={(e) => handleDuplicateProject(project.id, e)}
+                          onClick={(e: React.MouseEvent) => handleDuplicateProject(project.id, e)}
                           className="p-1 text-obsidian-text-muted hover:text-obsidian-accent-primary hover:bg-obsidian-accent-pale rounded transition-colors"
                           title="Duplicate"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={(e) => handleDeleteProject(project.id, e)}
+                          onClick={(e: React.MouseEvent) => handleDeleteProject(project.id, e)}
                           className="p-1 text-obsidian-text-muted hover:text-red-600 hover:bg-red-50/50 rounded transition-colors"
                           title="Delete"
                         >

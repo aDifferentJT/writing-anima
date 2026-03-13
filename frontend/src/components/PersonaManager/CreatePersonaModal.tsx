@@ -1,14 +1,25 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 
-const CreatePersonaModal = ({ isOpen, onClose, onCreate }) => {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+interface CreatePersonaData {
+  name: string;
+  description: string | null;
+}
+
+interface CreatePersonaModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (data: CreatePersonaData) => Promise<void>;
+}
+
+const CreatePersonaModal: React.FC<CreatePersonaModalProps> = ({ isOpen, onClose, onCreate }) => {
+  const [name, setName] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -58,7 +69,7 @@ const CreatePersonaModal = ({ isOpen, onClose, onCreate }) => {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
               placeholder="e.g., Hemingway, Academic Writer, Technical Documentation"
               className="w-full px-4 py-2 bg-obsidian-bg border border-obsidian-border text-obsidian-text-primary placeholder-obsidian-text-muted focus:outline-none focus:border-obsidian-accent-primary"
               maxLength={100}
@@ -75,7 +86,7 @@ const CreatePersonaModal = ({ isOpen, onClose, onCreate }) => {
             </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
               placeholder="e.g., Short, direct sentences with minimal adjectives"
               className="w-full px-4 py-2 bg-obsidian-bg border border-obsidian-border text-obsidian-text-primary placeholder-obsidian-text-muted focus:outline-none focus:border-obsidian-accent-primary resize-none"
               rows={3}

@@ -8,16 +8,23 @@ import {
   ChevronUp,
   AlertCircle,
 } from "lucide-react";
+import { ThoughtStep } from "../../types";
+
+interface ThoughtProcessProps {
+  steps: ThoughtStep[] | null;
+  isAnalyzing: boolean;
+  model?: string;
+}
 
 /**
  * Displays the internal thought process of Anima analysis
  * Shows latest step inline, with expandable view to see all steps
  * The latest status is ALWAYS visible and auto-updates as new statuses arrive
  */
-const ThoughtProcess = ({ steps, isAnalyzing, model }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isFlashing, setIsFlashing] = useState(false);
-  const prevStepsLength = useRef(steps?.length || 0);
+const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, model }) => {
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isFlashing, setIsFlashing] = useState<boolean>(false);
+  const prevStepsLength = useRef<number>(steps?.length || 0);
 
   // Flash animation when new steps arrive
   useEffect(() => {
@@ -40,7 +47,7 @@ const ThoughtProcess = ({ steps, isAnalyzing, model }) => {
   // Count search steps specifically
   const searchSteps = steps.filter((s) => s.type === "search");
 
-  const getStepIcon = (step, size = "w-3.5 h-3.5", showSpinner = true) => {
+  const getStepIcon = (step: ThoughtStep, size: string = "w-3.5 h-3.5", showSpinner: boolean = true): React.ReactNode => {
     if (step.type === "search") {
       return <Search className={`${size} text-obsidian-accent-primary`} />;
     } else if (step.type === "generate") {

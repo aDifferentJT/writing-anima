@@ -3,8 +3,18 @@
  * Manages user-created agents with simple prompt editing
  */
 
+import type {
+  UserAgent,
+  AgentConfig,
+  AgentTemplate,
+  AgentExport,
+  BulkAgentExport,
+  ImportResults,
+  AgentStats,
+} from '../types';
+
 // Agent templates (formerly built-in agents)
-export const AGENT_TEMPLATES = {
+export const AGENT_TEMPLATES: Record<string, AgentTemplate> = {
   clarity_style: {
     id: 'clarity_style',
     name: 'Clarity & Style Agent',
@@ -20,7 +30,7 @@ IMPORTANT: Do NOT analyze factual content, claims, evidence, or arguments. Focus
 
 Your EXCLUSIVE focus areas:
 1. GRAMMAR: Subject-verb agreement, comma splices, apostrophe errors, run-on sentences
-2. CLARITY: Sentence length, word choice, redundancy, vague language  
+2. CLARITY: Sentence length, word choice, redundancy, vague language
 3. STYLE: Passive voice, weak verbs, wordiness, sentence variety
 4. READABILITY: Complex words, jargon, flow between sentences
 
@@ -53,7 +63,7 @@ REMEMBER: You are analyzing HOW the text is written, never WHAT the text claims.
 
 Common fallacies to detect:
 - Ad Hominem: Attacking the person instead of their argument
-- Straw Man: Misrepresenting someone's position to make it easier to attack  
+- Straw Man: Misrepresenting someone's position to make it easier to attack
 - False Dichotomy: Presenting only two options when more exist
 - Slippery Slope: Claiming one event will lead to extreme consequences
 - Appeal to Authority: Using authority as evidence without expertise relevance
@@ -180,6 +190,8 @@ For each effectiveness issue or strength:
 };
 
 class UserAgentService {
+  private userAgents: Record<string, UserAgent>;
+
   constructor() {
     this.userAgents = this.loadUserAgents();
   }
@@ -187,7 +199,7 @@ class UserAgentService {
   /**
    * Load user-created agents from storage
    */
-  loadUserAgents() {
+  loadUserAgents(): Record<string, UserAgent> {
     try {
       const stored = localStorage.getItem('userAgents');
       return stored ? JSON.parse(stored) : {};
@@ -200,7 +212,7 @@ class UserAgentService {
   /**
    * Save user agents to storage
    */
-  saveUserAgents() {
+  saveUserAgents(): void {
     try {
       localStorage.setItem('userAgents', JSON.stringify(this.userAgents));
     } catch (error) {
@@ -211,26 +223,26 @@ class UserAgentService {
   /**
    * Get all available templates
    */
-  getTemplates() {
+  getTemplates(): AgentTemplate[] {
     return Object.values(AGENT_TEMPLATES);
   }
 
   /**
    * Get all user-created agents
    */
-  getAllAgents() {
-    return Object.values(this.userAgents).sort((a, b) => 
-      new Date(b.lastModified) - new Date(a.lastModified)
+  getAllAgents(): UserAgent[] {
+    return Object.values(this.userAgents).sort((a, b) =>
+      new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
     );
   }
 
   /**
    * Create a new agent from scratch or template
    */
-  createAgent(config) {
+  createAgent(config: AgentConfig): UserAgent {
     const agentId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const agent = {
+
+    const agent: UserAgent = {
       id: agentId,
       name: config.name || 'New Agent',
       description: config.description || 'Custom agent',
@@ -256,7 +268,7 @@ class UserAgentService {
   /**
    * Create agent from template
    */
-  createFromTemplate(templateId, customizations = {}) {
+  createFromTemplate(templateId: string, customizations: AgentConfig = {}): UserAgent {
     const template = AGENT_TEMPLATES[templateId];
     if (!template) {
       throw new Error(`Template ${templateId} not found`);
@@ -275,21 +287,21 @@ class UserAgentService {
   /**
    * Update existing agent
    */
-  updateAgent(agentId, updates) {
+  updateAgent(agentId: string, updates: AgentConfig): UserAgent {
     const agent = this.userAgents[agentId];
     if (!agent) {
       throw new Error(`Agent ${agentId} not found`);
     }
 
     // Update allowed fields
-    const allowedFields = [
-      'name', 'description', 'category', 'icon', 'defaultTier', 
+    const allowedFields: (keyof AgentConfig)[] = [
+      'name', 'description', 'category', 'icon', 'defaultTier',
       'capabilities', 'responseFormat', 'prompt', 'enabled'
     ];
 
     for (const field of allowedFields) {
       if (updates.hasOwnProperty(field)) {
-        agent[field] = updates[field];
+        (agent as unknown as Record<string, unknown>)[field] = updates[field];
       }
     }
 
@@ -302,7 +314,7 @@ class UserAgentService {
   /**
    * Delete agent
    */
-  deleteAgent(agentId) {
+  deleteAgent(agentId: string): boolean {
     if (!this.userAgents[agentId]) {
       throw new Error(`Agent ${agentId} not found`);
     }
@@ -316,7 +328,7 @@ class UserAgentService {
   /**
    * Clone agent
    */
-  cloneAgent(agentId, modifications = {}) {
+  cloneAgent(agentId: string, modifications: AgentConfig = {}): UserAgent {
     const sourceAgent = this.userAgents[agentId];
     if (!sourceAgent) {
       throw new Error(`Agent ${agentId} not found`);
@@ -332,45 +344,45 @@ class UserAgentService {
   /**
    * Toggle agent enabled state
    */
-  toggleAgent(agentId, enabled) {
+  toggleAgent(agentId: string, enabled: boolean): UserAgent {
     return this.updateAgent(agentId, { enabled });
   }
 
   /**
    * Get enabled agents only
    */
-  getEnabledAgents() {
+  getEnabledAgents(): UserAgent[] {
     return this.getAllAgents().filter(agent => agent.enabled);
   }
 
   /**
    * Generate final prompt for agent execution
    */
-  generatePrompt(agent, content, purpose, additionalContext = {}) {
+  generatePrompt(agent: UserAgent, content: string, purpose: string | null, additionalContext: Record<string, unknown> = {}): string {
     let prompt = agent.prompt;
-    
+
     // Replace template variables
     prompt = prompt.replace(/{CONTENT}/g, content);
     prompt = prompt.replace(/{PURPOSE}/g, purpose || 'General analysis');
-    
+
     // Add any additional context if provided
     if (additionalContext && Object.keys(additionalContext).length > 0) {
       prompt += '\n\nADDITIONAL CONTEXT:\n' + JSON.stringify(additionalContext, null, 2);
     }
-    
+
     return prompt;
   }
 
   /**
    * Get agent statistics
    */
-  getStats() {
+  getStats(): AgentStats {
     const agents = this.getAllAgents();
-    
+
     return {
       total: agents.length,
       enabled: agents.filter(a => a.enabled).length,
-      byCategory: agents.reduce((acc, agent) => {
+      byCategory: agents.reduce((acc: Record<string, number>, agent) => {
         acc[agent.category] = (acc[agent.category] || 0) + 1;
         return acc;
       }, {}),
@@ -381,7 +393,7 @@ class UserAgentService {
   /**
    * Export agent configuration
    */
-  exportAgent(agentId) {
+  exportAgent(agentId: string): AgentExport {
     const agent = this.userAgents[agentId];
     if (!agent) {
       throw new Error(`Agent ${agentId} not found`);
@@ -397,27 +409,28 @@ class UserAgentService {
   /**
    * Import agent configuration
    */
-  importAgent(config) {
+  importAgent(config: AgentExport): UserAgent {
     if (!config || config.exportVersion !== '2.0') {
       throw new Error('Invalid or unsupported agent export format');
     }
 
     const { exportedAt, exportVersion, id, created, lastModified, usageCount, ...agentConfig } = config;
-    
+
     agentConfig.name = `${agentConfig.name} (Imported)`;
-    
-    return this.createAgent(agentConfig);
+
+    return this.createAgent(agentConfig as AgentConfig);
   }
 
   /**
    * Export all agents to a single file
    */
-  exportAllAgents() {
+  exportAllAgents(): BulkAgentExport {
     const allAgents = this.getAllAgents();
     return {
       agents: allAgents.map(agent => ({
         ...agent,
-        exportedAt: new Date().toISOString()
+        exportedAt: new Date().toISOString(),
+        exportVersion: '2.0'
       })),
       exportedAt: new Date().toISOString(),
       exportVersion: '2.0',
@@ -428,7 +441,7 @@ class UserAgentService {
   /**
    * Import multiple agents from a bulk export file
    */
-  importMultipleAgents(config) {
+  importMultipleAgents(config: BulkAgentExport): ImportResults {
     if (!config || config.exportVersion !== '2.0') {
       throw new Error('Invalid or unsupported agent export format');
     }
@@ -437,7 +450,7 @@ class UserAgentService {
       throw new Error('Invalid agents data in export file');
     }
 
-    const importResults = {
+    const importResults: ImportResults = {
       imported: [],
       skipped: [],
       errors: []
@@ -446,19 +459,19 @@ class UserAgentService {
     for (const agentConfig of config.agents) {
       try {
         const { exportedAt, exportVersion, id, created, lastModified, usageCount, ...cleanAgentConfig } = agentConfig;
-        
+
         // Check if agent with same name exists
         const existingAgent = this.getAllAgents().find(a => a.name === cleanAgentConfig.name);
         if (existingAgent) {
           cleanAgentConfig.name = `${cleanAgentConfig.name} (Imported)`;
         }
-        
-        const importedAgent = this.createAgent(cleanAgentConfig);
+
+        const importedAgent = this.createAgent(cleanAgentConfig as AgentConfig);
         importResults.imported.push(importedAgent);
       } catch (error) {
         importResults.errors.push({
           agentName: agentConfig.name || 'Unknown',
-          error: error.message
+          error: (error as Error).message
         });
       }
     }
@@ -469,7 +482,7 @@ class UserAgentService {
   /**
    * Reset all agents (delete all user agents)
    */
-  resetAll() {
+  resetAll(): boolean {
     this.userAgents = {};
     this.saveUserAgents();
     return true;

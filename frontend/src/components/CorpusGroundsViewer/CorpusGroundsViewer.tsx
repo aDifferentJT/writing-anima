@@ -1,27 +1,39 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, FileText, BookOpen } from "lucide-react";
 import animaService from "../../services/animaService";
+import type { CorpusFile, CorpusChunk, CorpusSource } from "../../types";
+
+interface HighlightSourceData extends CorpusSource {
+  _ts?: number;
+}
+
+interface CorpusGroundsViewerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  personaId: string | null;
+  highlightSource: HighlightSourceData | null;
+}
 
 /**
  * CorpusGroundsViewer — slide-out panel for browsing corpus documents
  * and viewing highlighted source passages that ground feedback.
  */
-const CorpusGroundsViewer = ({
+const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
   isOpen,
   onClose,
   personaId,
   highlightSource,
 }) => {
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
-  const [highlightedChunkIndex, setHighlightedChunkIndex] = useState(-1);
-  const [cachedPersonaId, setCachedPersonaId] = useState(null);
+  const [files, setFiles] = useState<CorpusFile[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedFileIndex, setSelectedFileIndex] = useState<number>(0);
+  const [highlightedChunkIndex, setHighlightedChunkIndex] = useState<number>(-1);
+  const [cachedPersonaId, setCachedPersonaId] = useState<string | null>(null);
 
-  const highlightRef = useRef(null);
-  const readerRef = useRef(null);
-  const panelRef = useRef(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
+  const readerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Fetch corpus documents (cached by personaId)
   const fetchDocuments = useCallback(async () => {
@@ -36,7 +48,7 @@ const CorpusGroundsViewer = ({
       setCachedPersonaId(personaId);
       setSelectedFileIndex(0);
       setHighlightedChunkIndex(-1);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to fetch corpus documents:", err);
       setError("Failed to load corpus documents");
     } finally {
@@ -111,7 +123,7 @@ const CorpusGroundsViewer = ({
       // Small delay to let DOM render
       const timer = setTimeout(() => {
         highlightRef.current?.scrollIntoView({
-          behavior: "instant",
+          behavior: "instant" as ScrollBehavior,
           block: "center",
         });
       }, 150);
@@ -122,7 +134,7 @@ const CorpusGroundsViewer = ({
   // Escape key handler
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -130,7 +142,7 @@ const CorpusGroundsViewer = ({
   }, [isOpen, onClose]);
 
   // Normalize a filename for fuzzy comparison
-  const normalizeFilename = (name) => {
+  const normalizeFilename = (name: string): string => {
     if (!name) return "";
     // Strip common extensions, lowercase, remove extra whitespace
     return name
@@ -141,7 +153,7 @@ const CorpusGroundsViewer = ({
   };
 
   // Find best matching file index for a source_file string
-  const findFileIndex = (filesArr, sourceFile) => {
+  const findFileIndex = (filesArr: CorpusFile[], sourceFile: string): number => {
     if (!sourceFile || filesArr.length === 0) return -1;
     const norm = normalizeFilename(sourceFile);
 
@@ -176,13 +188,13 @@ const CorpusGroundsViewer = ({
   };
 
   // Build set of word n-grams from text
-  const wordNgrams = (text, n) => {
+  const wordNgrams = (text: string, n: number): Set<string> => {
     const words = text
       .toLowerCase()
       .replace(/[^\w\s]/g, "")
       .split(/\s+/)
       .filter(Boolean);
-    const grams = new Set();
+    const grams = new Set<string>();
     for (let i = 0; i <= words.length - n; i++) {
       grams.add(words.slice(i, i + n).join(" "));
     }
@@ -190,7 +202,7 @@ const CorpusGroundsViewer = ({
   };
 
   // Jaccard similarity between two sets
-  const jaccardSimilarity = (setA, setB) => {
+  const jaccardSimilarity = (setA: Set<string>, setB: Set<string>): number => {
     if (setA.size === 0 && setB.size === 0) return 0;
     let intersection = 0;
     for (const item of setA) {
@@ -200,7 +212,7 @@ const CorpusGroundsViewer = ({
   };
 
   // Find chunk containing text (substring match with fuzzy fallback)
-  const findChunkWithText = (chunks, text) => {
+  const findChunkWithText = (chunks: CorpusChunk[], text: string): number => {
     if (!chunks || !text) return -1;
 
     const textLower = text.toLowerCase();
@@ -281,7 +293,7 @@ const CorpusGroundsViewer = ({
   };
 
   // Highlight matching text within a chunk
-  const renderChunkText = (chunkText, isHighlighted) => {
+  const renderChunkText = (chunkText: string, isHighlighted: boolean): React.ReactNode => {
     if (!isHighlighted || !highlightSource?.text) {
       return <span>{chunkText}</span>;
     }

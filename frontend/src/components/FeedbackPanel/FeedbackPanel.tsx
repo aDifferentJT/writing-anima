@@ -2,8 +2,29 @@ import React from "react";
 import { MessageSquare, Brain } from "lucide-react";
 import CriticCard from "./CriticCard";
 import "./FeedbackPanel.css";
+import { FeedbackItem, CorpusSource } from "../../types";
 
-const FeedbackPanel = ({
+interface FeedbackPanelProps {
+  feedback: FeedbackItem[];
+  isMonitoring: boolean;
+  onFeedbackHover?: (id: string) => void;
+  onFeedbackLeave?: () => void;
+  hoveredFeedback?: string | null;
+  onDismissSuggestion?: (id: string) => void;
+  onMarkSuggestionResolved?: (id: string) => void;
+  isEvaluating?: boolean;
+  isAnalyzing?: boolean;
+  onCreateComplex?: (question?: string, relevantText?: string) => void;
+  onApplyInsight?: (suggestion?: string, complexId?: string, nodeId?: string) => void;
+  onExploreFramework?: (framework?: string, keyAuthorities?: string[], suggestedResources?: string[]) => void;
+  onJumpToText?: (id: string) => void;
+  onViewCorpusSource?: (source: CorpusSource) => void;
+  resolvedFeedback?: FeedbackItem[];
+  showResolved?: boolean;
+  onToggleResolved?: () => void;
+}
+
+const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
   feedback,
   isMonitoring,
   onFeedbackHover,
@@ -51,8 +72,8 @@ const FeedbackPanel = ({
             }
           >
             {showResolved
-              ? `← ${feedback.length}`
-              : `✓ ${resolvedFeedback.length}`}
+              ? `\u2190 ${feedback.length}`
+              : `\u2713 ${resolvedFeedback.length}`}
           </button>
         )}
 

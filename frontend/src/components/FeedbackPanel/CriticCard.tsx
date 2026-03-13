@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Brain,
   Palette,
@@ -10,16 +10,15 @@ import {
   Lightbulb,
   ArrowRight,
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
 } from "lucide-react";
+import { FeedbackItem, CorpusSource } from "../../types";
 
 /**
  * Simple markdown renderer for feedback text
- * Handles: **bold**, bullet lists (•), and line breaks
+ * Handles: **bold**, bullet lists (bullet), and line breaks
  */
-const renderMarkdown = (text) => {
+const renderMarkdown = (text: string | undefined | null): React.ReactNode => {
   if (!text) return null;
 
   // Split into paragraphs (double newlines)
@@ -29,17 +28,17 @@ const renderMarkdown = (text) => {
     // Check if this is a bullet list paragraph
     const lines = paragraph.split("\n");
     const isList = lines.every(
-      (line) => line.trim() === "" || line.trim().startsWith("•"),
+      (line) => line.trim() === "" || line.trim().startsWith("\u2022"),
     );
 
-    if (isList && lines.some((line) => line.trim().startsWith("•"))) {
+    if (isList && lines.some((line) => line.trim().startsWith("\u2022"))) {
       // Render as bullet list
       return (
         <ul key={pIndex} className="list-disc list-inside space-y-1 my-2">
           {lines
-            .filter((line) => line.trim().startsWith("•"))
+            .filter((line) => line.trim().startsWith("\u2022"))
             .map((line, lIndex) => {
-              const content = line.replace(/^•\s*/, "");
+              const content = line.replace(/^\u2022\s*/, "");
               return <li key={lIndex}>{renderInlineMarkdown(content)}</li>;
             })}
         </ul>
@@ -58,13 +57,13 @@ const renderMarkdown = (text) => {
 /**
  * Render inline markdown (bold, etc.)
  */
-const renderInlineMarkdown = (text) => {
-  const parts = [];
+const renderInlineMarkdown = (text: string): React.ReactNode => {
+  const parts: React.ReactNode[] = [];
   let currentIndex = 0;
 
   // Regular expression to find **bold** text
   const boldRegex = /\*\*([^*]+)\*\*/g;
-  let match;
+  let match: RegExpExecArray | null;
 
   while ((match = boldRegex.exec(text)) !== null) {
     // Add text before the match
@@ -90,7 +89,18 @@ const renderInlineMarkdown = (text) => {
   return parts.length > 0 ? parts : text;
 };
 
-const CriticCard = ({
+interface CriticCardProps {
+  feedback: FeedbackItem | string;
+  onDismiss?: (id: string) => void;
+  onMarkResolved?: (id: string) => void;
+  onCreateComplex?: (question?: string, relevantText?: string) => void;
+  onApplyInsight?: (suggestion?: string, complexId?: string, nodeId?: string) => void;
+  onExploreFramework?: (framework?: string, keyAuthorities?: string[], suggestedResources?: string[]) => void;
+  onJumpToText?: (id: string) => void;
+  onViewCorpusSource?: (source: CorpusSource) => void;
+}
+
+const CriticCard: React.FC<CriticCardProps> = ({
   feedback,
   onDismiss,
   onMarkResolved,
@@ -101,14 +111,16 @@ const CriticCard = ({
   onViewCorpusSource,
 }) => {
   // Handle cases where feedback might be malformed
-  const feedbackData =
+  const feedbackData: FeedbackItem =
     typeof feedback === "string"
       ? {
+          id: "",
           type: "unknown",
           severity: "low",
           title: "Raw Response",
           feedback: feedback,
           agent: "AI Critic",
+          status: "active",
         }
       : feedback;
 
@@ -128,7 +140,7 @@ const CriticCard = ({
     feedbackData.personaName || feedbackData.agent || "AI Critic";
 
   // Map feedback type to icon and color
-  const getIconAndColor = (type, severity) => {
+  const getIconAndColor = (type: string, _severity: string): { Icon: React.ComponentType<{ className?: string }>; color: string } => {
     switch (type) {
       case "intellectual":
         return { Icon: Brain, color: "text-purple-600" };
@@ -147,7 +159,7 @@ const CriticCard = ({
     }
   };
 
-  const getSeverityColor = (severity, status, type) => {
+  const getSeverityColor = (severity: string, status: string, type: string): string => {
     if (status === "resolved") {
       return "bg-green-50/50 border-green-300";
     }
@@ -178,7 +190,7 @@ const CriticCard = ({
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status: string): React.ReactNode => {
     switch (status) {
       case "resolved":
         return <Check className="w-4 h-4 text-green-600" />;
@@ -203,7 +215,7 @@ const CriticCard = ({
   const statusIcon = getStatusIcon(feedbackData.status);
 
   // Handle special inquiry integration actions
-  const handleSpecialAction = () => {
+  const handleSpecialAction = (): void => {
     const actionData = feedbackData.actionData;
     if (!actionData) return;
 
@@ -343,11 +355,11 @@ const CriticCard = ({
               Referenced:
             </div>
             <div className="text-xs text-obsidian-text-primary italic leading-tight">
-              "
+              &ldquo;
               {feedbackData.positions[0].text.length > 80
                 ? feedbackData.positions[0].text.substring(0, 80) + "..."
                 : feedbackData.positions[0].text}
-              "
+              &rdquo;
             </div>
           </div>
         )}
@@ -370,11 +382,11 @@ const CriticCard = ({
               onClick={() => onViewCorpusSource && onViewCorpusSource(source)}
             >
               <div className="text-obsidian-text-primary italic leading-tight mb-1">
-                "
+                &ldquo;
                 {source.text.length > 120
                   ? source.text.substring(0, 120) + "..."
                   : source.text}
-                "
+                &rdquo;
               </div>
               <div className="flex items-center gap-2 text-obsidian-text-muted">
                 {source.source_file && (
@@ -444,8 +456,8 @@ const CriticCard = ({
         <div className="mt-2 p-2 bg-obsidian-bg rounded text-xs border border-obsidian-border">
           {feedbackData.actionData.type === "create_complex" && (
             <div>
-              <strong className="text-obsidian-text-primary">Q:</strong> "
-              {feedbackData.actionData.question}"
+              <strong className="text-obsidian-text-primary">Q:</strong> &ldquo;
+              {feedbackData.actionData.question}&rdquo;
               {feedbackData.actionData.relevantText && (
                 <div className="mt-1 text-obsidian-text-tertiary">
                   <strong>Context:</strong>{" "}

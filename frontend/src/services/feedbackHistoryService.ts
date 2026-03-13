@@ -3,7 +3,20 @@
  * This helps agents learn from user preferences over time
  */
 
+import type {
+  FeedbackItem,
+  FeedbackHistory,
+  FeedbackHistoryRecord,
+  FeedbackStatistics,
+} from '../types';
+
+interface RecentHistoryItem extends FeedbackHistoryRecord {
+  action: 'accepted' | 'rejected';
+}
+
 class FeedbackHistoryService {
+  private history: FeedbackHistory;
+
   constructor() {
     this.history = this.loadHistory();
   }
@@ -11,7 +24,7 @@ class FeedbackHistoryService {
   /**
    * Load feedback history from localStorage
    */
-  loadHistory() {
+  loadHistory(): FeedbackHistory {
     try {
       const stored = localStorage.getItem('feedback_history');
       return stored ? JSON.parse(stored) : { accepted: [], rejected: [] };
@@ -24,7 +37,7 @@ class FeedbackHistoryService {
   /**
    * Save feedback history to localStorage
    */
-  saveHistory() {
+  saveHistory(): void {
     try {
       localStorage.setItem('feedback_history', JSON.stringify(this.history));
     } catch (error) {
@@ -35,8 +48,8 @@ class FeedbackHistoryService {
   /**
    * Record an accepted (resolved) piece of feedback
    */
-  recordAccepted(feedback) {
-    const record = {
+  recordAccepted(feedback: FeedbackItem): void {
+    const record: FeedbackHistoryRecord = {
       id: feedback.id,
       agent: feedback.agent,
       category: feedback.category,
@@ -61,8 +74,8 @@ class FeedbackHistoryService {
   /**
    * Record a rejected (dismissed) piece of feedback
    */
-  recordRejected(feedback) {
-    const record = {
+  recordRejected(feedback: FeedbackItem): void {
+    const record: FeedbackHistoryRecord = {
       id: feedback.id,
       agent: feedback.agent,
       category: feedback.category,
@@ -87,7 +100,7 @@ class FeedbackHistoryService {
   /**
    * Get feedback history summary for a specific agent/category
    */
-  getHistoryForAgent(agentName, category = null) {
+  getHistoryForAgent(agentName: string, category: string | null = null): FeedbackHistory {
     const accepted = this.history.accepted.filter(item =>
       item.agent === agentName && (!category || item.category === category)
     );
@@ -102,14 +115,14 @@ class FeedbackHistoryService {
   /**
    * Get recent feedback history (last N items)
    */
-  getRecentHistory(limit = 20) {
-    const allItems = [
-      ...this.history.accepted.map(item => ({ ...item, action: 'accepted' })),
-      ...this.history.rejected.map(item => ({ ...item, action: 'rejected' }))
+  getRecentHistory(limit: number = 20): RecentHistoryItem[] {
+    const allItems: RecentHistoryItem[] = [
+      ...this.history.accepted.map(item => ({ ...item, action: 'accepted' as const })),
+      ...this.history.rejected.map(item => ({ ...item, action: 'rejected' as const }))
     ];
 
     // Sort by timestamp descending
-    allItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    allItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return allItems.slice(0, limit);
   }
@@ -117,7 +130,7 @@ class FeedbackHistoryService {
   /**
    * Format history for inclusion in agent prompt
    */
-  formatHistoryForPrompt(agentName = null, limit = 10) {
+  formatHistoryForPrompt(agentName: string | null = null, limit: number = 10): string | null {
     const recentHistory = agentName
       ? this.getHistoryForAgent(agentName)
       : { accepted: this.history.accepted, rejected: this.history.rejected };
@@ -165,7 +178,7 @@ class FeedbackHistoryService {
   /**
    * Clear all history (for testing or user request)
    */
-  clearHistory() {
+  clearHistory(): void {
     this.history = { accepted: [], rejected: [] };
     this.saveHistory();
     console.log('[FeedbackHistory] Cleared all history');
@@ -174,7 +187,7 @@ class FeedbackHistoryService {
   /**
    * Get statistics about feedback patterns
    */
-  getStatistics() {
+  getStatistics(): FeedbackStatistics {
     return {
       totalAccepted: this.history.accepted.length,
       totalRejected: this.history.rejected.length,
@@ -183,22 +196,24 @@ class FeedbackHistoryService {
     };
   }
 
-  getCategoryCounts() {
-    const counts = { accepted: {}, rejected: {} };
+  private getCategoryCounts(): { accepted: Record<string, number>; rejected: Record<string, number> } {
+    const counts: { accepted: Record<string, number>; rejected: Record<string, number> } = { accepted: {}, rejected: {} };
 
     this.history.accepted.forEach(item => {
-      counts.accepted[item.category] = (counts.accepted[item.category] || 0) + 1;
+      const key = item.category || 'uncategorized';
+      counts.accepted[key] = (counts.accepted[key] || 0) + 1;
     });
 
     this.history.rejected.forEach(item => {
-      counts.rejected[item.category] = (counts.rejected[item.category] || 0) + 1;
+      const key = item.category || 'uncategorized';
+      counts.rejected[key] = (counts.rejected[key] || 0) + 1;
     });
 
     return counts;
   }
 
-  getAgentCounts() {
-    const counts = { accepted: {}, rejected: {} };
+  private getAgentCounts(): { accepted: Record<string, number>; rejected: Record<string, number> } {
+    const counts: { accepted: Record<string, number>; rejected: Record<string, number> } = { accepted: {}, rejected: {} };
 
     this.history.accepted.forEach(item => {
       counts.accepted[item.agent] = (counts.accepted[item.agent] || 0) + 1;

@@ -3,27 +3,58 @@
  * Handles all communication with the Writing-Anima backend
  */
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
-const WS_URL = process.env.REACT_APP_WS_URL || "ws://localhost:8000";
+import type {
+  Persona,
+  ModelInfo,
+  FeedbackItem,
+  StreamAnalysisCallbacks,
+  StreamAnalysisContext,
+  ChatCallbacks,
+  ChatMessage,
+  CompleteMessage,
+  CorpusFile,
+} from '../types';
+
+const API_URL: string = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const WS_URL: string = process.env.REACT_APP_WS_URL || "ws://localhost:8000";
+
+interface UploadCorpusResponse {
+  message?: string;
+  files_processed?: number;
+  [key: string]: unknown;
+}
+
+interface IngestionStatusResponse {
+  status?: string;
+  [key: string]: unknown;
+}
+
+interface CorpusDocumentsResponse {
+  files?: CorpusFile[];
+  [key: string]: unknown;
+}
+
+interface HealthCheckResponse {
+  status?: string;
+  [key: string]: unknown;
+}
+
+interface PersonaUpdates {
+  name?: string;
+  description?: string;
+  model?: string;
+}
 
 class AnimaService {
   /**
    * Analyze writing with streaming updates via WebSocket
-   * @param {string} content - The writing content to analyze
-   * @param {string} personaId - ID of the persona to use
-   * @param {object} context - Optional context (purpose, criteria, history)
-   * @param {function} onStatus - Callback for status updates
-   * @param {function} onFeedback - Callback for feedback items
-   * @param {function} onComplete - Callback when analysis completes
-   * @param {function} onError - Callback for errors
-   * @returns {Promise<WebSocket>} WebSocket connection
    */
   async streamAnalysis(
-    content,
-    personaId,
-    context = {},
-    callbacks = {},
-  ) {
+    content: string,
+    personaId: string,
+    context: StreamAnalysisContext = {},
+    callbacks: StreamAnalysisCallbacks = {},
+  ): Promise<WebSocket> {
     const {
       onStatus = () => {},
       onFeedback = () => {},
@@ -31,7 +62,7 @@ class AnimaService {
       onError = () => {},
     } = callbacks;
 
-    return new Promise((resolve, reject) => {
+    return new Promise<WebSocket>((resolve, reject) => {
       const ws = new WebSocket(`${WS_URL}/api/analyze/stream`);
       let feedbackReceived = 0;
       let completionReceived = false;
@@ -57,7 +88,7 @@ class AnimaService {
         resolve(ws);
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = (event: MessageEvent) => {
         try {
           const message = JSON.parse(event.data);
 
@@ -87,11 +118,11 @@ class AnimaService {
           }
         } catch (error) {
           console.error("Error parsing WebSocket message:", error);
-          onError(error);
+          onError(error as Error);
         }
       };
 
-      ws.onerror = (error) => {
+      ws.onerror = (error: Event) => {
         console.error(
           "WebSocket error (may be transient during AI processing):",
           error,
@@ -100,7 +131,7 @@ class AnimaService {
         // This prevents premature error alerts during long AI inference
       };
 
-      ws.onclose = (event) => {
+      ws.onclose = (event: CloseEvent) => {
         console.log("WebSocket closed", {
           code: event.code,
           reason: event.reason,
@@ -133,9 +164,8 @@ class AnimaService {
 
   /**
    * Get all personas for a user
-   * @returns {Promise<Array>} List of personas
    */
-  async getPersonas() {
+  async getPersonas(): Promise<Persona[]> {
     try {
       const response = await fetch(`${API_URL}/api/personas`);
 
@@ -153,10 +183,8 @@ class AnimaService {
 
   /**
    * Get a specific persona
-   * @param {string} personaId - Persona ID
-   * @returns {Promise<object>} Persona details
    */
-  async getPersona(personaId) {
+  async getPersona(personaId: string): Promise<Persona> {
     try {
       const response = await fetch(
         `${API_URL}/api/personas/${personaId}`,
@@ -175,9 +203,8 @@ class AnimaService {
 
   /**
    * Get available models for persona selection
-   * @returns {Promise<Array>} List of available models
    */
-  async getAvailableModels() {
+  async getAvailableModels(): Promise<ModelInfo[]> {
     try {
       const response = await fetch(`${API_URL}/api/personas/models`);
 
@@ -195,12 +222,8 @@ class AnimaService {
 
   /**
    * Create a new persona
-   * @param {string} name - Persona name
-   * @param {string} description - Persona description
-   * @param {string} model - Model ID to use for this persona
-   * @returns {Promise<object>} Created persona
    */
-  async createPersona(name, description, model = "gpt-5") {
+  async createPersona(name: string, description: string, model: string = "gpt-5"): Promise<Persona> {
     try {
       const response = await fetch(`${API_URL}/api/personas`, {
         method: "POST",
@@ -228,11 +251,8 @@ class AnimaService {
 
   /**
    * Update a persona's settings
-   * @param {string} personaId - Persona ID
-   * @param {object} updates - Fields to update (name, description, model)
-   * @returns {Promise<object>} Updated persona
    */
-  async updatePersona(personaId, updates) {
+  async updatePersona(personaId: string, updates: PersonaUpdates): Promise<Persona> {
     try {
       const response = await fetch(
         `${API_URL}/api/personas/${personaId}`,
@@ -259,10 +279,8 @@ class AnimaService {
 
   /**
    * Delete a persona
-   * @param {string} personaId - Persona ID
-   * @returns {Promise<void>}
    */
-  async deletePersona(personaId) {
+  async deletePersona(personaId: string): Promise<void> {
     try {
       const response = await fetch(
         `${API_URL}/api/personas/${personaId}`,
@@ -280,15 +298,12 @@ class AnimaService {
 
   /**
    * Upload corpus files for a persona
-   * @param {string} personaId - Persona ID
-   * @param {FileList} files - Files to upload
-   * @returns {Promise<object>} Upload response
    */
-  async uploadCorpus(personaId, files) {
+  async uploadCorpus(personaId: string, files: FileList): Promise<UploadCorpusResponse> {
     try {
       const formData = new FormData();
 
-      Array.from(files).forEach((file) => {
+      Array.from(files).forEach((file: File) => {
         formData.append("files", file);
       });
 
@@ -314,10 +329,8 @@ class AnimaService {
 
   /**
    * Get corpus ingestion status
-   * @param {string} personaId - Persona ID
-   * @returns {Promise<object>} Ingestion status
    */
-  async getIngestionStatus(personaId) {
+  async getIngestionStatus(personaId: string): Promise<IngestionStatusResponse> {
     try {
       const response = await fetch(
         `${API_URL}/api/personas/${personaId}/corpus/status`,
@@ -336,10 +349,8 @@ class AnimaService {
 
   /**
    * Get all corpus documents for a persona, grouped by source file
-   * @param {string} personaId - Persona ID
-   * @returns {Promise<object>} Corpus documents response with files array
    */
-  async getCorpusDocuments(personaId) {
+  async getCorpusDocuments(personaId: string): Promise<CorpusDocumentsResponse> {
     try {
       const response = await fetch(
         `${API_URL}/api/personas/${personaId}/corpus/documents`,
@@ -358,20 +369,14 @@ class AnimaService {
 
   /**
    * Chat with a persona using streaming WebSocket
-   * @param {string} message - User's message
-   * @param {string} personaId - Persona ID
-   * @param {Array} conversationHistory - Previous messages [{role, content}]
-   * @param {object} callbacks - { onToken, onStatus, onComplete, onError }
-   * @param {string} model - Model to use
-   * @returns {Promise<WebSocket>} WebSocket connection
    */
   streamChat(
-    message,
-    personaId,
-    conversationHistory,
-    callbacks,
-    model,
-  ) {
+    message: string,
+    personaId: string,
+    conversationHistory: ChatMessage[],
+    callbacks: ChatCallbacks,
+    model: string,
+  ): Promise<WebSocket> {
     const {
       onToken = () => {},
       onStatus = () => {},
@@ -379,7 +384,7 @@ class AnimaService {
       onError = () => {},
     } = callbacks;
 
-    return new Promise((resolve, reject) => {
+    return new Promise<WebSocket>((resolve, reject) => {
       const ws = new WebSocket(`${WS_URL}/api/chat/stream`);
 
       ws.onopen = () => {
@@ -394,7 +399,7 @@ class AnimaService {
         resolve(ws);
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data);
           switch (data.type) {
@@ -420,11 +425,11 @@ class AnimaService {
         }
       };
 
-      ws.onerror = (error) => {
+      ws.onerror = (error: Event) => {
         console.error("Chat WebSocket error:", error);
       };
 
-      ws.onclose = (event) => {
+      ws.onclose = (event: CloseEvent) => {
         if (event.code !== 1000 && event.code !== 1005) {
           onError(new Error("Connection closed unexpectedly"));
         }
@@ -434,9 +439,8 @@ class AnimaService {
 
   /**
    * Check if backend is healthy
-   * @returns {Promise<object>} Health status
    */
-  async healthCheck() {
+  async healthCheck(): Promise<HealthCheckResponse> {
     try {
       const response = await fetch(`${API_URL}/api/health`);
 

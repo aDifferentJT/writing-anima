@@ -4,23 +4,55 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import type { UserPreferences, UserFeedback, SystemMetrics, AvailableAgent } from '../../types';
 
-export const UserPreferencesPanel = ({ 
-  isOpen, 
-  onClose, 
-  system, 
+interface SystemWithPreferences {
+  userPreferences?: {
+    thoroughness?: number;
+    speedPriority?: number;
+    costSensitivity?: number;
+    preferredAgentTypes?: Iterable<string>;
+  };
+}
+
+interface PreferencesChangeAction {
+  action: string;
+  preferences?: UserPreferences;
+  overallRating?: number;
+  speedSatisfaction?: number;
+  thoroughnessSatisfaction?: number;
+  mostHelpfulFeatures?: string[];
+  improvementSuggestions?: string;
+  helpful_insights?: string[];
+  unhelpful_insights?: string[];
+  preferred_agents?: string[];
+  blocked_agents?: string[];
+}
+
+interface UserPreferencesPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  system?: SystemWithPreferences;
+  onPreferencesChange?: (action: PreferencesChangeAction) => void;
+  metrics?: SystemMetrics;
+}
+
+export const UserPreferencesPanel: React.FC<UserPreferencesPanelProps> = ({
+  isOpen,
+  onClose,
+  system,
   onPreferencesChange,
-  metrics 
+  metrics
 }) => {
-  const [preferences, setPreferences] = useState({
+  const [preferences, setPreferences] = useState<UserPreferences>({
     thoroughness: 0.7,
     speedPriority: 0.5,
     costSensitivity: 0.5,
     preferredAgents: [],
     blockedAgents: []
   });
-  
-  const [feedback, setFeedback] = useState({
+
+  const [feedback, setFeedback] = useState<UserFeedback>({
     overallRating: 4,
     speedSatisfaction: 4,
     thoroughnessSatisfaction: 4,
@@ -41,10 +73,10 @@ export const UserPreferencesPanel = ({
     }
   }, [isOpen, system]);
 
-  const handlePreferenceChange = (key, value) => {
+  const handlePreferenceChange = (key: keyof UserPreferences, value: number | string[]): void => {
     const newPreferences = { ...preferences, [key]: value };
     setPreferences(newPreferences);
-    
+
     // Auto-save preferences
     if (onPreferencesChange) {
       onPreferencesChange({
@@ -54,18 +86,18 @@ export const UserPreferencesPanel = ({
     }
   };
 
-  const handleAgentToggle = (agentId, type) => {
+  const handleAgentToggle = (agentId: string, type: 'preferredAgents' | 'blockedAgents'): void => {
     const currentList = preferences[type] || [];
     const isSelected = currentList.includes(agentId);
-    
-    const newList = isSelected 
-      ? currentList.filter(id => id !== agentId)
+
+    const newList = isSelected
+      ? currentList.filter((id: string) => id !== agentId)
       : [...currentList, agentId];
-    
+
     handlePreferenceChange(type, newList);
   };
 
-  const handleFeedbackSubmit = () => {
+  const handleFeedbackSubmit = (): void => {
     if (onPreferencesChange) {
       onPreferencesChange({
         action: 'submit_feedback',
@@ -76,7 +108,7 @@ export const UserPreferencesPanel = ({
         blocked_agents: preferences.blockedAgents
       });
     }
-    
+
     // Reset feedback form
     setFeedback({
       overallRating: 4,
@@ -87,7 +119,7 @@ export const UserPreferencesPanel = ({
     });
   };
 
-  const availableAgents = [
+  const availableAgents: AvailableAgent[] = [
     { id: 'logical_fallacy_detector', name: 'Logical Fallacy Detector', description: 'Finds logical errors in arguments' },
     { id: 'clarity_style_agent', name: 'Clarity & Style Agent', description: 'Improves grammar and readability' },
     { id: 'quick_fact_checker', name: 'Quick Fact Checker', description: 'Flags questionable claims' },
@@ -96,7 +128,7 @@ export const UserPreferencesPanel = ({
     { id: 'deep_fact_verification_agent', name: 'Deep Fact Verification', description: 'Comprehensive fact checking' }
   ];
 
-  const helpfulFeatures = [
+  const helpfulFeatures: string[] = [
     'Real-time feedback',
     'Progressive enhancement',
     'Logical fallacy detection',
@@ -112,7 +144,7 @@ export const UserPreferencesPanel = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
@@ -130,13 +162,13 @@ export const UserPreferencesPanel = ({
         </div>
 
         <div className="p-6 space-y-8">
-          
+
           {/* Analysis Preferences */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Analysis Preferences</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
+
               {/* Thoroughness */}
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-700">
@@ -151,7 +183,7 @@ export const UserPreferencesPanel = ({
                   max="1"
                   step="0.1"
                   value={preferences.thoroughness}
-                  onChange={(e) => handlePreferenceChange('thoroughness', parseFloat(e.target.value))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePreferenceChange('thoroughness', parseFloat(e.target.value))}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-gray-500">
@@ -174,7 +206,7 @@ export const UserPreferencesPanel = ({
                   max="1"
                   step="0.1"
                   value={preferences.speedPriority}
-                  onChange={(e) => handlePreferenceChange('speedPriority', parseFloat(e.target.value))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePreferenceChange('speedPriority', parseFloat(e.target.value))}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-gray-500">
@@ -197,7 +229,7 @@ export const UserPreferencesPanel = ({
                   max="1"
                   step="0.1"
                   value={preferences.costSensitivity}
-                  onChange={(e) => handlePreferenceChange('costSensitivity', parseFloat(e.target.value))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePreferenceChange('costSensitivity', parseFloat(e.target.value))}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-gray-500">
@@ -215,9 +247,9 @@ export const UserPreferencesPanel = ({
             <p className="text-sm text-gray-600 mb-4">
               Customize which agents to prioritize or disable for your workflow.
             </p>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {availableAgents.map((agent) => (
+              {availableAgents.map((agent: AvailableAgent) => (
                 <div key={agent.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
                   <div className="flex items-start space-x-3">
                     <div className="flex-1">
@@ -256,7 +288,7 @@ export const UserPreferencesPanel = ({
           {metrics && (
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">System Performance</h3>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 rounded-lg p-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
@@ -264,21 +296,21 @@ export const UserPreferencesPanel = ({
                   </div>
                   <div className="text-xs text-gray-600">Success Rate</div>
                 </div>
-                
+
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
                     {Math.round(metrics.orchestrator?.avgDecisionTime || 0)}ms
                   </div>
                   <div className="text-xs text-gray-600">Avg Response</div>
                 </div>
-                
+
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
                     {metrics.orchestrator?.registeredAgents || 0}
                   </div>
                   <div className="text-xs text-gray-600">Active Agents</div>
                 </div>
-                
+
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600">
                     {Math.round((metrics.progressiveEnhancement?.enhancementSuccessRate || 0) * 100)}%
@@ -292,12 +324,12 @@ export const UserPreferencesPanel = ({
           {/* Feedback Section */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Provide Feedback</h3>
-            
+
             <div className="space-y-6">
-              
+
               {/* Rating Sliders */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
+
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Overall Rating ({feedback.overallRating}/5)
@@ -308,7 +340,7 @@ export const UserPreferencesPanel = ({
                     max="5"
                     step="1"
                     value={feedback.overallRating}
-                    onChange={(e) => setFeedback(prev => ({ ...prev, overallRating: parseInt(e.target.value) }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFeedback(prev => ({ ...prev, overallRating: parseInt(e.target.value) }))}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
@@ -323,7 +355,7 @@ export const UserPreferencesPanel = ({
                     max="5"
                     step="1"
                     value={feedback.speedSatisfaction}
-                    onChange={(e) => setFeedback(prev => ({ ...prev, speedSatisfaction: parseInt(e.target.value) }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFeedback(prev => ({ ...prev, speedSatisfaction: parseInt(e.target.value) }))}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
@@ -338,7 +370,7 @@ export const UserPreferencesPanel = ({
                     max="5"
                     step="1"
                     value={feedback.thoroughnessSatisfaction}
-                    onChange={(e) => setFeedback(prev => ({ ...prev, thoroughnessSatisfaction: parseInt(e.target.value) }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFeedback(prev => ({ ...prev, thoroughnessSatisfaction: parseInt(e.target.value) }))}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
@@ -351,15 +383,15 @@ export const UserPreferencesPanel = ({
                   Most Helpful Features (select all that apply)
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {helpfulFeatures.map((feature) => (
+                  {helpfulFeatures.map((feature: string) => (
                     <label key={feature} className="flex items-center space-x-2">
                       <input
                         type="checkbox"
                         checked={feedback.mostHelpfulFeatures.includes(feature)}
-                        onChange={(e) => {
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                           const newFeatures = e.target.checked
                             ? [...feedback.mostHelpfulFeatures, feature]
-                            : feedback.mostHelpfulFeatures.filter(f => f !== feature);
+                            : feedback.mostHelpfulFeatures.filter((f: string) => f !== feature);
                           setFeedback(prev => ({ ...prev, mostHelpfulFeatures: newFeatures }));
                         }}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -377,7 +409,7 @@ export const UserPreferencesPanel = ({
                 </label>
                 <textarea
                   value={feedback.improvementSuggestions}
-                  onChange={(e) => setFeedback(prev => ({ ...prev, improvementSuggestions: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFeedback(prev => ({ ...prev, improvementSuggestions: e.target.value }))}
                   placeholder="What could we improve? What features would you like to see?"
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

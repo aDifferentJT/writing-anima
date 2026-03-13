@@ -7,33 +7,41 @@ import {
   AlertCircle,
   Loader,
 } from "lucide-react";
+import { Persona } from "../../types";
 
-const CorpusUploadModal = ({
+interface CorpusUploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  persona: Persona;
+  onUploaded: () => void;
+}
+
+const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
   isOpen,
   onClose,
   persona,
   onUploaded,
 }) => {
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const files = Array.from(e.target.files || []);
     setSelectedFiles((prev) => [...prev, ...files]);
     setError(null);
     setSuccess(false);
   };
 
-  const removeFile = (index) => {
+  const removeFile = (index: number): void => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleUpload = async () => {
+  const handleUpload = async (): Promise<void> => {
     if (selectedFiles.length === 0) {
       setError("Please select at least one file");
       return;
@@ -76,13 +84,13 @@ const CorpusUploadModal = ({
       }, 1500);
     } catch (err) {
       console.error("Error uploading corpus:", err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setUploading(false);
     }
   };
 
-  const formatFileSize = (bytes) => {
+  const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
