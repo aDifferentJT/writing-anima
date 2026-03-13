@@ -148,7 +148,7 @@ class ProjectService {
   /**
    * Update writing criteria for a project
    */
-  async updateWritingCriteria(projectId: string, writingCriteria: { criteria: string[] } | null): Promise<Project> {
+  async updateWritingCriteria(projectId: string, writingCriteria: { criteria: string[] }): Promise<Project> {
     try {
       const response = await fetch(`${API_URL}/api/projects/update?project_id=${projectId}`, {
         method: "PATCH",

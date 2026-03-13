@@ -1,213 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Pen, Target, Home, User, LogOut, Users } from 'lucide-react';
 import ProjectDashboard from './components/Projects/ProjectDashboard';
 import PurposeStep from './components/PurposeStep/PurposeStep';
 import WritingInterface from './components/WritingInterface';
 import PersonaManager from './components/PersonaManager/PersonaManager';
 import projectService from './services/projectService';
-import type { Project, FeedbackItem, Purpose, PurposeData, WritingCriteria } from './types';
+import type { Project, FeedbackItem, Purpose, WritingCriteria } from './types';
 
-type AppMode = 'dashboard' | 'home' | 'writing' | 'personas';
+type AppMode = 'purpose' | 'writing' | 'personas';
 
-function AppContent(): React.ReactElement {
-  const [currentMode, setCurrentMode] = useState<AppMode>('dashboard');
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [purpose, setPurpose] = useState<Purpose>('');
-  const [content, setContent] = useState<string>(''); // Lift content state to App level
-  const [feedback, setFeedback] = useState<FeedbackItem[]>([]); // Lift feedback state to App level
-  const [writingCriteria, setWritingCriteria] = useState<WritingCriteria | null>(null); // Store writing criteria
-  const [isMonitoring, setIsMonitoring] = useState<boolean>(true); // Global monitoring state for agents
-  const [isProjectSwitching, setIsProjectSwitching] = useState<boolean>(false); // Prevent auto-save during project switch
+interface NavigationProps {
+  currentMode: AppMode;
+  currentProject: Project | null;
+  setCurrentMode: (mode: AppMode) => void;
+  onBackToDashboard: () => void;
+}
 
-  // Auto-save project content and feedback
-  useEffect(() => {
-    if (!currentProject || isProjectSwitching) return;
-
-    const autoSaveInterval = setInterval(async () => {
-      // Skip auto-save during project switching to prevent race conditions
-      if (isProjectSwitching) return;
-
-      const hasContentChanges = content !== currentProject.content;
-      const hasFeedbackChanges = JSON.stringify(feedback) !== JSON.stringify(currentProject.feedback || []);
-
-      // Check for writing criteria changes
-      const hasCriteriaChanges = JSON.stringify(writingCriteria) !== JSON.stringify(currentProject.writingCriteria);
-
-      if (hasContentChanges || hasFeedbackChanges || hasCriteriaChanges) {
-        try {
-          // Save writing criteria if they changed
-          if (hasCriteriaChanges) {
-            console.log('Auto-saving writing criteria');
-            await projectService.updateWritingCriteria(currentProject.id, writingCriteria);
-          }
-
-          // Then save other project data
-          await projectService.updateProject(currentProject.id, {
-            content,
-            feedback,
-            purpose
-          });
-
-          // Update current project reference to avoid repeated saves
-          setCurrentProject((prev: Project | null) => {
-            if (!prev) return prev; // Guard against null
-            return {
-              ...prev,
-              content,
-              feedback: [...feedback],
-              purpose,
-              writingCriteria,
-            };
-          });
-        } catch (error) {
-          console.error('Auto-save failed:', error);
-        }
-      }
-    }, 3000); // Auto-save every 3 seconds
-
-    return () => clearInterval(autoSaveInterval);
-  }, [currentProject, content, feedback, purpose, writingCriteria, isProjectSwitching]);
-
-  const handleSelectProject = async (project: Project): Promise<void> => {
-    try {
-      // Safely handle null project
-      if (!project) {
-        console.error('[App] handleSelectProject called with null project');
-        return;
-      }
-
-      console.log('[App] Loading project:', project.id);
-
-      // Set flag to prevent auto-save during project switch
-      setIsProjectSwitching(true);
-
-      // Clear current state first to prevent race conditions
-      setFeedback([]);
-      setContent('');
-      setPurpose('');
-      setWritingCriteria(null);
-
-      // Then load new project data
-      setCurrentProject(project);
-      setPurpose(project.purpose || '');
-      setContent(project.content || '');
-      setFeedback(project.feedback || []); // Load saved feedback
-      setWritingCriteria(project.writingCriteria || null); // Load saved writing criteria
-
-      setCurrentMode(project.purpose ? 'writing' : 'home');
-      console.log('Project loaded successfully, mode set to:', project.purpose ? 'writing' : 'home');
-
-      // Clear switching flag after a brief delay to ensure all state updates have propagated
-      setTimeout(() => setIsProjectSwitching(false), 100);
-    } catch (error) {
-      console.error('Error in handleSelectProject:', error);
-      // Still try to continue with basic project setup if project exists
-      if (project) {
-        setCurrentProject(project);
-        setPurpose(project.purpose || '');
-        setContent(project.content || '');
-        setFeedback([]);
-        setWritingCriteria(null); // Clear criteria for error state
-        setCurrentMode('home');
-      }
-      // Clear switching flag on error as well
-      setIsProjectSwitching(false);
-    }
+function Navigation({
+  currentMode,
+  currentProject,
+  setCurrentMode,
+  onBackToDashboard,
+}: NavigationProps): React.ReactElement {
+  const handleBackToDashboard = (): void => {
+    onBackToDashboard();
   };
 
-  const handleCreateProject = (project: Project): void => {
-    if (!project) {
-      console.error('[App] handleCreateProject called with null project');
-      return;
-    }
-
-    // Set flag to prevent auto-save during project creation
-    setIsProjectSwitching(true);
-
-    // Clear all state for new project
-    setFeedback([]);
-    setContent('');
-    setPurpose('');
-    setWritingCriteria(null);
-
-    setCurrentProject(project);
-    setCurrentMode('home');
-
-    // Clear switching flag after state updates
-    setTimeout(() => setIsProjectSwitching(false), 100);
-  };
-
-  const handlePurposeSubmit = async (purposeText: Purpose): Promise<void> => {
-    setPurpose(purposeText);
-
-    // Generate title from purpose (handle both string and object formats)
-    let projectTitle = 'Untitled Project';
-    if (typeof purposeText === 'object' && purposeText !== null) {
-      projectTitle = (purposeText as PurposeData).topic?.substring(0, 50) || 'Untitled Project';
-    } else if (typeof purposeText === 'string') {
-      projectTitle = purposeText.split('.')[0].substring(0, 50) || 'Untitled Project';
-    }
-
-    // Update current project with purpose
-    if (currentProject) {
-      await projectService.updateProject(currentProject.id, {
-        purpose: purposeText,
-        title: projectTitle
-      });
-    }
-
-    setCurrentMode('writing');
-  };
-
-  const handleBackToHome = (): void => {
-    setCurrentMode(currentProject ? 'home' : 'dashboard');
-  };
-
-  const handleBackToDashboard = async (): Promise<void> => {
-    // Set flag to prevent auto-save during transition
-    setIsProjectSwitching(true);
-
-    // Save current project before going back
-    if (currentProject && (content !== currentProject.content || purpose !== currentProject.purpose || JSON.stringify(feedback) !== JSON.stringify(currentProject.feedback || []))) {
-      try {
-        await projectService.updateProject(currentProject.id, {
-          content,
-          purpose,
-          feedback, // Save current feedback
-          title: typeof purpose === 'object' && purpose !== null
-            ? ((purpose as PurposeData).topic?.substring(0, 50) || currentProject.title)
-            : ((purpose as string)?.split('.')[0].substring(0, 50) || currentProject.title)
-        });
-      } catch (error) {
-        console.error('Failed to save project:', error);
-      }
-    }
-
-    setCurrentMode('dashboard');
-    setCurrentProject(null);
-    setPurpose('');
-    setContent('');
-    setFeedback([]); // Clear feedback when leaving project
-    setWritingCriteria(null); // Clear criteria when leaving project
-
-    // Clear switching flag after state cleared
-    setTimeout(() => setIsProjectSwitching(false), 100);
-  };
-
-  // Stable callback for feedback generation
-  const handleFeedbackGenerated = useCallback((insights: FeedbackItem[]): void => {
-    const newFeedback: FeedbackItem[] = insights.map((insight: FeedbackItem) => ({
-      ...insight,
-      id: insight.id || `flow-${Date.now()}-${Math.random()}`,
-      timestamp: insight.timestamp || new Date().toISOString(),
-      status: insight.status || 'active',
-      source: 'flow' // Mark as coming from flow execution
-    }));
-
-    setFeedback((prev: FeedbackItem[]) => [...prev, ...newFeedback]);
-  }, []);
-
-  const renderNavigation = (): React.ReactElement => (
+  return (
     <div className="bg-obsidian-surface border-b border-obsidian-border px-2 py-2">
       <div className="mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -230,9 +49,9 @@ function AppContent(): React.ReactElement {
           {currentProject && (
             <>
               <button
-                onClick={() => setCurrentMode('home')}
+                onClick={() => setCurrentMode('purpose')}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                  currentMode === 'home'
+                  currentMode === 'purpose'
                     ? 'bg-obsidian-accent-pale text-obsidian-accent-primary font-medium'
                     : 'text-obsidian-text-secondary hover:text-obsidian-text-primary hover:bg-obsidian-bg'
                 }`}
@@ -242,19 +61,13 @@ function AppContent(): React.ReactElement {
               </button>
 
               <button
-                onClick={() => {
-                  if (!purpose) {
-                    setCurrentMode('home');
-                  } else {
-                    setCurrentMode('writing');
-                  }
-                }}
+                onClick={() => setCurrentMode('writing')}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
                   currentMode === 'writing'
                     ? 'bg-obsidian-accent-pale text-obsidian-accent-primary font-medium'
                     : 'text-obsidian-text-secondary hover:text-obsidian-text-primary hover:bg-obsidian-bg'
                 }`}
-                disabled={!purpose}
+                disabled={currentProject.purpose.topic == ''}
               >
                 <Pen className="w-3 h-3" />
                 <span>Editor</span>
@@ -277,33 +90,108 @@ function AppContent(): React.ReactElement {
       </div>
     </div>
   );
+}
+
+interface AppContentProps {
+  currentProject: Project;
+  setCurrentProject: React.Dispatch<React.SetStateAction<Project | null>>;
+  isProjectSwitching: boolean;
+  setIsProjectSwitching: (isProjectSwitching: boolean) => void;
+  handleSelectProject: (project: Project) => Promise<void>;
+  handleCreateProject: (project: Project) => void;
+}
+
+function AppContent({
+  currentProject,
+  setCurrentProject,
+  isProjectSwitching,
+  setIsProjectSwitching,
+  handleSelectProject,
+  handleCreateProject,
+}: AppContentProps): React.ReactElement {
+  const [currentMode, setCurrentMode] = useState<AppMode>(currentProject.purpose.topic == '' ? 'purpose' : 'writing');
+  const [isMonitoring, setIsMonitoring] = useState<boolean>(true);
+
+  // Auto-save project content
+  useEffect(() => {
+    if (isProjectSwitching) return;
+
+    const autoSaveInterval = setInterval(async () => {
+      // TODO auto save
+    }, 3000);
+
+    return () => clearInterval(autoSaveInterval);
+  }, [currentProject, isProjectSwitching]);
+
+  const handleBackToDashboard = useCallback(async (): Promise<void> => {
+    setIsProjectSwitching(true);
+
+    try {
+      await projectService.updateProject(currentProject.id, {
+        title: currentProject.purpose.topic.substring(0, 50) || currentProject.title,
+      });
+    } catch (error) {
+      console.error('Failed to save project:', error);
+    }
+
+    setCurrentProject(null);
+    setTimeout(() => setIsProjectSwitching(false), 100);
+  }, [currentProject]);
+
+  const handlePurposeSubmit = async (purpose: Purpose): Promise<void> => {
+    // Update current project with purpose
+    await projectService.updateProject(currentProject.id, {
+      purpose: purpose,
+      // Generate title from purpose (handle both string and object formats)
+      title: purpose.topic.substring(0, 50) || 'Untitled Project',
+    });
+
+    setCurrentMode('writing');
+  };
+
+  const handleBackToHome = (): void => {
+    setCurrentMode('purpose');
+  };
+
+  const handleFeedbackGenerated = useCallback((insights: FeedbackItem[]): void => {
+    const newFeedback: FeedbackItem[] = insights.map((insight: FeedbackItem) => ({
+      ...insight,
+      id: insight.id || `flow-${Date.now()}-${Math.random()}`,
+      timestamp: insight.timestamp || new Date().toISOString(),
+      status: insight.status || 'active',
+      source: 'flow',
+    }));
+
+    setCurrentProject(prev => {
+      if (!prev) return prev;
+      return { ...prev, feedback: [...(prev.feedback ?? []), ...newFeedback] };
+    });
+  }, [setCurrentProject]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {currentMode !== 'dashboard' && renderNavigation()}
+      <Navigation
+        currentMode={currentMode}
+        currentProject={currentProject}
+        setCurrentMode={setCurrentMode}
+        onBackToDashboard={handleBackToDashboard}
+      />
 
-      <div className={currentMode !== 'dashboard' ? 'h-[calc(100vh-80px)]' : 'h-screen'}>
-        {currentMode === 'dashboard' ? (
-          <ProjectDashboard
-            onSelectProject={handleSelectProject}
-            onCreateProject={handleCreateProject}
-          />
-        ) : currentMode === 'home' ? (
+      <div className={currentProject !== null ? 'h-[calc(100vh-80px)]' : 'h-screen'}>
+        {currentMode === 'purpose' ? (
           <PurposeStep
-            purpose={purpose}
-            setPurpose={setPurpose}
+            purpose={currentProject.purpose}
+            setPurpose={(purpose) => setCurrentProject({ ...currentProject, purpose })}
             onSubmit={handlePurposeSubmit}
           />
         ) : currentMode === 'writing' ? (
           <WritingInterface
-            purpose={purpose}
-            content={content}
-            onContentChange={setContent}
-            feedback={feedback}
-            setFeedback={setFeedback}
+            feedback={currentProject.feedback}
+            setFeedback={(feedback) => setCurrentProject({ ...currentProject, feedback })}
             onBackToPurpose={handleBackToHome}
             project={currentProject}
-            writingCriteria={writingCriteria}
+            setProject={setCurrentProject}
+            writingCriteria={currentProject.writingCriteria}
             isMonitoring={isMonitoring}
             onToggleMonitoring={() => setIsMonitoring(!isMonitoring)}
             onFeedbackGenerated={handleFeedbackGenerated}
@@ -319,9 +207,44 @@ function AppContent(): React.ReactElement {
 }
 
 function App(): React.ReactElement {
-  return (
-    <AppContent />
-  );
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [isProjectSwitching, setIsProjectSwitching] = useState<boolean>(false);
+
+  const handleSelectProject = async (project: Project): Promise<void> => {
+    setIsProjectSwitching(true);
+    setCurrentProject(project);
+    setTimeout(() => setIsProjectSwitching(false), 100);
+  };
+
+  const handleCreateProject = (project: Project): void => {
+    setIsProjectSwitching(true);
+    setCurrentProject(project);
+    setTimeout(() => setIsProjectSwitching(false), 100);
+  };
+
+  if (currentProject == null) {
+     return (
+       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+         <div className='h-screen'>
+           <ProjectDashboard
+             onSelectProject={handleSelectProject}
+             onCreateProject={handleCreateProject}
+           />
+         </div>
+       </div>
+     );
+   } else {
+     return (
+       <AppContent
+         currentProject={currentProject}
+         setCurrentProject={setCurrentProject}
+         isProjectSwitching={isProjectSwitching}
+         setIsProjectSwitching={setIsProjectSwitching}
+         handleSelectProject={handleSelectProject}
+         handleCreateProject={handleCreateProject}
+       />
+     );
+   }
 }
 
 export default App;

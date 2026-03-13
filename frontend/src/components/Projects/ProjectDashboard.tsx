@@ -103,14 +103,8 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
     return purpose;
   };
 
-  const getPurposeSearchText = (purpose: Purpose | null): string => {
-    if (!purpose) return '';
-
-    if (typeof purpose === 'object' && purpose !== null) {
-      return `${purpose.topic || ''} ${purpose.context || ''}`.toLowerCase();
-    }
-
-    return purpose.toLowerCase();
+  const getPurposeSearchText = (purpose: Purpose): string => {
+    return `${purpose.topic || ''} ${purpose.context || ''}`.toLowerCase();
   };
 
   const filteredAndSortedProjects = projects

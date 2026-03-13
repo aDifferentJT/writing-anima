@@ -1,10 +1,3 @@
-export interface PurposeData {
-  topic: string;
-  context: string;
-}
-
-export type Purpose = string | PurposeData;
-
 export interface FeedbackPosition {
   start: number;
   end: number;
@@ -58,15 +51,20 @@ export interface FeedbackItem {
 export interface Project {
   id: string;
   title: string;
-  purpose: Purpose | null;
+  purpose: Purpose;
   content: string;
   feedback: FeedbackItem[];
-  writingCriteria: WritingCriteria | null;
+  writingCriteria: WritingCriteria;
   settings?: Record<string, unknown>;
   isArchived?: boolean;
   createdAt?: string;
   lastAccessedAt?: string;
   updatedAt?: string;
+}
+
+export interface Purpose {
+  topic: string;
+  context: string;
 }
 
 export interface WritingCriteria {

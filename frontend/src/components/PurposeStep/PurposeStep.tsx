@@ -1,27 +1,17 @@
 import React from 'react';
 import { Send } from 'lucide-react';
-import { Purpose, PurposeData } from '../../types';
+import { Purpose } from '../../types';
 
 interface PurposeStepProps {
   purpose: Purpose;
-  setPurpose: React.Dispatch<React.SetStateAction<Purpose>>;
-  onSubmit: (purposeData: PurposeData) => void;
+  setPurpose: (purpose: Purpose) => void;
+  onSubmit: (purpose: Purpose) => void;
 }
 
 const PurposeStep: React.FC<PurposeStepProps> = ({ purpose, setPurpose, onSubmit }) => {
-  // Handle both old format (string) and new format (object with topic/context)
-  const purposeData: PurposeData = typeof purpose === 'string' ? { topic: purpose, context: '' } : purpose;
-
   const handleSubmit = (): void => {
-    if (!purposeData.topic?.trim()) return;
-    onSubmit(purposeData);
-  };
-
-  const updatePurpose = (field: keyof PurposeData, value: string): void => {
-    setPurpose((prev: Purpose) => {
-      const current: PurposeData = typeof prev === 'string' ? { topic: prev, context: '' } : prev;
-      return { ...current, [field]: value };
-    });
+    if (!purpose.topic.trim()) return;
+    onSubmit(purpose);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -41,8 +31,10 @@ const PurposeStep: React.FC<PurposeStepProps> = ({ purpose, setPurpose, onSubmit
           <div className="space-y-4">
             <div>
               <textarea
-                value={purposeData.topic || ''}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updatePurpose('topic', e.target.value)}
+                value={purpose.topic}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setPurpose({ ...purpose, topic: e.target.value })
+                }
                 onKeyDown={handleKeyDown}
                 placeholder="What are you writing about?"
                 className="obsidian-input w-full h-20 resize-none obsidian-scrollbar text-sm"
@@ -51,8 +43,10 @@ const PurposeStep: React.FC<PurposeStepProps> = ({ purpose, setPurpose, onSubmit
 
             <div>
               <textarea
-                value={purposeData.context || ''}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updatePurpose('context', e.target.value)}
+                value={purpose.context}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setPurpose({ ...purpose, context: e.target.value })
+                }
                 onKeyDown={handleKeyDown}
                 placeholder="Who's your audience? What's the setting?"
                 className="obsidian-input w-full h-20 resize-none obsidian-scrollbar text-sm"
@@ -66,9 +60,9 @@ const PurposeStep: React.FC<PurposeStepProps> = ({ purpose, setPurpose, onSubmit
             </p>
             <button
               onClick={handleSubmit}
-              disabled={!purposeData.topic?.trim()}
+              disabled={!purpose.topic.trim()}
               className={`p-2 rounded transition-colors ${
-                !purposeData.topic?.trim()
+                !purpose.topic.trim()
                   ? 'text-obsidian-text-muted cursor-not-allowed'
                   : 'text-obsidian-accent-primary hover:bg-obsidian-accent-pale'
               }`}

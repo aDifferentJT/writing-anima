@@ -10,3 +10,4 @@
 - User is not secure atm, do we want to fix or scrub?
 - File metadate no longer contains file_path or timestamp but does contain filename
 - Prune requirements
+- Sort WritingInterface feedback stuff

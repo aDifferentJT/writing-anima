@@ -18,27 +18,23 @@ import {
 } from "../../types";
 
 interface WritingInterfaceProps {
-  purpose: Purpose;
-  content: string;
-  onContentChange: (value: string) => void;
   feedback: FeedbackItem[];
-  setFeedback: React.Dispatch<React.SetStateAction<FeedbackItem[]>>;
+  setFeedback: (feedback: FeedbackItem[]) => void;
   onBackToPurpose: () => void;
-  project: Project | null;
-  writingCriteria: WritingCriteria | null;
+  project: Project;
+  setProject: (project: Project) => void;
+  writingCriteria: WritingCriteria;
   isMonitoring: boolean;
   onToggleMonitoring: () => void;
   onFeedbackGenerated: (insights: FeedbackItem[]) => void;
 }
 
 const WritingInterface: React.FC<WritingInterfaceProps> = ({
-  purpose,
-  content,
-  onContentChange,
   feedback,
   setFeedback,
   onBackToPurpose,
   project,
+  setProject,
   writingCriteria,
   isMonitoring,
   onToggleMonitoring,
@@ -89,9 +85,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     );
 
     // IMPORTANT: Also remove from parent state to prevent reappearing on re-render
-    if (setFeedback) {
-      setFeedback((prev) => prev.filter((item) => item.id !== feedbackId));
-    }
+    setFeedback(feedback.filter((item) => item.id !== feedbackId));
   };
 
   const handleMultiAgentResolve = (feedbackId: string): void => {
@@ -121,18 +115,13 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     });
 
     // IMPORTANT: Also remove from parent state to prevent reappearing on re-render
-    if (setFeedback) {
-      setFeedback((prev) => prev.filter((item) => item.id !== feedbackId));
-    }
+    setFeedback(feedback.filter((item) => item.id !== feedbackId));
   };
 
   const handleMultiAgentClear = (): void => {
     setMultiAgentFeedback([]);
 
-    // IMPORTANT: Also clear parent state to prevent reappearing on re-render
-    if (setFeedback) {
-      setFeedback([]);
-    }
+    setFeedback([]);
   };
 
   // Persist selected persona to localStorage
@@ -220,7 +209,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       return;
     }
 
-    if (!content || content.trim().length === 0) {
+    if (!project.content || project.content.trim().length === 0) {
       alert("Please write some content first.");
       return;
     }
@@ -234,7 +223,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     console.log("[WritingInterface] Starting Anima analysis...", {
       personaId: selectedPersonaId,
       model: selectedModel,
-      contentLength: content.length,
+      contentLength: project.content.length,
     });
 
     let statusClearTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -246,18 +235,16 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       const feedbackItems: FeedbackItem[] = [];
 
       // Convert purpose to string if it's an object
-      const purposeText =
-        typeof purpose === "object" && purpose !== null
-          ? purpose.topic || purpose.context || ""
-          : purpose || "";
+      // TODO should we do this?
+      const purposeText = project.purpose.topic || project.purpose.context || ""
 
       // Use streaming analysis
       await animaService.streamAnalysis(
-        content,
+        project.content,
         selectedPersonaId,
         {
           purpose: purposeText,
-          criteria: writingCriteria?.criteria || [],
+          criteria: writingCriteria.criteria,
           feedbackHistory: feedback.slice(-3), // Last 3 feedback items
           model: selectedModel, // Pass selected model
         },
@@ -423,8 +410,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   }, [
     selectedPersonaId,
     selectedModel,
-    content,
-    purpose,
+    project,
     writingCriteria,
     feedback,
     availablePersonas,
@@ -449,19 +435,15 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   // Clear any legacy feedback on mount
   useEffect(() => {
     console.log("[WritingInterface] Clearing legacy feedback on mount");
-    if (setFeedback) {
-      setFeedback((prev) => {
-        const flowOnly = prev.filter((f) => f.source === "flow");
-        if (flowOnly.length !== prev.length) {
+        const flowOnly = feedback.filter((f) => f.source === "flow");
+        if (flowOnly.length !== feedback.length) {
           console.log(
             "[WritingInterface] Removed",
-            prev.length - flowOnly.length,
+            feedback.length - flowOnly.length,
             "legacy feedback items",
           );
         }
-        return flowOnly;
-      });
-    }
+      setFeedback(flowOnly);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only on mount - setFeedback is stable prop from parent
 
@@ -606,9 +588,9 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           </div>
           <button
             onClick={handleExecuteFlowClick}
-            disabled={isExecutingFlow || !content || !selectedPersonaId}
+            disabled={isExecutingFlow || !project.content || !selectedPersonaId}
             className={`whitespace-nowrap ${
-              isExecutingFlow || !content || !selectedPersonaId
+              isExecutingFlow || !project.content || !selectedPersonaId
                 ? "obsidian-button bg-obsidian-bg text-obsidian-text-muted cursor-not-allowed"
                 : "obsidian-button-primary"
             }`}
@@ -651,8 +633,8 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
           <div>
             <WritingArea
-              content={content}
-              onContentChange={onContentChange}
+              content={project.content}
+              onContentChange={(content: string) => setProject({ ...project, content })}
               autoFocus={true}
               feedback={activeFeedback.filter(
                 (item) => !item.status || item.status === "active",
