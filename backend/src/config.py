@@ -6,7 +6,7 @@ from typing import Optional
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
 
 # Load environment variables
@@ -34,7 +34,7 @@ class ModelConfig(BaseModel):
     model: str
     description: str
     base_url: str
-    api_key_env: Optional[str]
+    api_key_env: Optional[str] = None
     temperature: float
     max_iterations: int
 
@@ -55,31 +55,16 @@ class VectorDBConfig(BaseModel):
     port: int = 6333
     api_key: Optional[str] = None
 
-    def __init__(
-        self,
-        provider: str = "qdrant",
-        host: str = "localhost",
-        port: int = 6333,
-        api_key: Optional[str] = None,
-    ) -> None:
+    @model_validator(mode="after")
+    def _apply_env_overrides(self) -> "VectorDBConfig":
         """Override with environment variables if present"""
-
-        self.provider = provider
-
         if host_env := os.getenv("QDRANT_HOST"):
             self.host = host_env
-        else:
-            self.host = host
-
         if port_env := os.getenv("QDRANT_PORT"):
             self.port = int(port_env)
-        else:
-            self.port = port
-
         if api_key_env := os.getenv("QDRANT_API_KEY"):
             self.api_key = api_key_env
-        else:
-            self.api_key = api_key
+        return self
 
 
 class EmbeddingConfig(BaseModel):

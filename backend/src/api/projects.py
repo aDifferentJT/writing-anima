@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
-@router.post("create", response_model=Project, status_code=201)
+@router.post("/create", response_model=Project, status_code=201)
 async def create_project() -> Project:
     """Create a new writing project"""
     try:
@@ -40,7 +40,7 @@ async def create_project() -> Project:
                 auto_save_interval=30000,
                 enable_real_time_sync=True,
                 other_settings={},
-            ),
+            ).model_dump(),
             created_at=now,
             updated_at=now,
             last_accessed_at=now,
@@ -61,7 +61,7 @@ async def create_project() -> Project:
         )
 
 
-@router.get("list", response_model=list[Project], status_code=201)
+@router.get("/list", response_model=list[Project], status_code=201)
 async def get_projects() -> list[Project]:
     """Get all the projects"""
     try:
@@ -79,7 +79,7 @@ async def get_projects() -> list[Project]:
         )
 
 
-@router.get("get", response_model=Project, status_code=201)
+@router.get("/get", response_model=Project, status_code=201)
 async def get_project(project_id: UUID) -> Project:
     """Get a project by id"""
     try:
@@ -95,7 +95,7 @@ async def get_project(project_id: UUID) -> Project:
         )
 
 
-@router.patch("update", response_model=Project, status_code=201)
+@router.patch("/update", response_model=Project, status_code=201)
 async def update_project(project_id: UUID, updates: Any) -> Project:
     """Update a project"""
     try:
