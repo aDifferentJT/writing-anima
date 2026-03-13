@@ -15,8 +15,8 @@ import type {
   CorpusFile,
 } from '../types';
 
-const API_URL: string = process.env.REACT_APP_API_URL || "http://localhost:8000";
-const WS_URL: string = process.env.REACT_APP_WS_URL || "ws://localhost:8000";
+const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const WS_URL: string = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
 
 interface UploadCorpusResponse {
   message?: string;

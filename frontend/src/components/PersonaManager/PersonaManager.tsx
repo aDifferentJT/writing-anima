@@ -34,7 +34,7 @@ const PersonaManager: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const response = await fetch(
         `${API_URL}/api/personas`,
       );
@@ -60,7 +60,7 @@ const PersonaManager: React.FC = () => {
 
   const handleCreatePersona = async (personaData: PersonaCreateData) => {
     try {
-      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const response = await fetch(`${API_URL}/api/personas`, {
         method: "POST",
         headers: {
@@ -100,7 +100,7 @@ const PersonaManager: React.FC = () => {
     }
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const response = await fetch(
         `${API_URL}/api/personas/${personaId}`,
         { method: "DELETE" },

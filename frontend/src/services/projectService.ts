@@ -15,7 +15,7 @@ import {
 import { db } from '../config/firebase';
 import type { Project, FeedbackItem, Purpose } from '../types';
 
-const API_URL: string = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 interface ProjectUpdates {
   title?: string;
