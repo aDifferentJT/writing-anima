@@ -3,12 +3,8 @@ import {
   Plus,
   Search,
   FileText,
-  Clock,
-  Edit3,
   Trash2,
   Copy,
-  ArrowRight,
-  Filter
 } from 'lucide-react';
 import projectService from '../../services/projectService';
 import type { Project, Purpose } from '../../types';
@@ -22,7 +18,6 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [viewMode, setViewMode] = useState<string>('list'); // 'grid' or 'list'
   const [sortBy, setSortBy] = useState<string>('lastAccessed'); // 'lastAccessed', 'created', 'title'
 
   useEffect(() => {
@@ -117,10 +112,10 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
         case 'title':
           return a.title.localeCompare(b.title);
         case 'created':
-          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+          return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
         case 'lastAccessed':
         default:
-          return new Date(b.lastAccessedAt || '').getTime() - new Date(a.lastAccessedAt || '').getTime();
+          return new Date(b.last_accessed_at || '').getTime() - new Date(a.last_accessed_at || '').getTime();
       }
     });
 
@@ -244,7 +239,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="text-xs text-obsidian-text-tertiary mono">
-                        {formatDate(project.lastAccessedAt)}
+                        {formatDate(project.last_accessed_at)}
                       </div>
                     </td>
                     <td className="px-3 py-2.5">

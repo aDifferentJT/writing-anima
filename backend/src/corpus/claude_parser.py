@@ -1,11 +1,10 @@
 """Parser for Claude conversation JSON exports"""
 
-from fastapi import UploadFile
 import json
 import logging
-from pathlib import Path
 from typing import Any, NamedTuple, Optional
-from datetime import datetime
+
+from fastapi import UploadFile
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +13,7 @@ class ClaudeConversationParser:
     """Parse Claude conversation JSON exports"""
 
     class Conversation(NamedTuple):
+        """A conversation with metadata"""
         text: str
         conversation_name: Optional[str]
 
@@ -134,17 +134,17 @@ class ClaudeConversationParser:
                     if parsed.text.strip():
                         conversations.append(parsed)
                 else:
-                    logger.warning(f"Unknown JSON structure in {json_file.filename}")
+                    logger.warning("Unknown JSON structure in %s", json_file.filename)
                     return []
 
-            logger.info(f"Parsed {len(conversations)} conversations from {json_file.filename}")
+            logger.info("Parsed %s conversations from %s", len(conversations), json_file.filename)
             return conversations
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in {json_file.filename}: {e}")
+            logger.error("Invalid JSON in %s: %s", json_file.filename, e)
             return []
         except Exception as e:
-            logger.error(f"Error parsing {json_file.filename}: {e}")
+            logger.error("Error parsing %s: %s", json_file.filename, e)
             return []
 
     def parse_to_text(self, json_file: UploadFile) -> str:

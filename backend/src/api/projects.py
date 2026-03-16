@@ -3,22 +3,20 @@ Project management API endpoints
 """
 
 import logging
-import os
 from datetime import datetime
-from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, desc, select
 
-from ..config import get_config
-from ..corpus.ingest import CorpusIngester
-from ..database.general import (
+from ..database.general import general_db
+from .models import (
     Project,
-    Settings,
-    general_db
+    ProjectUpdate,
+    ProjectSettings,
+    Purpose,
+    WritingCriteria,
 )
-from ..database.vector import VectorDatabase
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -30,17 +28,13 @@ async def create_project() -> Project:
     try:
         # Create project record
         now = datetime.utcnow()
-        project = Project(
+        project = Project.new(
             title="New Project",
-            purpose="",
+            purpose=Purpose(topic="", context=""),
             content="",
             feedback=[],
-            writingCriteria=None,
-            settings=Settings(
-                auto_save_interval=30000,
-                enable_real_time_sync=True,
-                other_settings={},
-            ).model_dump(),
+            writingCriteria=WritingCriteria(),
+            settings=ProjectSettings(),
             created_at=now,
             updated_at=now,
             last_accessed_at=now,
@@ -51,14 +45,15 @@ async def create_project() -> Project:
         with Session(general_db) as session:
             session.add(project)
             session.commit()
+            session.refresh(project)
 
         return project
 
     except Exception as e:
-        logger.error(f"Error creating project: {e}")
+        logger.error("Error creating project: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to create project: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/list", response_model=list[Project], status_code=201)
@@ -68,15 +63,15 @@ async def get_projects() -> list[Project]:
         with Session(general_db) as session:
             return list(session.exec(
                 select(Project)
-                    .where(Project.is_archived == False)
+                    .where(not Project.is_archived)
                     .order_by(desc(Project.last_accessed_at))
             ))
 
     except Exception as e:
-        logger.error(f"Error getting projects: {e}")
+        logger.error("Error getting projects: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to get projects: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/get", response_model=Project, status_code=201)
@@ -89,14 +84,14 @@ async def get_project(project_id: UUID) -> Project:
             ).one()
 
     except Exception as e:
-        logger.error(f"Error getting project: {e}")
+        logger.error("Error getting project: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to get project: {str(e)}"
-        )
+        ) from e
 
 
-@router.patch("/update", response_model=Project, status_code=201)
-async def update_project(project_id: UUID, updates: Any) -> Project:
+@router.patch("/update", response_model=Project, status_code=200)
+async def update_project(project_id: UUID, updates: ProjectUpdate) -> Project:
     """Update a project"""
     try:
         with Session(general_db) as session:
@@ -104,13 +99,60 @@ async def update_project(project_id: UUID, updates: Any) -> Project:
                 select(Project).where(Project.id == project_id)
             ).one()
 
+            update_data = updates.model_dump(exclude_unset=True)
+            for field, value in update_data.items():
+                setattr(project, field, value)
+            project.updated_at = datetime.utcnow()
+
             session.add(project)
             session.commit()
+            session.refresh(project)
 
             return project
 
     except Exception as e:
-        logger.error(f"Error getting project: {e}")
+        logger.error("Error updating project: %s", e)
         raise HTTPException(
-            status_code=500, detail=f"Failed to get project: {str(e)}"
-        )
+            status_code=500, detail=f"Failed to update project: {str(e)}"
+        ) from e
+
+
+@router.delete("/delete", status_code=204)
+async def delete_project(project_id: UUID) -> None:
+    """Archive a project (soft delete)"""
+    try:
+        with Session(general_db) as session:
+            project = session.exec(
+                select(Project).where(Project.id == project_id)
+            ).one()
+
+            project.is_archived = True
+            project.updated_at = datetime.utcnow()
+
+            session.add(project)
+            session.commit()
+
+    except Exception as e:
+        logger.error("Error deleting project: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete project: {str(e)}"
+        ) from e
+
+
+@router.delete("/permanently-delete", status_code=204)
+async def permanently_delete_project(project_id: UUID) -> None:
+    """Permanently delete a project"""
+    try:
+        with Session(general_db) as session:
+            project = session.exec(
+                select(Project).where(Project.id == project_id)
+            ).one()
+
+            session.delete(project)
+            session.commit()
+
+    except Exception as e:
+        logger.error("Error permanently deleting project: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to permanently delete project: {str(e)}"
+        ) from e

@@ -3,7 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, Literal
+from typing import Any, NamedTuple, Optional
 
 from openai.types.chat import ChatCompletionMessageParam
 
@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class ToolCall(NamedTuple):
+    """Record of a tool call made by the agent"""
+
     tool: str
     input: dict[str, Any]
     result_count: int
@@ -21,12 +23,16 @@ class ToolCall(NamedTuple):
 
 # TODO should this just be the same as ToolCall?
 class ToolUse(NamedTuple):
+    """Tool use from model response"""
+
     id: str
     name: str
     input: dict[str, Any]
 
 
 class Response(NamedTuple):
+    """Response from agent"""
+
     response: str
     tool_calls: list[ToolCall]
     iterations: int
@@ -75,7 +81,6 @@ class BaseAgent(ABC):
         Returns:
             Model response object
         """
-        pass
 
     @abstractmethod
     def _parse_tool_use(self, response: Any) -> list[ToolUse]:
@@ -88,7 +93,6 @@ class BaseAgent(ABC):
         Returns:
             List of tool calls with format: [{"id": str, "name": str, "input": dict}]
         """
-        pass
 
     @abstractmethod
     def _is_complete(self, response: Any) -> bool:
@@ -101,7 +105,6 @@ class BaseAgent(ABC):
         Returns:
             True if model is done, False if it wants to use tools
         """
-        pass
 
     @abstractmethod
     def _extract_text(self, response: Any) -> str:
@@ -114,7 +117,6 @@ class BaseAgent(ABC):
         Returns:
             Text content
         """
-        pass
 
     @abstractmethod
     def _update_messages(
@@ -131,7 +133,6 @@ class BaseAgent(ABC):
         Returns:
             Updated message list
         """
-        pass
 
     def _build_system_prompt(self, prompt_file: str = "base.txt") -> str:
         """
@@ -147,7 +148,7 @@ class BaseAgent(ABC):
         prompt_dir = Path(self.config.agent.system_prompt_dir)
         base_prompt_path = prompt_dir / prompt_file
 
-        with open(base_prompt_path, "r") as f:
+        with open(base_prompt_path, "r", encoding="utf-8") as f:
             base_prompt = f.read()
 
         # Format with user name
@@ -159,18 +160,23 @@ class BaseAgent(ABC):
             prompt += "\n\n" + model_specific.format(user_name=self.user_name)
 
         # Add style pack for grounding (diverse writing samples)
-        logger.info(f"Style pack enabled: {self.config.retrieval.style_pack_enabled}")
+        logger.info("Style pack enabled: %s", self.config.retrieval.style_pack_enabled)
         if self.config.retrieval.style_pack_enabled:
             style_pack = self.search_tool.get_style_pack()
             logger.info(
-                f"Style pack retrieved: {len(style_pack) if style_pack else 0} samples"
+                "Style pack retrieved: %d samples",
+                len(style_pack) if style_pack else 0
             )
             if style_pack:
                 prompt += "\n\n" + "=" * 70
                 prompt += (
                     f"\n\nSTYLE GROUNDING - {self.user_name}'s Writing Examples:\n"
                 )
-                prompt += f"The following are representative samples of how {self.user_name} writes. Use these to match their style, tone, and communication patterns.\n\n"
+                prompt += (
+                    f"The following are representative samples of how {self.user_name} "
+                    f"writes. Use these to match their style, tone, and communication "
+                    f"patterns.\n\n"
+                )
 
                 for i, sample in enumerate(style_pack, 1):
                     source = sample.metadata.get("source", "unknown")
@@ -188,11 +194,21 @@ class BaseAgent(ABC):
                     prompt += text + "\n"
 
                 prompt += "\n" + "=" * 70
-                prompt += f"\n\nCRITICAL STYLE INSTRUCTION: Your feedback must be written in the SAME VOICE, TONE, and STYLE as the examples above. "
-                prompt += f"Emulate how {self.user_name} writes - their sentence structure, vocabulary choices, rhetorical patterns, and communication style. "
-                prompt += "Do not write generic feedback. Write feedback AS IF you are this author critiquing the work.\n"
+                prompt += (
+                    "\n\nCRITICAL STYLE INSTRUCTION: Your feedback must be written "
+                    "in the SAME VOICE, TONE, and STYLE as the examples above. "
+                )
+                prompt += (
+                    "Emulate how %s writes - their sentence structure, vocabulary "
+                    "choices, rhetorical patterns, and communication style. "
+                ) % self.user_name
+                prompt += (
+                    "Do not write generic feedback. Write feedback AS IF you are "
+                    "this author critiquing the work.\n"
+                )
                 logger.info(
-                    f"Style pack added to system prompt ({len(style_pack)} examples)"
+                    "Style pack added to system prompt (%d examples)",
+                    len(style_pack)
                 )
 
         return prompt
@@ -231,24 +247,25 @@ class BaseAgent(ABC):
         if tool_use.name == "search_corpus":
             try:
                 result = self.search_tool.search(**tool_use.input)
-                logger.debug(f"Tool search returned {len(result)} results")
+                logger.debug("Tool search returned %d results", len(result))
                 return result
             except Exception as e:
-                logger.error(f"Error executing search_corpus: {e}")
+                logger.error("Error executing search_corpus: %s", e)
                 return {"error": str(e)}
         elif tool_use.name == "check_incremental_reasoning":
             try:
                 result = self.reasoning_tool.check_and_guide(**tool_use.input)
                 logger.debug(
-                    f"Incremental reasoning check: OOD={result.get('is_ood', False)}"
+                    "Incremental reasoning check: OOD=%s",
+                    result.get('is_ood', False)
                 )
                 return result
             except Exception as e:
-                logger.error(f"Error executing check_incremental_reasoning: {e}")
+                logger.error("Error executing check_incremental_reasoning: %s", e)
                 return {"error": str(e)}
         else:
-            e2 = f"Unknown tool: {tool_use.name}"
-            logger.error(e2)
+            e2 = "Unknown tool: %s" % tool_use.name
+            logger.error("Unknown tool: %s", tool_use.name)
             return {"error": e2}
 
     def respond(
@@ -259,7 +276,7 @@ class BaseAgent(ABC):
 
         Args:
             query: User query
-            conversation_history: Optional list of previous messages [{"role": "user/assistant", "content": "..."}]
+            conversation_history: Optional list of previous messages
 
         Returns:
             Dict with response, tool_calls, iterations, and model name
@@ -279,10 +296,10 @@ class BaseAgent(ABC):
         tool_calls_log: list[ToolCall] = []
         self._current_tool_calls_count = 0  # Track for tool_choice logic
 
-        logger.info(f"Starting agent loop for query: {query[:100]}...")
+        logger.info("Starting agent loop for query: %s...", query[:100])
 
         for iteration in range(self.max_iterations):
-            logger.debug(f"Iteration {iteration + 1}/{self.max_iterations}")
+            logger.debug("Iteration %d/%d", iteration + 1, self.max_iterations)
 
             try:
                 # Call model
@@ -292,7 +309,8 @@ class BaseAgent(ABC):
                 if self._is_complete(response):
                     final_response = self._extract_text(response)
                     logger.info(
-                        f"Agent completed in {iteration + 1} iterations with {len(tool_calls_log)} tool calls"
+                        "Agent completed in %d iterations with %d tool calls",
+                        iteration + 1, len(tool_calls_log)
                     )
                     return Response(
                         response=final_response,
@@ -316,6 +334,13 @@ class BaseAgent(ABC):
                             )
                         )
                         self._current_tool_calls_count += 1  # Increment counter
+                        result_count = (
+                            len(result) if isinstance(result, list) else 1
+                        )
+                        logger.debug(
+                            "Tool %s returned %d results",
+                            tool_use.name, result_count
+                        )
 
                     # Update conversation
                     messages = self._update_messages(messages, response, tool_results)
@@ -323,7 +348,7 @@ class BaseAgent(ABC):
                     # No tools but not complete - add response and continue
                     text = self._extract_text(response)
                     if text:
-                        logger.info(f"Agent completed with text response")
+                        logger.info("Agent completed with text response")
                         return Response(
                             response=text,
                             tool_calls=tool_calls_log,
@@ -332,16 +357,16 @@ class BaseAgent(ABC):
                         )
 
             except Exception as e:
-                logger.error(f"Error in iteration {iteration + 1}: {e}")
+                logger.error("Error in iteration %d: %s", iteration + 1, e)
                 return Response(
-                    response=f"Error: {str(e)}",
+                    response="Error: %s" % str(e),
                     tool_calls=tool_calls_log,
                     iterations=iteration + 1,
                     model=self.__class__.__name__,
                     error=str(e),
                 )
 
-        logger.warning(f"Max iterations ({self.max_iterations}) reached")
+        logger.warning("Max iterations (%d) reached", self.max_iterations)
         return Response(
             response="Max iterations reached without completion",
             tool_calls=tool_calls_log,

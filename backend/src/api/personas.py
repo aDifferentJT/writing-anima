@@ -8,13 +8,12 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from sqlmodel import Session, select
 
 from ..config import get_config
 from ..corpus.ingest import CorpusIngester
 from ..database.general import (
-    Persona,
     general_db
 )
 from ..database.vector import VectorDatabase
@@ -26,6 +25,7 @@ from .models import (
     CorpusFileModel,
     CorpusUploadResponse,
     IngestionStatus,
+    Persona,
     PersonaCreate,
     PersonaList,
     PersonaResponse,
@@ -49,14 +49,14 @@ async def get_available_models() -> AvailableModelsResponse:
         ]
         return AvailableModelsResponse(models=models)
     except Exception as e:
-        logger.error(f"Error getting available models: {e}")
+        logger.error("Error getting available models: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to get available models: {str(e)}"
-        )
+        ) from e
 
 
-@router.post("", response_model=Persona, status_code=201)
-async def create_persona(persona: PersonaCreate) -> Persona:
+@router.post("", response_model=PersonaResponse, status_code=201)
+async def create_persona(persona: PersonaCreate) -> PersonaResponse:
     """Create a new writing persona"""
     try:
         # Generate unique ID
@@ -85,14 +85,15 @@ async def create_persona(persona: PersonaCreate) -> Persona:
         with Session(general_db) as session:
             session.add(persona_data)
             session.commit()
+            session.refresh(persona_data)
 
-        return Persona(persona=persona_data)
+        return PersonaResponse.from_persona(persona_data, corpus_available=True)
 
     except Exception as e:
-        logger.error(f"Error creating persona: {e}")
+        logger.error("Error creating persona: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to create persona: {str(e)}"
-        )
+        ) from e
 
 
 def get_existing_collections() -> set[str]:
@@ -120,8 +121,10 @@ def get_existing_collections() -> set[str]:
         collections = client.get_collections().collections
         return {c.name for c in collections}
     except Exception as e:
-        logger.warning(f"Could not get collections from Qdrant: {e}")
-        return set()
+        logger.warning("Could not get collections from Qdrant: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get collections from Qdrant: {str(e)}"
+        ) from e
 
 
 @router.get("", response_model=PersonaList)
@@ -140,20 +143,20 @@ async def list_personas() -> PersonaList:
             for p in personas:
                 corpus_available = p.collection_name in existing_collections
                 user_personas.append(
-                    PersonaResponse(persona=p, corpus_available=corpus_available)
+                    PersonaResponse.from_persona(p, corpus_available=corpus_available)
                 )
 
             return PersonaList(personas=user_personas, total=len(user_personas))
 
     except Exception as e:
-        logger.error(f"Error listing personas: {e}")
+        logger.error("Error listing personas: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to list personas: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/{persona_id}", response_model=PersonaResponse)
-async def get_persona(persona_id: str) -> PersonaResponse:
+async def get_persona(persona_id: uuid.UUID) -> PersonaResponse:
     """Get a specific persona"""
     try:
         with Session(general_db) as session:
@@ -163,26 +166,23 @@ async def get_persona(persona_id: str) -> PersonaResponse:
             if persona is None:
                 raise HTTPException(status_code=404, detail="Persona not found")
 
-            # Get all existing collections once (single Qdrant call)
             existing_collections = get_existing_collections()
-
-            # Check Qdrant collection availability for each persona
             corpus_available = persona.collection_name in existing_collections
 
-            return PersonaResponse(persona=persona, corpus_available=corpus_available)
+            return PersonaResponse.from_persona(persona, corpus_available=corpus_available)
 
     except HTTPException as e:
         raise e
 
     except Exception as e:
-        logger.error(f"Error getting persona: {e}")
+        logger.error("Error getting persona: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to get persona: {str(e)}"
-        )
+        ) from e
 
 
-@router.patch("/{persona_id}", response_model=Persona)
-async def update_persona(persona_id: str, updates: PersonaUpdate) -> Persona:
+@router.patch("/{persona_id}", response_model=PersonaResponse)
+async def update_persona(persona_id: uuid.UUID, updates: PersonaUpdate) -> PersonaResponse:
     """Update a persona's settings (name, description, model)"""
     try:
         with Session(general_db) as session:
@@ -192,7 +192,6 @@ async def update_persona(persona_id: str, updates: PersonaUpdate) -> Persona:
             if persona is None:
                 raise HTTPException(status_code=404, detail="Persona not found")
 
-            # Build update dict with only provided fields
             updated = False
 
             if updates.name is not None:
@@ -207,24 +206,28 @@ async def update_persona(persona_id: str, updates: PersonaUpdate) -> Persona:
 
             if updated:
                 persona.updated_at = datetime.utcnow()
-
                 session.add(persona)
                 session.commit()
-            logger.info(f"Updated persona {persona_id}")
-            return persona
+                session.refresh(persona)
+
+            logger.info("Updated persona %s", persona_id)
+            existing_collections = get_existing_collections()
+            return PersonaResponse.from_persona(
+                persona, corpus_available=persona.collection_name in existing_collections
+            )
 
     except HTTPException as e:
         raise e
 
     except Exception as e:
-        logger.error(f"Error updating persona: {e}")
+        logger.error("Error updating persona: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to update persona: {str(e)}"
-        )
+        ) from e
 
 
 @router.delete("/{persona_id}", status_code=204)
-async def delete_persona(persona_id: str) -> None:
+async def delete_persona(persona_id: uuid.UUID) -> None:
     """Delete a persona and its corpus"""
     try:
         with Session(general_db) as session:
@@ -236,21 +239,21 @@ async def delete_persona(persona_id: str) -> None:
 
             session.delete(persona)
             session.commit()
-            logger.info(f"Deleted persona {persona_id}")
+            logger.info("Deleted persona %s", persona_id)
 
     except HTTPException as e:
         raise e
 
     except Exception as e:
-        logger.error(f"Error deleting persona: {e}")
+        logger.error("Error deleting persona: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to delete persona: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/{persona_id}/corpus", response_model=CorpusUploadResponse)
 async def upload_corpus(
-    persona_id: str,
+    persona_id: uuid.UUID,
     files: list[UploadFile] = File(...),
 ) -> CorpusUploadResponse:
     """Upload corpus files for a persona"""
@@ -286,7 +289,7 @@ async def upload_corpus(
                 collection_info = vector_db.client.get_collection(collection_name)
                 if collection_info.points_count is not None:
                     total_chunks = collection_info.points_count
-            except:
+            except:  # pylint: disable=bare-except
                 pass
 
             # Update persona metadata
@@ -298,7 +301,7 @@ async def upload_corpus(
             session.add(persona)
             session.commit()
 
-            logger.info(f"Uploaded {len(files)} files to persona {persona_id}")
+            logger.info("Uploaded %d files to persona %s", len(files), persona_id)
 
             return CorpusUploadResponse(
                 persona_id=persona_id,
@@ -311,14 +314,14 @@ async def upload_corpus(
         raise e
 
     except Exception as e:
-        logger.error(f"Error uploading corpus: {e}")
+        logger.error("Error uploading corpus: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to upload corpus: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/{persona_id}/corpus/status", response_model=IngestionStatus)
-async def get_ingestion_status(persona_id: str) -> IngestionStatus:
+async def get_ingestion_status(persona_id: uuid.UUID) -> IngestionStatus:
     """Get corpus ingestion status"""
     logger.error("TODO not implemented")
     raise HTTPException(status_code=500, detail="TODO not implemented")
@@ -370,7 +373,7 @@ async def get_ingestion_status(persona_id: str) -> IngestionStatus:
 
 
 @router.get("/{persona_id}/corpus/documents", response_model=CorpusDocumentsResponse)
-async def get_corpus_documents(persona_id: str) -> CorpusDocumentsResponse:
+async def get_corpus_documents(persona_id: uuid.UUID) -> CorpusDocumentsResponse:
     """Get all corpus documents for a persona, grouped by source file"""
     try:
         with Session(general_db) as session:
@@ -447,7 +450,7 @@ async def get_corpus_documents(persona_id: str) -> CorpusDocumentsResponse:
         raise e
 
     except Exception as e:
-        logger.error(f"Error getting corpus documents: {e}")
+        logger.error("Error getting corpus documents: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to get corpus documents: {str(e)}"
-        )
+        ) from e

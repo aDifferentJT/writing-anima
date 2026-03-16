@@ -2,27 +2,30 @@
 
 import logging
 import os
-from typing import Any, NamedTuple, Optional, cast
+from typing import Any, NamedTuple, Optional
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletionFunctionToolParam
-from openai.types.shared_params import FunctionDefinition
 
 from ..config import Config
 from ..corpus.embed.factory import EmbeddingGeneratorFactory
 from ..database.vector import VectorDatabase
-from ..database.vector.schema import SearchFilters, SearchResult, SourceType
+from ..database.vector.schema import SearchFilters, SourceType
 
 logger = logging.getLogger(__name__)
 
 
 class WritingSample(NamedTuple):
+    """A writing sample with metadata and similarity score"""
+
     text: str
     metadata: dict[str, Any]
     similarity: float
 
 
 class OodResult(NamedTuple):
+    """Result of out-of-distribution check"""
+
     is_ood: bool
     confidence: float
     reasoning: str
@@ -60,7 +63,7 @@ class CorpusSearchTool:
             return []
 
         size = self.config.retrieval.style_pack_size
-        logger.info(f"Building style pack with {size} diverse samples...")
+        logger.info("Building style pack with %d diverse samples...", size)
 
         # Get a random sample by searching for common words
         # This gives us a diverse starting set
@@ -102,7 +105,8 @@ class CorpusSearchTool:
                 break
 
         logger.info(
-            f"Style pack created with {len(diverse_samples)} samples from {len(seen_sources)} sources"
+            "Style pack created with %d samples from %d sources",
+            len(diverse_samples), len(seen_sources)
         )
         self._style_pack_cache = diverse_samples
         return diverse_samples
@@ -131,7 +135,7 @@ class CorpusSearchTool:
         # Validate k
         k = min(k, self.config.retrieval.max_k)
 
-        logger.debug(f"Searching corpus for: '{query}' (k={k})")
+        logger.debug("Searching corpus for: '%s' (k=%d)", query, k)
 
         # Generate query embedding
         query_embedding = self.embedder.generate_one(query)
@@ -155,12 +159,12 @@ class CorpusSearchTool:
         )
 
         # Note: Hybrid search uses RRF scores (or semantic scores), ranked by relevance
-        logger.info(f"Hybrid search '{query}' (k={k}): Found {len(results)} results")
+        logger.info("Hybrid search '%s' (k=%d): Found %d results", query, k, len(results))
 
         if results:
             logger.info(
-                f"  Top result score: {results[0].similarity:.3f}, "
-                f"Avg score: {sum(r.similarity for r in results) / len(results):.3f}"
+                "  Top result score: %.3f, Avg score: %.3f",
+                results[0].similarity, sum(r.similarity for r in results) / len(results)
             )
 
             # Log preview of top 3 results for debugging
@@ -173,7 +177,7 @@ class CorpusSearchTool:
                     if r.metadata.get("file_path")
                     else "unknown"
                 )
-                logger.debug(f"  {i}. [{source}/{file_name}] {preview}...")
+                logger.debug("  %d. [%s/%s] %s...", i, source, file_name, preview)
 
         # Convert to dict format for tool response
         return [
@@ -191,17 +195,29 @@ class CorpusSearchTool:
             "type": "function",
             "function": {
                 "name": "search_corpus",
-                "description": "Search the user's writing corpus to retrieve examples of BOTH their ideas AND their writing style. Returns excerpts showing how they write, think, and express themselves. Use k=100 for comprehensive retrieval that provides both content and style grounding.",
+                "description": (
+                    "Search the user's writing corpus to retrieve examples of BOTH "
+                    "their ideas AND their writing style. Returns excerpts showing how "
+                    "they write, think, and express themselves. Use k=100 for "
+                    "comprehensive retrieval that provides both content and style grounding."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "Search query - be specific about what you're looking for. Try different phrasings if first search doesn't return enough results.",
+                            "description": (
+                                "Search query - be specific about what you're looking for. "
+                                "Try different phrasings if first search doesn't "
+                                "return enough results."
+                            ),
                         },
                         "k": {
                             "type": "integer",
-                            "description": f"Number of results to return. Use k=100 for comprehensive content and style grounding. Max: {self.config.retrieval.max_k}",
+                            "description": (
+                                "Number of results to return. Use k=100 for comprehensive "
+                                f"content and style grounding. Max: {self.config.retrieval.max_k}"
+                            ),
                             "default": self.config.retrieval.default_k,
                         },
                         "source_filter": {
@@ -266,7 +282,7 @@ class IncrementalReasoningTool:
                 "error": "OpenAI client not initialized - check API key",
             }
 
-        logger.info(f"Checking if query is OOD: '{query[:100]}...'")
+        logger.info("Checking if query is OOD: '%s...'", query[:100])
 
         # Step 1: Find related corpus concepts
         corpus_concepts = self._find_related_concepts(query)
@@ -278,13 +294,16 @@ class IncrementalReasoningTool:
             return {
                 "is_ood": False,
                 "confidence": ood_result.confidence,
-                "message": "Query appears to be within corpus distribution. Use standard corpus search.",
+                "message": (
+                    "Query appears to be within corpus distribution. "
+                    "Use standard corpus search."
+                ),
             }
 
         # Step 3: Generate reasoning guidance
         guidance = self._generate_guidance(query, corpus_concepts, ood_result)
 
-        logger.info(f"OOD detected (confidence: {ood_result.confidence:.2f})")
+        logger.info("OOD detected (confidence: %.2f)", ood_result.confidence)
 
         return {
             "is_ood": True,
@@ -323,7 +342,7 @@ class IncrementalReasoningTool:
             return concepts
 
         except Exception as e:
-            logger.error(f"Error finding related concepts: {e}")
+            logger.error("Error finding related concepts: %s", e)
             return []
 
     def _check_ood(self, query: str, corpus_concepts: list[str]) -> OodResult:
@@ -372,7 +391,7 @@ Respond in JSON format:
 }}"""
 
         try:
-            assert(self.client)
+            assert self.client
 
             response = self.client.chat.completions.create(
                 model=self.config.retrieval.incremental_mode.ood_check_model,
@@ -385,14 +404,14 @@ Respond in JSON format:
             import json
 
             content = response.choices[0].message.content
-            assert(content)
+            assert content
             result = OodResult(**json.loads(content))
 
-            logger.debug(f"OOD check result: {result}")
+            logger.debug("OOD check result: %s", result)
             return result
 
         except Exception as e:
-            logger.error(f"Error in OOD check: {e}")
+            logger.error("Error in OOD check: %s", e)
             return OodResult(
                 is_ood=False,
                 confidence=0.0,

@@ -14,6 +14,125 @@ interface CorpusGroundsViewerProps {
   highlightSource: HighlightSourceData | null;
 }
 
+// Pure helpers — no component state/props dependencies
+
+function normalizeFilename(name: string): string {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .replace(/\.(pdf|txt|md|docx?|epub|rtf|html?)$/i, "")
+    .replace(/[_-]/g, " ")
+    .trim();
+}
+
+function findFileIndex(filesArr: CorpusFile[], sourceFile: string): number {
+  if (!sourceFile || filesArr.length === 0) return -1;
+  const norm = normalizeFilename(sourceFile);
+
+  let idx = filesArr.findIndex(
+    (f) => f.filename.toLowerCase() === sourceFile.toLowerCase(),
+  );
+  if (idx !== -1) return idx;
+
+  idx = filesArr.findIndex((f) => normalizeFilename(f.filename) === norm);
+  if (idx !== -1) return idx;
+
+  idx = filesArr.findIndex((f) => {
+    const fn = normalizeFilename(f.filename);
+    return fn.includes(norm) || norm.includes(fn);
+  });
+  if (idx !== -1) return idx;
+
+  const normWords = norm.split(/[\s,]+/).filter(Boolean);
+  if (normWords.length > 0) {
+    idx = filesArr.findIndex((f) => {
+      const fn = normalizeFilename(f.filename);
+      return fn.includes(normWords[0]) || normWords[0].includes(fn);
+    });
+    if (idx !== -1) return idx;
+  }
+
+  return -1;
+}
+
+function wordNgrams(text: string, n: number): Set<string> {
+  const words = text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const grams = new Set<string>();
+  for (let i = 0; i <= words.length - n; i++) {
+    grams.add(words.slice(i, i + n).join(" "));
+  }
+  return grams;
+}
+
+function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
+  if (setA.size === 0 && setB.size === 0) return 0;
+  let intersection = 0;
+  for (const item of setA) {
+    if (setB.has(item)) intersection++;
+  }
+  return intersection / (setA.size + setB.size - intersection);
+}
+
+function findChunkWithText(chunks: CorpusChunk[], text: string): number {
+  if (!chunks || !text) return -1;
+  const textLower = text.toLowerCase();
+
+  const idx = chunks.findIndex((c) => c.text.includes(text));
+  if (idx !== -1) return idx;
+
+  const ciIdx = chunks.findIndex((c) => c.text.toLowerCase().includes(textLower));
+  if (ciIdx !== -1) return ciIdx;
+
+  for (const len of [80, 50, 30]) {
+    if (text.length >= len) {
+      const prefix = textLower.substring(0, len);
+      const prefixIdx = chunks.findIndex((c) => c.text.toLowerCase().includes(prefix));
+      if (prefixIdx !== -1) return prefixIdx;
+    }
+  }
+
+  for (const len of [80, 50, 30]) {
+    if (text.length >= len) {
+      const suffix = textLower.substring(text.length - len);
+      const suffixIdx = chunks.findIndex((c) => c.text.toLowerCase().includes(suffix));
+      if (suffixIdx !== -1) return suffixIdx;
+    }
+  }
+
+  const sourceBigrams = wordNgrams(text, 2);
+  const sourceTrigrams = wordNgrams(text, 3);
+  if (sourceBigrams.size === 0) return -1;
+
+  let bestIdx = -1;
+  let bestScore = 0;
+  const threshold = 0.15;
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkBigrams = wordNgrams(chunks[i].text, 2);
+    const chunkTrigrams = wordNgrams(chunks[i].text, 3);
+    const bigramScore = jaccardSimilarity(sourceBigrams, chunkBigrams);
+    const trigramScore = sourceTrigrams.size > 0
+      ? jaccardSimilarity(sourceTrigrams, chunkTrigrams)
+      : 0;
+    const score = bigramScore * 0.4 + trigramScore * 0.6;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+
+  if (bestScore >= threshold) {
+    console.log("[CorpusViewer] Fuzzy match: chunk", bestIdx, "score", bestScore.toFixed(3));
+    return bestIdx;
+  }
+
+  return -1;
+}
+
 /**
  * CorpusGroundsViewer — slide-out panel for browsing corpus documents
  * and viewing highlighted source passages that ground feedback.
@@ -140,157 +259,6 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
-
-  // Normalize a filename for fuzzy comparison
-  const normalizeFilename = (name: string): string => {
-    if (!name) return "";
-    // Strip common extensions, lowercase, remove extra whitespace
-    return name
-      .toLowerCase()
-      .replace(/\.(pdf|txt|md|docx?|epub|rtf|html?)$/i, "")
-      .replace(/[_\-]/g, " ")
-      .trim();
-  };
-
-  // Find best matching file index for a source_file string
-  const findFileIndex = (filesArr: CorpusFile[], sourceFile: string): number => {
-    if (!sourceFile || filesArr.length === 0) return -1;
-    const norm = normalizeFilename(sourceFile);
-
-    // Exact filename match (case-insensitive)
-    let idx = filesArr.findIndex(
-      (f) => f.filename.toLowerCase() === sourceFile.toLowerCase(),
-    );
-    if (idx !== -1) return idx;
-
-    // Normalized exact match (ignoring extensions)
-    idx = filesArr.findIndex((f) => normalizeFilename(f.filename) === norm);
-    if (idx !== -1) return idx;
-
-    // One contains the other (handles "Self-Constitution, Chapter 4" matching "Self-Constitution.pdf")
-    idx = filesArr.findIndex((f) => {
-      const fn = normalizeFilename(f.filename);
-      return fn.includes(norm) || norm.includes(fn);
-    });
-    if (idx !== -1) return idx;
-
-    // Partial: first word overlap (handles "Self-Constitution, Chapter 4.3" matching "Self-Constitution.pdf")
-    const normWords = norm.split(/[\s,]+/).filter(Boolean);
-    if (normWords.length > 0) {
-      idx = filesArr.findIndex((f) => {
-        const fn = normalizeFilename(f.filename);
-        return fn.includes(normWords[0]) || normWords[0].includes(fn);
-      });
-      if (idx !== -1) return idx;
-    }
-
-    return -1;
-  };
-
-  // Build set of word n-grams from text
-  const wordNgrams = (text: string, n: number): Set<string> => {
-    const words = text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, "")
-      .split(/\s+/)
-      .filter(Boolean);
-    const grams = new Set<string>();
-    for (let i = 0; i <= words.length - n; i++) {
-      grams.add(words.slice(i, i + n).join(" "));
-    }
-    return grams;
-  };
-
-  // Jaccard similarity between two sets
-  const jaccardSimilarity = (setA: Set<string>, setB: Set<string>): number => {
-    if (setA.size === 0 && setB.size === 0) return 0;
-    let intersection = 0;
-    for (const item of setA) {
-      if (setB.has(item)) intersection++;
-    }
-    return intersection / (setA.size + setB.size - intersection);
-  };
-
-  // Find chunk containing text (substring match with fuzzy fallback)
-  const findChunkWithText = (chunks: CorpusChunk[], text: string): number => {
-    if (!chunks || !text) return -1;
-
-    const textLower = text.toLowerCase();
-
-    // Exact substring match
-    const idx = chunks.findIndex((c) => c.text.includes(text));
-    if (idx !== -1) return idx;
-
-    // Case-insensitive exact substring
-    const ciIdx = chunks.findIndex((c) =>
-      c.text.toLowerCase().includes(textLower),
-    );
-    if (ciIdx !== -1) return ciIdx;
-
-    // Try progressively shorter prefixes (80, 50, 30 chars)
-    for (const len of [80, 50, 30]) {
-      if (text.length >= len) {
-        const prefix = textLower.substring(0, len);
-        const prefixIdx = chunks.findIndex((c) =>
-          c.text.toLowerCase().includes(prefix),
-        );
-        if (prefixIdx !== -1) return prefixIdx;
-      }
-    }
-
-    // Try progressively shorter suffixes
-    for (const len of [80, 50, 30]) {
-      if (text.length >= len) {
-        const suffix = textLower.substring(text.length - len);
-        const suffixIdx = chunks.findIndex((c) =>
-          c.text.toLowerCase().includes(suffix),
-        );
-        if (suffixIdx !== -1) return suffixIdx;
-      }
-    }
-
-    // Fuzzy: n-gram similarity (bigrams + trigrams)
-    // Score each chunk and pick the best match above threshold
-    const sourceBigrams = wordNgrams(text, 2);
-    const sourceTrigrams = wordNgrams(text, 3);
-
-    if (sourceBigrams.size === 0) return -1;
-
-    let bestIdx = -1;
-    let bestScore = 0;
-    const threshold = 0.15; // Low threshold since source text may be a small excerpt of a large chunk
-
-    for (let i = 0; i < chunks.length; i++) {
-      const chunkBigrams = wordNgrams(chunks[i].text, 2);
-      const chunkTrigrams = wordNgrams(chunks[i].text, 3);
-
-      const bigramScore = jaccardSimilarity(sourceBigrams, chunkBigrams);
-      const trigramScore =
-        sourceTrigrams.size > 0
-          ? jaccardSimilarity(sourceTrigrams, chunkTrigrams)
-          : 0;
-
-      // Weight trigrams higher as they're more specific
-      const score = bigramScore * 0.4 + trigramScore * 0.6;
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestIdx = i;
-      }
-    }
-
-    if (bestScore >= threshold) {
-      console.log(
-        "[CorpusViewer] Fuzzy match: chunk",
-        bestIdx,
-        "score",
-        bestScore.toFixed(3),
-      );
-      return bestIdx;
-    }
-
-    return -1;
-  };
 
   // Highlight matching text within a chunk
   const renderChunkText = (chunkText: string, isHighlighted: boolean): React.ReactNode => {

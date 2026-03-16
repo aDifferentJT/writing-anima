@@ -2,10 +2,10 @@ import React from "react";
 import { MessageSquare, Brain } from "lucide-react";
 import CriticCard from "./CriticCard";
 import "./FeedbackPanel.css";
-import { FeedbackItem, CorpusSource } from "../../types";
+import { EnrichedFeedbackItem, CorpusSource } from "../../types";
 
 interface FeedbackPanelProps {
-  feedback: FeedbackItem[];
+  feedback: EnrichedFeedbackItem[];
   isMonitoring: boolean;
   onFeedbackHover?: (id: string) => void;
   onFeedbackLeave?: () => void;
@@ -19,7 +19,7 @@ interface FeedbackPanelProps {
   onExploreFramework?: (framework?: string, keyAuthorities?: string[], suggestedResources?: string[]) => void;
   onJumpToText?: (id: string) => void;
   onViewCorpusSource?: (source: CorpusSource) => void;
-  resolvedFeedback?: FeedbackItem[];
+  resolvedFeedback?: EnrichedFeedbackItem[];
   showResolved?: boolean;
   onToggleResolved?: () => void;
 }
@@ -27,9 +27,6 @@ interface FeedbackPanelProps {
 const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
   feedback,
   isMonitoring,
-  onFeedbackHover,
-  onFeedbackLeave,
-  hoveredFeedback,
   onDismissSuggestion,
   onMarkSuggestionResolved,
   isEvaluating,

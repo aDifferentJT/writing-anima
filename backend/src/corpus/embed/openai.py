@@ -25,21 +25,21 @@ class OpenAIEmbeddingGenerator(BaseEmbeddingGenerator):
         self.client = OpenAI(api_key=api_key)
         self.model = self.config.embedding.model
 
-        logger.info(f"Initialized embedding generator with model: {self.model}")
+        logger.info("Initialized embedding generator with model: %s", self.model)
 
     def _generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
         try:
-            logger.debug(f"Calling OpenAI API for batch {batch_num}...")
+            logger.debug("Calling OpenAI API for batch %d...", batch_num)
             response = self.client.embeddings.create(
                 model=self.model,
                 input=batch,
             )
-            logger.debug(f"Received response from OpenAI for batch {batch_num}")
+            logger.debug("Received response from OpenAI for batch %d", batch_num)
 
             # Extract embeddings
             return [item.embedding for item in response.data]
 
         except Exception as e:
-            logger.error(f"Error generating embeddings for batch {batch_num}: {e}")
+            logger.error("Error generating embeddings for batch %d: %s", batch_num, e)
             raise

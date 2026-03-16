@@ -7,43 +7,38 @@ import feedbackHistoryService from "../../services/feedbackHistoryService";
 import animaService from "../../services/animaService";
 import CorpusGroundsViewer from "../CorpusGroundsViewer/CorpusGroundsViewer";
 import {
-  FeedbackItem,
+  EnrichedFeedbackItem,
   Project,
   WritingCriteria,
   Persona,
   ModelInfo,
-  Purpose,
   ThoughtStep,
   CorpusSource,
 } from "../../types";
 
 interface WritingInterfaceProps {
-  feedback: FeedbackItem[];
-  setFeedback: (feedback: FeedbackItem[]) => void;
+  feedback: EnrichedFeedbackItem[];
+  setFeedback: (feedback: EnrichedFeedbackItem[]) => void;
   onBackToPurpose: () => void;
   project: Project;
   setProject: (project: Project) => void;
   writingCriteria: WritingCriteria;
   isMonitoring: boolean;
-  onToggleMonitoring: () => void;
-  onFeedbackGenerated: (insights: FeedbackItem[]) => void;
+  onFeedbackGenerated: (insights: EnrichedFeedbackItem[]) => void;
 }
 
 const WritingInterface: React.FC<WritingInterfaceProps> = ({
   feedback,
   setFeedback,
-  onBackToPurpose,
   project,
   setProject,
   writingCriteria,
   isMonitoring,
-  onToggleMonitoring,
   onFeedbackGenerated,
 }) => {
   const [hoveredFeedback, setHoveredFeedback] = useState<string | null>(null);
-  const [useMultiAgentSystem] = useState<boolean>(false); // Disabled - using flow-based agents only
-  const [multiAgentFeedback, setMultiAgentFeedback] = useState<FeedbackItem[]>([]);
-  const [resolvedFeedback, setResolvedFeedback] = useState<FeedbackItem[]>([]); // Separate storage for resolved feedback
+  const [multiAgentFeedback, setMultiAgentFeedback] = useState<EnrichedFeedbackItem[]>([]);
+  const [resolvedFeedback, setResolvedFeedback] = useState<EnrichedFeedbackItem[]>([]); // Separate storage for resolved feedback
   const [showResolvedFeedback, setShowResolvedFeedback] = useState<boolean>(false); // Toggle for viewing resolved
   const [showAgentCustomization, setShowAgentCustomization] = useState<boolean>(false);
   const [isExecutingFlow, setIsExecutingFlow] = useState<boolean>(false);
@@ -147,11 +142,6 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       })
       .catch((error: unknown) => {
         console.error("Error loading models:", error);
-        // Fallback models
-        setAvailableModels([
-          { id: "gpt-5", name: "GPT-5", provider: "openai" },
-          { id: "kimi-k2", name: "Kimi K2", provider: "moonshot" },
-        ]);
       });
   }, []);
 
@@ -232,7 +222,6 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       const selectedPersona = availablePersonas.find(
         (p) => p.id === selectedPersonaId,
       );
-      const feedbackItems: FeedbackItem[] = [];
 
       // Convert purpose to string if it's an object
       // TODO should we do this?
@@ -289,14 +278,14 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           onFeedback: (item) => {
             console.log("[Anima Feedback]:", item);
             // Add source and timestamp
-            const enrichedItem: FeedbackItem = {
+            const enrichedItem: EnrichedFeedbackItem = {
               ...item,
+              agent: selectedPersona?.name || "Unknown",
               source: "anima",
               personaName: selectedPersona?.name || "Unknown",
               timestamp: new Date().toISOString(),
               status: "active",
             };
-            feedbackItems.push(enrichedItem);
 
             // Update feedback in real-time
             if (onFeedbackGenerated) {
@@ -467,7 +456,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
 
   // Always use current analysis feedback for display since it handles filtering correctly
   // Only use passed feedback for initial state synchronization
-  const activeFeedback: FeedbackItem[] = currentAnalysis.feedback || [];
+  const activeFeedback: EnrichedFeedbackItem[] = currentAnalysis.feedback || [];
 
   // Remove local handleToggleMonitoring since it's now passed as prop
 

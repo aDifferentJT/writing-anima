@@ -1,19 +1,4 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  getDoc,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
-import type { Project, FeedbackItem, Purpose } from '../types';
+import type { Project, EnrichedFeedbackItem, Purpose } from '../types';
 
 const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -21,22 +6,16 @@ interface ProjectUpdates {
   title?: string;
   purpose?: Purpose | null;
   content?: string;
-  feedback?: FeedbackItem[];
+  feedback?: EnrichedFeedbackItem[];
   writingCriteria?: { criteria: string[] } | null;
   settings?: Record<string, unknown>;
-  isArchived?: boolean;
+  is_archived?: boolean;
 }
 
 /**
- * Service for managing user writing projects in Firestore
+ * Service for managing user writing projects via the backend API
  */
 class ProjectService {
-  private unsubscribers: Map<string, () => void>;
-
-  constructor() {
-    this.unsubscribers = new Map(); // Track real-time listeners
-  }
-
   /**
    * Create a new writing project
    */
@@ -51,7 +30,7 @@ class ProjectService {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || "Failed to create persona");
+        throw new Error(error.detail || "Failed to create project");
       }
 
       return await response.json();
@@ -102,7 +81,13 @@ class ProjectService {
    */
   async updateProject(projectId: string, updates: ProjectUpdates): Promise<Project> {
     try {
-      const response = await fetch(`${API_URL}/api/projects/update?project_id=${projectId}`);
+      const response = await fetch(`${API_URL}/api/projects/update?project_id=${projectId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to update project");
@@ -120,12 +105,13 @@ class ProjectService {
    */
   async deleteProject(projectId: string): Promise<void> {
     try {
-      const docRef = doc(db, 'projects', projectId);
-
-      await updateDoc(docRef, {
-        isArchived: true,
-        updatedAt: serverTimestamp()
+      const response = await fetch(`${API_URL}/api/projects/delete?project_id=${projectId}`, {
+        method: "DELETE",
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete project");
+      }
     } catch (error) {
       console.error('Error deleting project:', error);
       throw error;
@@ -137,8 +123,13 @@ class ProjectService {
    */
   async permanentlyDeleteProject(projectId: string): Promise<void> {
     try {
-      const docRef = doc(db, 'projects', projectId);
-      await deleteDoc(docRef);
+      const response = await fetch(`${API_URL}/api/projects/permanently-delete?project_id=${projectId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to permanently delete project");
+      }
     } catch (error) {
       console.error('Error permanently deleting project:', error);
       throw error;
@@ -149,24 +140,7 @@ class ProjectService {
    * Update writing criteria for a project
    */
   async updateWritingCriteria(projectId: string, writingCriteria: { criteria: string[] }): Promise<Project> {
-    try {
-      const response = await fetch(`${API_URL}/api/projects/update?project_id=${projectId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ writingCriteria }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update writing criteria");
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error updating writing criteria:', error);
-      throw error;
-    }
+    return this.updateProject(projectId, { writingCriteria });
   }
 
   /**
@@ -175,16 +149,15 @@ class ProjectService {
   async duplicateProject(projectId: string): Promise<Project> {
     try {
       const originalProject = await this.getProject(projectId);
+      const newProject = await this.createProject();
 
-      const duplicatedProject: ProjectUpdates = {
+      return await this.updateProject(newProject.id, {
         title: `${originalProject.title} (Copy)`,
         purpose: originalProject.purpose,
         content: originalProject.content,
-        feedback: [], // Reset feedback for new project
-        settings: originalProject.settings
-      };
-
-      return await this.createProject();
+        feedback: [],
+        settings: originalProject.settings,
+      });
     } catch (error) {
       console.error('Error duplicating project:', error);
       throw error;

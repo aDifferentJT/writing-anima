@@ -286,6 +286,7 @@ class UserAgentService {
 
   /**
    * Update existing agent
+   * TODO this is a bit funky
    */
   updateAgent(agentId: string, updates: AgentConfig): UserAgent {
     const agent = this.userAgents[agentId];
@@ -300,7 +301,7 @@ class UserAgentService {
     ];
 
     for (const field of allowedFields) {
-      if (updates.hasOwnProperty(field)) {
+      if (Object.prototype.hasOwnProperty.call(updates, field)) {
         (agent as unknown as Record<string, unknown>)[field] = updates[field];
       }
     }

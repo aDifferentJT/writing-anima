@@ -1,9 +1,9 @@
 """PDF text extraction utilities"""
 
 import logging
-from fastapi import UploadFile
-from pathlib import Path
 from typing import Optional
+
+from fastapi import UploadFile
 
 try:
     from pypdf import PdfReader
@@ -43,7 +43,7 @@ class PDFExtractor:
             reader = PdfReader(file.file)
 
             if reader.is_encrypted:
-                logger.warning(f"PDF is encrypted: {file.filename}")
+                logger.warning("PDF is encrypted: %s", file.filename)
                 return None
 
             # Extract text from all pages
@@ -54,27 +54,30 @@ class PDFExtractor:
                     if page_text:
                         text_parts.append(page_text)
                     else:
-                        logger.debug(f"No text on page {page_num} of {file.filename}")
+                        logger.debug("No text on page %d of %s", page_num, file.filename)
                 except Exception as e:
-                    logger.warning(f"Error extracting page {page_num} from {file.filename}: {e}")
+                    logger.warning(
+                        "Error extracting page %d from %s: %s",
+                        page_num, file.filename, e
+                    )
                     continue
 
             if not text_parts:
-                logger.warning(f"No text extracted from PDF: {file.filename}")
+                logger.warning("No text extracted from PDF: %s", file.filename)
                 return None
 
             # Join all pages with double newline
             full_text = "\n\n".join(text_parts)
 
             logger.info(
-                f"Extracted {len(full_text)} characters from "
-                f"{len(text_parts)} pages in {file.filename}"
+                "Extracted %d characters from %d pages in %s",
+                len(full_text), len(text_parts), file.filename
             )
 
             return full_text
 
         except Exception as e:
-            logger.error(f"Error reading PDF {file.filename}: {e}")
+            logger.error("Error reading PDF %s: %s", file.filename, e)
             return None
 
 def is_pdf_available() -> bool:

@@ -7,7 +7,6 @@ from typing import Optional
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, model_validator
-from pydantic_settings import BaseSettings
 
 # Load environment variables
 load_dotenv()
@@ -75,6 +74,7 @@ class EmbeddingConfig(BaseModel):
     model: str = "text-embedding-3-small"
     dimensions: int = 1536
     batch_size: int = 100
+    max_length: int = 512
 
 
 class CorpusConfig(BaseModel):
@@ -127,7 +127,7 @@ class Config(BaseModel):
         if not config_file.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-        with open(config_file, "r") as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config_data = yaml.safe_load(f)
 
         return cls(**config_data)
@@ -176,8 +176,8 @@ class Config(BaseModel):
 
 
 # Global config instance
-_config_path: str = "config.yaml"
-_config: Config = Config.from_yaml(_config_path)
+CONFIG_PATH: str = "config.yaml"
+_config: Config = Config.from_yaml(CONFIG_PATH)
 
 
 def get_config() -> Config:

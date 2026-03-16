@@ -12,7 +12,7 @@ import {
   BookOpen,
   ExternalLink,
 } from "lucide-react";
-import { FeedbackItem, CorpusSource } from "../../types";
+import { EnrichedFeedbackItem, CorpusSource } from "../../types";
 
 /**
  * Simple markdown renderer for feedback text
@@ -90,7 +90,7 @@ const renderInlineMarkdown = (text: string): React.ReactNode => {
 };
 
 interface CriticCardProps {
-  feedback: FeedbackItem | string;
+  feedback: EnrichedFeedbackItem | string;
   onDismiss?: (id: string) => void;
   onMarkResolved?: (id: string) => void;
   onCreateComplex?: (question?: string, relevantText?: string) => void;
@@ -110,19 +110,10 @@ const CriticCard: React.FC<CriticCardProps> = ({
   onJumpToText,
   onViewCorpusSource,
 }) => {
-  // Handle cases where feedback might be malformed
-  const feedbackData: FeedbackItem =
-    typeof feedback === "string"
-      ? {
-          id: "",
-          type: "unknown",
-          severity: "low",
-          title: "Raw Response",
-          feedback: feedback,
-          agent: "AI Critic",
-          status: "active",
-        }
-      : feedback;
+  if (typeof feedback === "string") {
+    return <div className="text-xs text-red-400 p-2">Malformed feedback item received.</div>;
+  }
+  const feedbackData: EnrichedFeedbackItem = feedback;
 
   // Debug: log what CriticCard receives
   console.log(
@@ -338,7 +329,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
         }`}
       >
         {renderMarkdown(
-          feedbackData.content || feedbackData.feedback || feedbackData.message,
+          feedbackData.content,
         )}
       </div>
 

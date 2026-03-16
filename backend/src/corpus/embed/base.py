@@ -19,7 +19,6 @@ class BaseEmbeddingGenerator(ABC):
     @abstractmethod
     def _generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
-        pass
 
     def generate(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a list of texts"""
@@ -29,23 +28,29 @@ class BaseEmbeddingGenerator(ABC):
         all_embeddings = []
         total_batches = (len(texts) + self.batch_size - 1) // self.batch_size
 
-        logger.info(f"Starting embedding generation for {len(texts)} texts in {total_batches} batches")
+        logger.info(
+            "Starting embedding generation for %d texts in %d batches",
+            len(texts), total_batches
+        )
 
         # Process in batches
         for i in range(0, len(texts), self.batch_size):
             batch = texts[i : i + self.batch_size]
             batch_num = i // self.batch_size + 1
 
-            logger.info(f"Processing batch {batch_num}/{total_batches} ({len(batch)} texts)...")
+            logger.info(
+                "Processing batch %d/%d (%d texts)...",
+                batch_num, total_batches, len(batch)
+            )
 
             all_embeddings.extend(self._generate_batch(batch, batch_num))
 
             logger.info(
-                f"✓ Batch {batch_num}/{total_batches} complete "
-                f"({len(all_embeddings)}/{len(texts)} embeddings generated)"
+                "✓ Batch %d/%d complete (%d/%d embeddings generated)",
+                batch_num, total_batches, len(all_embeddings), len(texts)
             )
 
-        logger.info(f"✓ Generated all {len(all_embeddings)} embeddings successfully")
+        logger.info("✓ Generated all %d embeddings successfully", len(all_embeddings))
         return all_embeddings
 
     def generate_one(self, text: str) -> list[float]:

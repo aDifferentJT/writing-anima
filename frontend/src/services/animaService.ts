@@ -6,12 +6,10 @@
 import type {
   Persona,
   ModelInfo,
-  FeedbackItem,
   StreamAnalysisCallbacks,
   StreamAnalysisContext,
   ChatCallbacks,
   ChatMessage,
-  CompleteMessage,
   CorpusFile,
 } from '../types';
 
@@ -384,7 +382,7 @@ class AnimaService {
       onError = () => {},
     } = callbacks;
 
-    return new Promise<WebSocket>((resolve, reject) => {
+    return new Promise<WebSocket>((resolve) => {
       const ws = new WebSocket(`${WS_URL}/api/chat/stream`);
 
       ws.onopen = () => {

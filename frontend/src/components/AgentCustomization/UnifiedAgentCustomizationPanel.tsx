@@ -3,14 +3,13 @@
  * Single interface for managing user agents and templates
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Plus, Save, Trash2, Copy, Power, Settings,
-  Zap, Brain, Search, Target, FileText, Users,
-  ChevronDown, ChevronUp, AlertCircle, CheckCircle,
+  Plus, Trash2, Copy, Power, Settings,
+  AlertCircle, CheckCircle,
   Layout, Edit3, X, Download, Upload
 } from 'lucide-react';
-import userAgentService, { AGENT_TEMPLATES } from '../../services/userAgentService';
+import userAgentService from '../../services/userAgentService';
 import { UserAgent, AgentTemplate, AgentConfig } from '../../types';
 
 interface UnifiedAgentCustomizationPanelProps {
@@ -24,7 +23,6 @@ interface UnifiedAgentCustomizationPanelProps {
 export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationPanelProps> = ({
   isOpen,
   onClose,
-  initialTab = 'agents',
   embedded = false,
   onAgentsUpdated
 }) => {
@@ -38,14 +36,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Load data
-  useEffect(() => {
-    if (isOpen) {
-      loadData();
-    }
-  }, [isOpen]);
-
-  const loadData = async (): Promise<void> => {
+  const loadData = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       const userAgents = userAgentService.getAllAgents();
@@ -65,7 +56,14 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedAgent]);
+
+  // Load data
+  useEffect(() => {
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen, loadData]);
 
   const handleCreateAgent = (templateId: string | null = null): void => {
     if (templateId) {
@@ -343,17 +341,6 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
     });
     setIsEditing(true);
     setShowTemplates(false);
-  };
-
-  const getCategoryIcon = (category: string): React.ComponentType => {
-    const icons: Record<string, React.ComponentType> = {
-      writing: FileText,
-      logic: Brain,
-      research: Search,
-      strategy: Target,
-      custom: Settings
-    };
-    return icons[category] || Settings;
   };
 
   const getTierBadgeColor = (tier: string): string => {

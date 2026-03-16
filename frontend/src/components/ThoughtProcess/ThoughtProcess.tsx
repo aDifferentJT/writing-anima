@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search,
   Lightbulb,
@@ -23,19 +23,16 @@ interface ThoughtProcessProps {
  */
 const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, model }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [isFlashing, setIsFlashing] = useState<boolean>(false);
-  const prevStepsLength = useRef<number>(steps?.length || 0);
+  // Track the "caught-up" length; isFlashing is true while steps are ahead of it
+  const [displayedStepsLength, setDisplayedStepsLength] = useState<number>(steps?.length || 0);
+  const isFlashing = (steps?.length || 0) > displayedStepsLength;
 
-  // Flash animation when new steps arrive
+  // After 300ms, catch displayedStepsLength up so the flash ends
   useEffect(() => {
-    if (steps && steps.length > prevStepsLength.current) {
-      setIsFlashing(true);
-      const timer = setTimeout(() => setIsFlashing(false), 300);
-      prevStepsLength.current = steps.length;
-      return () => clearTimeout(timer);
-    }
-    prevStepsLength.current = steps?.length || 0;
-  }, [steps]);
+    if (!steps || steps.length <= displayedStepsLength) return;
+    const timer = setTimeout(() => setDisplayedStepsLength(steps.length), 300);
+    return () => clearTimeout(timer);
+  }, [steps, displayedStepsLength]);
 
   if (!steps || steps.length === 0) {
     return null;

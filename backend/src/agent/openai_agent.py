@@ -3,16 +3,20 @@
 import json
 import logging
 import os
-from pathlib import Path
 from typing import Any, Generator, Literal, Optional, TypedDict
 
 from openai import Omit, omit, OpenAI
-from openai.types.chat import ChatCompletionFunctionToolParam, ChatCompletionMessageParam, ChatCompletionMessageFunctionToolCallParam, ChatCompletionToolUnionParam
+from openai.types.chat import (
+    ChatCompletionFunctionToolParam,
+    ChatCompletionMessageParam,
+    ChatCompletionMessageFunctionToolCallParam,
+    ChatCompletionToolUnionParam,
+)
 from openai.types.chat.completion_create_params import ResponseFormat
 from openai.types.shared_params import ResponseFormatJSONSchema
 
 from ..config import Config, ModelConfig
-from .base import BaseAgent, Response, ToolCall, ToolUse
+from .base import BaseAgent, ToolCall, ToolUse
 from .tools import WritingSample
 
 logger = logging.getLogger(__name__)
@@ -68,7 +72,11 @@ class OpenAIAgent(BaseAgent):
             tools.append(self.reasoning_tool.get_tool_definition_openai())
 
         # Determine tool_choice based on config and iteration state
-        tool_choice: Literal["auto", "required"] = "required" if self._should_force_tool_use() else "auto"
+        tool_choice: Literal["auto", "required"] = (
+            "required"
+            if self._should_force_tool_use()
+            else "auto"
+        )
 
         return self.client.chat.completions.create(
             model=self.model.model,
@@ -216,10 +224,10 @@ OUTPUT:
 Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start with [ and end with ]."""
 
         try:
-            logger.info(f"Starting style rewrite phase with {len(samples)} samples...")
-            logger.info(f"Style examples length: {len(style_examples)} chars")
-            logger.info(f"Feedback JSON length: {len(feedback_json)} chars")
-            logger.info(f"Total rewrite prompt length: {len(rewrite_prompt)} chars")
+            logger.info("Starting style rewrite phase with %d samples...", len(samples))
+            logger.info("Style examples length: %d chars", len(style_examples))
+            logger.info("Feedback JSON length: %d chars", len(feedback_json))
+            logger.info("Total rewrite prompt length: %d chars", len(rewrite_prompt))
             logger.info("Calling DeepSeek API for style rewrite...")
 
             import time
@@ -233,17 +241,18 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
             )
 
             elapsed = time.time() - start_time
-            logger.info(f"DeepSeek style rewrite API call completed in {elapsed:.1f}s")
-            logger.info(f"Response object received: {type(response)}")
+            logger.info("DeepSeek style rewrite API call completed in %.1fs", elapsed)
+            logger.info("Response object received: %s", type(response))
             logger.info(
-                f"Response choices: {len(response.choices) if response.choices else 0}"
+                "Response choices: %d",
+                len(response.choices) if response.choices else 0
             )
 
             rewritten = response.choices[0].message.content
-            logger.info(f"Raw content type: {type(rewritten)}")
+            logger.info("Raw content type: %s", type(rewritten))
             if rewritten:
                 rewritten = rewritten.strip()
-                logger.info(f"Rewritten response length: {len(rewritten)} chars")
+                logger.info("Rewritten response length: %d chars", len(rewritten))
             else:
                 logger.warning("Style rewrite returned empty content!")
                 return feedback_json
@@ -264,10 +273,10 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
             return rewritten
 
         except json.JSONDecodeError as e:
-            logger.error(f"Style rewrite produced invalid JSON: {e}")
+            logger.error("Style rewrite produced invalid JSON: %s", e)
             return feedback_json  # Return original on failure
         except Exception as e:
-            logger.error(f"Style rewrite failed: {e}")
+            logger.error("Style rewrite failed: %s", e)
             return feedback_json  # Return original on failure
 
     def _get_feedback_schema(self) -> ResponseFormatJSONSchema:
@@ -402,24 +411,29 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
         tools_called_count = 0  # Track for tool_choice logic
         retrieved_samples: list[WritingSample] = []  # Collect corpus samples for style rewrite
 
-        logger.info(f"Starting streaming agent loop for query: {query[:100]}...")
+        logger.info("Starting streaming agent loop for query: %s...", query[:100])
 
         for iteration in range(self.model.max_iterations):
-            logger.debug(f"Iteration {iteration + 1}/{self.model.max_iterations}")
+            logger.debug("Iteration %d/%d", iteration + 1, self.model.max_iterations)
 
             try:
                 # Add system message
-                system_message: ChatCompletionMessageParam = {"role": "system", "content": system_prompt}
+                system_message: ChatCompletionMessageParam = {
+                    "role": "system",
+                    "content": system_prompt,
+                }
                 full_messages: list[ChatCompletionMessageParam] = [system_message] + messages
 
-                tools: list[ChatCompletionFunctionToolParam] = [self.search_tool.get_tool_definition_openai()]
+                tools: list[ChatCompletionFunctionToolParam] = [
+                    self.search_tool.get_tool_definition_openai()
+                ]
 
                 # Add incremental reasoning tool if enabled
                 if self.config.retrieval.incremental_mode.enabled:
                     tools.append(self.reasoning_tool.get_tool_definition_openai())
 
-                logger.debug(f"Calling model with {len(tools)} tools available")
-                logger.debug(f"Tool names: {[t['function']['name'] for t in tools]}")
+                logger.debug("Calling model with %d tools available", len(tools))
+                logger.debug("Tool names: %s", [t['function']['name'] for t in tools])
 
                 # Determine tool_choice: require tools only on first iteration if no tools called yet
                 tool_choice: Literal["auto", "required"]
@@ -428,7 +442,8 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                 else:
                     tool_choice = "auto"
                 logger.debug(
-                    f"Tool choice: {tool_choice} (iteration {iteration + 1}, tools called: {tools_called_count})"
+                    "Tool choice: %s (iteration %d, tools called: %d)",
+                    tool_choice, iteration + 1, tools_called_count
                 )
 
                 # Add JSON mode if enabled - but only AFTER tool calls are done
@@ -474,7 +489,7 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                         collected_content += delta.content
                         yield {"type": "text", "content": delta.content}
                         logger.debug(
-                            f"Collected content length now: {len(collected_content)}"
+                            "Collected content length now: %d", len(collected_content)
                         )
 
                     # Handle tool calls
@@ -507,13 +522,14 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                     # Check if done
                     if chunk.choices[0].finish_reason in ["stop", "end_turn"]:
                         logger.info(
-                            f"Agent completed in {iteration + 1} iterations with {len(tool_calls_log)} tool calls"
+                            "Agent completed in %d iterations with %d tool calls",
+                            iteration + 1, len(tool_calls_log)
                         )
                         logger.info(
-                            f"Final collected_content length: {len(collected_content)}"
+                            "Final collected_content length: %d", len(collected_content)
                         )
                         logger.info(
-                            f"Final collected_content preview: {collected_content[:200]}"
+                            "Final collected_content preview: %s", collected_content[:200]
                         )
 
                         # Style rewrite phase - rewrite feedback in author's voice
@@ -522,14 +538,18 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                         if collected_content.strip().startswith("["):
                             yield {
                                 "type": "status",
-                                "message": f"Rewriting feedback in author's style ({len(retrieved_samples)} samples)...",
+                                "message": (
+                                    "Rewriting feedback in author's style (%d samples)..."
+                                    % len(retrieved_samples)
+                                ),
                                 "tool": "style_rewrite",
                             }
                             final_response = self._rewrite_in_style(
                                 collected_content, retrieved_samples
                             )
                             logger.info(
-                                f"Style rewrite phase completed using {len(retrieved_samples)} retrieved samples"
+                                "Style rewrite phase completed using %d retrieved samples",
+                                len(retrieved_samples)
                             )
 
                         yield {
@@ -600,7 +620,8 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                             query = tool_use.input.get("query", "")
                             k = tool_use.input.get("k", "default")
                             logger.info(
-                                f'[DeepSeek SEARCH #{tools_called_count}] query="{query[:80]}" k={k} -> {len(result) if isinstance(result, list) else 0} results'
+                                "[DeepSeek SEARCH #%d] query=\"%s\" k=%s -> %d results",
+                                tools_called_count, query[:80], k, len(result) if isinstance(result, list) else 0
                             )
                             # Collect retrieved samples for style rewrite phase
                             if isinstance(result, list):
@@ -665,11 +686,11 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                     continue
 
             except Exception as e:
-                logger.error(f"Error in streaming iteration {iteration + 1}: {e}")
+                logger.error("Error in streaming iteration %d: %s", iteration + 1, e)
                 raise
 
         # Max iterations reached
-        logger.warning(f"Max iterations ({self.model.max_iterations}) reached")
+        logger.warning("Max iterations (%d) reached", self.model.max_iterations)
 
         # Style rewrite phase even on max iterations
         final_response = (

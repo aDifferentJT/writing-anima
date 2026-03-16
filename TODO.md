@@ -1,3 +1,4 @@
+- Sync type defs between frontend and backend
 - Try to eliminate `grep -r "\[[\"\'][A-Za-z0-9_]\+[\"\']\]" src`
 - Remove firebase from direct use, particularly in frontend using `grep -r "fire\(base\|store\)" src`
 - Unify persistence

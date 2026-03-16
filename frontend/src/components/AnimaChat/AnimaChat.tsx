@@ -23,26 +23,28 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const streamingRef = useRef<string>("");
 
-  // Load available models once
-  useEffect(() => {
-    animaService
-      .getAvailableModels()
-      .then((models: ModelInfo[]) => setAvailableModels(models))
-      .catch(() => {
-        setAvailableModels([
-          { id: "gpt-5", name: "GPT-5", provider: "openai" },
-        ]);
-      });
-  }, []);
-
-  // Reset conversation when persona changes, set default model from persona
-  useEffect(() => {
+  // Reset conversation state when persona changes (render-time adjustment, avoids effect)
+  const [currentPersonaId, setCurrentPersonaId] = useState(persona?.id);
+  if (currentPersonaId !== persona?.id) {
+    setCurrentPersonaId(persona?.id);
     setMessages([]);
     setStreamingContent("");
     setInput("");
     setError(null);
     setSelectedModel(persona?.model || "gpt-5");
-  }, [persona?.id]);
+  }
+
+  // Load available models once
+  useEffect(() => {
+    animaService
+      .getAvailableModels()
+      .then((models: ModelInfo[]) => setAvailableModels(models))
+      .catch((err: unknown) => {
+        console.error("Failed to load models:", err);
+        setError("Failed to load available models.");
+      });
+  }, []);
+
 
   // Focus input when opened
   useEffect(() => {
@@ -196,7 +198,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
                 Start a conversation with {persona?.name || "this anima"}
               </p>
               <p className="text-xs text-obsidian-text-tertiary">
-                They will respond in the author's voice, grounded in their
+                They will respond in the author&apos;s voice, grounded in their
                 corpus.
               </p>
             </div>

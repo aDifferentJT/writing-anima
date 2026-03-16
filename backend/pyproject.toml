@@ -15,7 +15,7 @@ dependencies = [
     "openai>=1.12.0",
     "pandas>=2.0.0",
     "pydantic>=2.5.0",
-    "pydantic-settings>=2.1.0",
+    "pylint>=4.0.5",
     "pypdf>=4.0.0",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -32,6 +32,10 @@ dependencies = [
     "uvicorn[standard]>=0.27.0",
     "websockets>=12.0",
 ]
+
+[tool.mypy]
+plugins = ['pydantic.mypy']
+strict = true
 
 [[tool.mypy.overrides]]
 module = ["mlx_embeddings.*"]

@@ -1,91 +1,42 @@
-export interface FeedbackPosition {
-  start: number;
-  end: number;
-  text?: string;
-}
+// API boundary types — imported and re-exported so existing imports don't break.
+// The source of truth is apiTypes.ts.
+import type {
+  ActionData,
+  FeedbackPosition,
+  CorpusSource,
+  ReceivedFeedbackItem,
+  EnrichedFeedbackItem,
+  WritingCriteria,
+  Purpose,
+  Project,
+  Persona,
+  ModelInfo,
+  CorpusChunk,
+  CorpusFile,
+  StatusMessage,
+  CompleteMessage,
+  ChatMessage,
+} from './apiTypes';
 
-export interface CorpusSource {
-  text: string;
-  source_file?: string;
-  relevance?: string;
-}
+export type {
+  ActionData,
+  FeedbackPosition,
+  CorpusSource,
+  ReceivedFeedbackItem,
+  EnrichedFeedbackItem,
+  WritingCriteria,
+  Purpose,
+  Project,
+  Persona,
+  ModelInfo,
+  CorpusChunk,
+  CorpusFile,
+  StatusMessage,
+  CompleteMessage,
+  ChatMessage,
+};
 
-export interface ActionData {
-  type: string;
-  question?: string;
-  relevantText?: string;
-  suggestion?: string;
-  complexId?: string;
-  nodeId?: string;
-  framework?: string;
-  keyAuthorities?: string[];
-  suggestedResources?: string[];
-}
-
-export interface FeedbackItem {
-  id: string;
-  type: string;
-  severity: string;
-  title: string;
-  feedback: string;
-  content?: string;
-  message?: string;
-  agent: string;
-  personaName?: string;
-  model?: string;
-  category?: string;
-  timestamp?: string;
-  status: string;
-  source?: string;
-  suggestion?: string;
-  quote?: string;
-  retractedReason?: string;
-  resolvedAt?: string;
-  positions?: FeedbackPosition[];
-  position?: FeedbackPosition;
-  sources?: string[];
-  corpus_sources?: CorpusSource[];
-  actionData?: ActionData;
-}
-
-export interface Project {
-  id: string;
-  title: string;
-  purpose: Purpose;
-  content: string;
-  feedback: FeedbackItem[];
-  writingCriteria: WritingCriteria;
-  settings?: Record<string, unknown>;
-  isArchived?: boolean;
-  createdAt?: string;
-  lastAccessedAt?: string;
-  updatedAt?: string;
-}
-
-export interface Purpose {
-  topic: string;
-  context: string;
-}
-
-export interface WritingCriteria {
-  criteria: string[];
-}
-
-export interface Persona {
-  id: string;
-  name: string;
-  description?: string;
-  model?: string;
-  chunk_count?: number;
-  corpus_available?: boolean;
-  created_at?: string;
-}
-
-export interface ModelInfo {
-  id: string;
-  name: string;
-  provider: string;
-}
+// ── Frontend-only types ───────────────────────────────────────────────────────
 
 export interface AgentTemplate {
   id: string;
@@ -156,7 +107,7 @@ export interface AgentStats {
 
 export interface StreamAnalysisCallbacks {
   onStatus?: (status: StatusMessage) => void;
-  onFeedback?: (item: FeedbackItem) => void;
+  onFeedback?: (item: ReceivedFeedbackItem) => void;
   onComplete?: (result: CompleteMessage) => void;
   onError?: (error: Error) => void;
 }
@@ -164,21 +115,9 @@ export interface StreamAnalysisCallbacks {
 export interface StreamAnalysisContext {
   purpose?: string | null;
   criteria?: string[];
-  feedbackHistory?: FeedbackItem[];
+  feedbackHistory?: EnrichedFeedbackItem[];
   model?: string;
   maxFeedbackItems?: number;
-}
-
-export interface StatusMessage {
-  type: 'status';
-  message: string;
-  tool?: string;
-}
-
-export interface CompleteMessage {
-  total_items: number;
-  processing_time?: number;
-  partial?: boolean;
 }
 
 export interface ChatCallbacks {
@@ -188,15 +127,10 @@ export interface ChatCallbacks {
   onError?: (error: Error) => void;
 }
 
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
 export interface FeedbackHistoryRecord {
   id: string;
   agent: string;
-  category?: string;
+  category: string;
   title: string;
   feedback: string;
   quote?: string;
@@ -238,17 +172,6 @@ export interface ThoughtStep {
   message: string;
   details: string | null;
   timestamp: string;
-}
-
-export interface CorpusFile {
-  filename: string;
-  file_path: string;
-  chunk_count: number;
-  chunks: CorpusChunk[];
-}
-
-export interface CorpusChunk {
-  text: string;
 }
 
 export interface HighlightData {

@@ -3,7 +3,7 @@
  * Allows users to customize agent behavior and provide feedback
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { UserPreferences, UserFeedback, SystemMetrics, AvailableAgent } from '../../types';
 
 interface SystemWithPreferences {
@@ -60,9 +60,11 @@ export const UserPreferencesPanel: React.FC<UserPreferencesPanelProps> = ({
     improvementSuggestions: ''
   });
 
-  // Load current preferences when panel opens
-  useEffect(() => {
-    if (isOpen && system && system.userPreferences) {
+  // Sync preferences from system when panel opens (render-time adjustment)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen && !prevIsOpen) {
+    setPrevIsOpen(true);
+    if (system?.userPreferences) {
       setPreferences({
         thoroughness: system.userPreferences.thoroughness || 0.7,
         speedPriority: system.userPreferences.speedPriority || 0.5,
@@ -71,7 +73,9 @@ export const UserPreferencesPanel: React.FC<UserPreferencesPanelProps> = ({
         blockedAgents: []
       });
     }
-  }, [isOpen, system]);
+  } else if (!isOpen && prevIsOpen) {
+    setPrevIsOpen(false);
+  }
 
   const handlePreferenceChange = (key: keyof UserPreferences, value: number | string[]): void => {
     const newPreferences = { ...preferences, [key]: value };

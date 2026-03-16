@@ -1,7 +1,6 @@
 """Embedding generator factory"""
 
 import logging
-from typing import Optional, Union
 
 from ...config import Config
 from .base import BaseEmbeddingGenerator

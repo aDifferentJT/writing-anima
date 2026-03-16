@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Pen, Target, Home, User, LogOut, Users } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Pen, Target, Home, Users } from 'lucide-react';
 import ProjectDashboard from './components/Projects/ProjectDashboard';
 import PurposeStep from './components/PurposeStep/PurposeStep';
 import WritingInterface from './components/WritingInterface';
 import PersonaManager from './components/PersonaManager/PersonaManager';
 import projectService from './services/projectService';
-import type { Project, FeedbackItem, Purpose, WritingCriteria } from './types';
+import type { Project, EnrichedFeedbackItem, Purpose } from './types';
 
 type AppMode = 'purpose' | 'writing' | 'personas';
 
@@ -97,8 +97,6 @@ interface AppContentProps {
   setCurrentProject: React.Dispatch<React.SetStateAction<Project | null>>;
   isProjectSwitching: boolean;
   setIsProjectSwitching: (isProjectSwitching: boolean) => void;
-  handleSelectProject: (project: Project) => Promise<void>;
-  handleCreateProject: (project: Project) => void;
 }
 
 function AppContent({
@@ -106,11 +104,9 @@ function AppContent({
   setCurrentProject,
   isProjectSwitching,
   setIsProjectSwitching,
-  handleSelectProject,
-  handleCreateProject,
 }: AppContentProps): React.ReactElement {
   const [currentMode, setCurrentMode] = useState<AppMode>(currentProject.purpose.topic == '' ? 'purpose' : 'writing');
-  const [isMonitoring, setIsMonitoring] = useState<boolean>(true);
+  const [isMonitoring] = useState<boolean>(true);
 
   // Auto-save project content
   useEffect(() => {
@@ -136,7 +132,7 @@ function AppContent({
 
     setCurrentProject(null);
     setTimeout(() => setIsProjectSwitching(false), 100);
-  }, [currentProject]);
+  }, [currentProject, setCurrentProject, setIsProjectSwitching]);
 
   const handlePurposeSubmit = async (purpose: Purpose): Promise<void> => {
     // Update current project with purpose
@@ -153,8 +149,8 @@ function AppContent({
     setCurrentMode('purpose');
   };
 
-  const handleFeedbackGenerated = useCallback((insights: FeedbackItem[]): void => {
-    const newFeedback: FeedbackItem[] = insights.map((insight: FeedbackItem) => ({
+  const handleFeedbackGenerated = useCallback((insights: EnrichedFeedbackItem[]): void => {
+    const newFeedback: EnrichedFeedbackItem[] = insights.map((insight: EnrichedFeedbackItem) => ({
       ...insight,
       id: insight.id || `flow-${Date.now()}-${Math.random()}`,
       timestamp: insight.timestamp || new Date().toISOString(),
@@ -193,7 +189,6 @@ function AppContent({
             setProject={setCurrentProject}
             writingCriteria={currentProject.writingCriteria}
             isMonitoring={isMonitoring}
-            onToggleMonitoring={() => setIsMonitoring(!isMonitoring)}
             onFeedbackGenerated={handleFeedbackGenerated}
           />
         ) : currentMode === 'personas' ? (
@@ -240,8 +235,6 @@ function App(): React.ReactElement {
          setCurrentProject={setCurrentProject}
          isProjectSwitching={isProjectSwitching}
          setIsProjectSwitching={setIsProjectSwitching}
-         handleSelectProject={handleSelectProject}
-         handleCreateProject={handleCreateProject}
        />
      );
    }

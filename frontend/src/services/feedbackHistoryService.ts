@@ -4,7 +4,7 @@
  */
 
 import type {
-  FeedbackItem,
+  EnrichedFeedbackItem,
   FeedbackHistory,
   FeedbackHistoryRecord,
   FeedbackStatistics,
@@ -48,14 +48,14 @@ class FeedbackHistoryService {
   /**
    * Record an accepted (resolved) piece of feedback
    */
-  recordAccepted(feedback: FeedbackItem): void {
+  recordAccepted(feedback: EnrichedFeedbackItem): void {
     const record: FeedbackHistoryRecord = {
       id: feedback.id,
       agent: feedback.agent,
       category: feedback.category,
       title: feedback.title,
-      feedback: feedback.feedback,
-      quote: feedback.position?.text || feedback.quote,
+      feedback: feedback.content,
+      quote: feedback.positions[0]?.text || feedback.quote,
       timestamp: new Date().toISOString(),
       severity: feedback.severity
     };
@@ -74,14 +74,14 @@ class FeedbackHistoryService {
   /**
    * Record a rejected (dismissed) piece of feedback
    */
-  recordRejected(feedback: FeedbackItem): void {
+  recordRejected(feedback: EnrichedFeedbackItem): void {
     const record: FeedbackHistoryRecord = {
       id: feedback.id,
       agent: feedback.agent,
       category: feedback.category,
       title: feedback.title,
-      feedback: feedback.feedback,
-      quote: feedback.position?.text || feedback.quote,
+      feedback: feedback.content,
+      quote: feedback.positions[0]?.text || feedback.quote,
       timestamp: new Date().toISOString(),
       severity: feedback.severity
     };

@@ -1,9 +1,7 @@
 """MBOX email archive parser"""
 
-from email.utils import parsedate_to_datetime
 import logging
 import mailbox
-from pathlib import Path
 from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
@@ -14,7 +12,6 @@ class MboxParser:
 
     def __init__(self) -> None:
         """Initialize MBOX parser"""
-        pass
 
     def extract_text_from_email(self, message: mailbox.mboxMessage) -> str:
         """
@@ -64,7 +61,7 @@ class MboxParser:
                             text = payload.decode("utf-8", errors="ignore")
                             text_parts.append(text)
                     except Exception as e:
-                        logger.debug(f"Error decoding part: {e}")
+                        logger.debug("Error decoding part: %s", e)
                         continue
 
                 elif content_type == "text/html":
@@ -80,7 +77,7 @@ class MboxParser:
                             if text.strip():
                                 text_parts.append(text)
                     except Exception as e:
-                        logger.debug(f"Error decoding HTML: {e}")
+                        logger.debug("Error decoding HTML: %s", e)
                         continue
 
         else:
@@ -91,7 +88,7 @@ class MboxParser:
                     text = payload.decode("utf-8", errors="ignore")
                     text_parts.append(text)
             except Exception as e:
-                logger.debug(f"Error decoding message: {e}")
+                logger.debug("Error decoding message: %s", e)
 
         return "\n".join(text_parts)
 
@@ -109,7 +106,7 @@ class MboxParser:
             # Open mbox file
             mbox = mailbox.mbox(mbox_path)
 
-            logger.info(f"Parsing MBOX file: {mbox_path}")
+            logger.info("Parsing MBOX file: %s", mbox_path)
 
             emails = []
 
@@ -120,20 +117,20 @@ class MboxParser:
                     text = self.extract_text_from_email(message)
 
                     if not text.strip():
-                        logger.debug(f"Empty email at index {idx}")
+                        logger.debug("Empty email at index %d", idx)
                         continue
 
                     # Add to results
                     emails.append(text)
 
                 except Exception as e:
-                    logger.warning(f"Error processing email {idx}: {e}")
+                    logger.warning("Error processing email %d: %s", idx, e)
                     continue
 
-            logger.info(f"Extracted {len(emails)} emails from {mbox_path}")
+            logger.info("Extracted %d emails from %s", len(emails), mbox_path)
 
             return ("\n\n" + "="*80 + "\n\n").join(emails)
 
         except Exception as e:
-            logger.error(f"Error reading MBOX file {mbox_path}: {e}")
+            logger.error("Error reading MBOX file %s: %s", mbox_path, e)
             return ""

@@ -4,10 +4,9 @@ Writing analysis API endpoints using Anima
 
 import json
 import logging
-import re
 import time
 import uuid
-from typing import NamedTuple, Optional
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from openai.types.chat import ChatCompletionMessageParam
@@ -16,17 +15,15 @@ from sqlmodel import Session, select
 from ..agent.factory import AgentFactory
 from ..config import get_config
 from ..database.general import (
-    Persona,
     general_db
 )
 from .models import (
     AnalysisRequest,
-    AnalysisResponse,
     ChatRequest,
-    ChatResponse,
     FeedbackItem,
     FeedbackSeverity,
     FeedbackType,
+    Persona,
     StreamComplete,
     StreamFeedback,
     StreamStatus,
@@ -49,7 +46,9 @@ def get_persona(persona_id: str) -> Optional[Persona]:
 
 
 def parse_json_feedback(
-    response_text: str, persona_name: str, model: Optional[str] = None
+    response_text: str,
+    persona_name: str,
+    model: str,
 ) -> list[FeedbackItem]:
     """
     Parse JSON feedback from Anima's structured output.
@@ -64,7 +63,7 @@ def parse_json_feedback(
     """
     try:
         # Log raw response for debugging
-        logger.info(f"Raw JSON response (first 2000 chars): {response_text[:2000]}")
+        logger.info("Raw JSON response (first 2000 chars): %s", response_text[:2000])
 
         # Preprocess: Extract JSON from response in case model added preamble text
         # Look for JSON array [ ... ] or object { ... }
@@ -86,7 +85,7 @@ def parse_json_feedback(
             end_idx = json_text.rfind("]")
             if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
                 json_text = json_text[start_idx : end_idx + 1]
-                logger.info(f"Extracted JSON array from response (removed preamble)")
+                logger.info("Extracted JSON array from response (removed preamble)")
             else:
                 # Try to find JSON object
                 start_idx = json_text.find("{")
@@ -94,7 +93,7 @@ def parse_json_feedback(
                 if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
                     json_text = json_text[start_idx : end_idx + 1]
                     logger.info(
-                        f"Extracted JSON object from response (removed preamble)"
+                        "Extracted JSON object from response (removed preamble)"
                     )
 
         # Parse JSON response
@@ -109,7 +108,7 @@ def parse_json_feedback(
             for key in ["feedback", "items", "analysis", "response"]:
                 if key in feedback_data and isinstance(feedback_data[key], list):
                     feedback_data = feedback_data[key]
-                    logger.info(f"Extracted feedback array from '{key}' wrapper")
+                    logger.info("Extracted feedback array from '%s' wrapper", key)
                     extracted = True
                     break
 
@@ -123,25 +122,28 @@ def parse_json_feedback(
                 feedback_data = [feedback_data]
 
         if not isinstance(feedback_data, list):
-            logger.error(f"Expected JSON array, got: {type(feedback_data)}")
+            logger.error("Expected JSON array, got: %s", type(feedback_data))
             return []
 
         feedback_items = []
         for i, item in enumerate(feedback_data):
             try:
-                logger.info(f"Parsing item {i}: keys={list(item.keys())}")
+                logger.info("Parsing item %d: keys=%s", i, list(item.keys()))
                 logger.info(
-                    f"Item {i} sample: type={item.get('type')}, title={item.get('title', '')[:50]}"
+                    "Item %d sample: type=%s, title=%s",
+                    i, item.get('type'), item.get('title', '')[:50]
                 )
                 # Log content field specifically
                 content_value = item.get("content", "")
                 logger.info(
-                    f"Item {i} content length: {len(content_value)}, preview: {content_value[:100] if content_value else '[EMPTY]'}"
+                    "Item %d content length: %d, preview: %s",
+                    i, len(content_value), content_value[:100] if content_value else '[EMPTY]'
                 )
 
                 # Handle both expected schema and actual model output
                 # Model uses many different field names - check all variants
-                # For content field, try: content, description, feedback, recommendation, action, suggestion, issue, rationale
+                # For content field, try: content, description, feedback,
+                # recommendation, action, suggestion, issue, rationale
                 content = (
                     item.get("content")
                     or item.get("text")  # Kimi sometimes uses this
@@ -230,7 +232,8 @@ def parse_json_feedback(
                     feedback_type = FeedbackType(raw_type)
                 except ValueError:
                     logger.warning(
-                        f"Unknown feedback type '{raw_type}', falling back to 'suggestion'"
+                        "Unknown feedback type '%s', falling back to 'suggestion'",
+                        raw_type
                     )
                     feedback_type = FeedbackType.SUGGESTION
 
@@ -247,7 +250,8 @@ def parse_json_feedback(
                     severity = FeedbackSeverity(mapped_severity)
                 except ValueError:
                     logger.warning(
-                        f"Unknown severity '{raw_severity}', falling back to 'medium'"
+                        "Unknown severity '%s', falling back to 'medium'",
+                        raw_severity
                     )
                     severity = FeedbackSeverity.MEDIUM
 
@@ -262,21 +266,20 @@ def parse_json_feedback(
                         confidence=float(item.get("confidence", 0.7)),
                         sources=sources if isinstance(sources, list) else [],
                         corpus_sources=corpus_sources,
-                        position=item.get("position"),
                         positions=positions,
                         model=model,
                     )
                 )
             except Exception as e:
-                logger.error(f"Error parsing feedback item: {e}, item: {item}")
+                logger.error("Error parsing feedback item: %s, item: %s", e, item)
                 continue
 
-        logger.info(f"Parsed {len(feedback_items)} feedback items from JSON")
+        logger.info("Parsed %d feedback items from JSON", len(feedback_items))
         return feedback_items
 
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse JSON feedback: {e}")
-        logger.error(f"Response text: {response_text[:500]}")
+        logger.error("Failed to parse JSON feedback: %s", e)
+        logger.error("Response text: %s", response_text[:500])
 
         # Fallback: try to extract any JSON array from the text
         import re
@@ -288,12 +291,12 @@ def parse_json_feedback(
                 return parse_json_feedback(
                     json.dumps(feedback_data), persona_name, model
                 )
-            except:
+            except: # pylint: disable=bare-except
                 pass
 
         return []
     except Exception as e:
-        logger.error(f"Unexpected error parsing feedback: {e}")
+        logger.error("Unexpected error parsing feedback: %s", e)
         return []
 
 
@@ -334,8 +337,8 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
         start_time = time.time()
 
         # Send initial status
-        await websocket.send_json(
-            StreamStatus(message="Initializing Anima...", progress=0.1).dict()
+        await websocket.send_text(
+            StreamStatus(message="Initializing Anima...", progress=0.1).model_dump_json()
         )
 
         # Get configuration and create agent with JSON mode
@@ -356,7 +359,8 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             config.personas[request.persona_id] = persona_config
 
         logger.info(
-            f"Using model: {request.model} for persona: {persona.name}"
+            "Using model: %s for persona: %s",
+            request.model, persona.name
         )
 
         # Create agent using factory with selected model
@@ -371,15 +375,15 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
         )
 
         # Send status
-        await websocket.send_json(
+        await websocket.send_text(
             StreamStatus(
                 message=f"Anima ready ({request.model}), starting analysis...",
                 progress=0.2,
-            ).dict()
+            ).model_dump_json()
         )
 
         # Build query (same as non-streaming)
-        query = f"Please analyze the following writing"
+        query = "Please analyze the following writing"
 
         if request.context.purpose:
             query += f" (Purpose: {request.context.purpose})"
@@ -389,21 +393,24 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             query += f"\nEvaluation criteria: {criteria_text}"
 
         query += f"\n\nText to analyze:\n{request.content}"
-        query += "\n\nProvide specific, actionable feedback grounded in your corpus. Return your response as a JSON array of feedback items as specified in your instructions."
+        query += (
+            "\n\nProvide specific, actionable feedback grounded in your corpus. "
+            "Return your response as a JSON array of feedback items as specified "
+            "in your instructions."
+        )
 
         # Prepare conversation history
         conversation_history: list[ChatCompletionMessageParam] = []
         if request.context and request.context.feedback_history:
             for item in request.context.feedback_history[-3:]:
-                if item.get("role") == "user":
+                if item.role == "user":
                     conversation_history.append(
-                        {"role": "user", "content": item["content"]}
+                        {"role": "user", "content": item.content}
                     )
-                elif item.get("role") == "assistant":
+                elif item.role == "assistant":
                     conversation_history.append(
-                        {"role": "assistant", "content": item["content"]}
+                        {"role": "assistant", "content": item.content}
                     )
-            
 
         # Use streaming if available
         result = None
@@ -414,12 +421,12 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             ):
                 if chunk.get("type") == "status":
                     # Send status updates
-                    await websocket.send_json(
+                    await websocket.send_text(
                         StreamStatus(
                             message=chunk.get("message", "Processing..."),
                             tool=chunk.get("tool"),
                             progress=0.5,  # Mid-progress
-                        ).dict()
+                        ).model_dump_json()
                     )
                 elif chunk.get("type") == "text":
                     # Text chunk received - could stream this too
@@ -429,16 +436,16 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
                     result = chunk
         else:
             # Fallback to non-streaming
-            await websocket.send_json(
+            await websocket.send_text(
                 StreamStatus(
                     message="Analyzing with corpus retrieval...", progress=0.5
-                ).dict()
+                ).model_dump_json()
             )
             result = agent.respond(query, conversation_history=conversation_history)
 
         # Parse JSON feedback
-        await websocket.send_json(
-            StreamStatus(message="Parsing structured feedback...", progress=0.8).dict()
+        await websocket.send_text(
+            StreamStatus(message="Parsing structured feedback...", progress=0.8).model_dump_json()
         )
 
         # Safety check - if result is None, agent didn't complete properly
@@ -454,16 +461,16 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             return
 
         response_text = result.response
-        logger.info(f"Response text length: {len(response_text)}")
-        logger.info(f"Response preview (first 1000 chars): {response_text[:1000]}")
+        logger.info("Response text length: %d", len(response_text))
+        logger.info("Response preview (first 1000 chars): %s", response_text[:1000])
 
         try:
             feedback_items = parse_json_feedback(
                 response_text, persona.name, request.model
             )
-            logger.info(f"Parsed {len(feedback_items)} feedback items")
+            logger.info("Parsed %d feedback items", len(feedback_items))
         except Exception as parse_error:
-            logger.error(f"Failed to parse feedback: {parse_error}")
+            logger.error("Failed to parse feedback: %s", parse_error)
             await websocket.send_json(
                 {
                     "type": "error",
@@ -474,46 +481,48 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             return
 
         feedback_items = feedback_items[: request.max_feedback_items]
-        logger.info(f"After max limit: {len(feedback_items)} feedback items")
+        logger.info("After max limit: %d feedback items", len(feedback_items))
 
         # Stream each feedback item
         for i, feedback_item in enumerate(feedback_items):
             try:
                 logger.info(
-                    f"Sending feedback item {i + 1}/{len(feedback_items)}: {feedback_item.title}"
+                    "Sending feedback item %d/%d: %s",
+                    i + 1, len(feedback_items), feedback_item.title
                 )
-                await websocket.send_json(StreamFeedback(item=feedback_item).dict())
-                logger.debug(f"Successfully sent item {i + 1}")
+                await websocket.send_text(StreamFeedback(item=feedback_item).model_dump_json())
+                logger.debug("Successfully sent item %d", i + 1)
             except Exception as e:
                 logger.error(
-                    f"Error sending feedback item {i + 1}: {e}, stopping stream"
+                    "Error sending feedback item %d: %s, stopping stream",
+                    i + 1, e
                 )
                 return
 
         # Send completion
         try:
             processing_time = time.time() - start_time
-            logger.info(f"Sending completion message")
-            await websocket.send_json(
+            logger.info("Sending completion message")
+            await websocket.send_text(
                 StreamComplete(
                     total_items=len(feedback_items), processing_time=processing_time
-                ).dict()
+                ).model_dump_json()
             )
             await websocket.close()
             logger.info("Stream completed successfully")
         except Exception as e:
-            logger.error(f"Error sending completion: {e}")
+            logger.error("Error sending completion: %s", e)
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected by client")
     except Exception as e:
-        logger.error(f"Error in streaming analysis: {e}")
+        logger.error("Error in streaming analysis: %s", e)
         try:
             await websocket.send_json(
                 {"type": "error", "message": f"Analysis failed: {str(e)}"}
             )
             await websocket.close()
-        except:
+        except: # pylint: disable=bare-except
             pass
 
 
@@ -609,7 +618,7 @@ async def chat_with_persona_stream(websocket: WebSocket) -> None:
             await websocket.send_json({"type": "complete", "response": full_response})
         else:
             result = agent.respond(message, conversation_history=conversation_history)
-            response_text = result.response,
+            response_text = result.response
             await websocket.send_json({"type": "token", "content": response_text})
             await websocket.send_json({"type": "complete", "response": response_text})
 
@@ -618,11 +627,11 @@ async def chat_with_persona_stream(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         logger.info("Chat WebSocket disconnected by client")
     except Exception as e:
-        logger.error(f"Error in chat stream: {e}")
+        logger.error("Error in chat stream: %s", e)
         try:
             await websocket.send_json(
                 {"type": "error", "message": f"Chat failed: {str(e)}"}
             )
             await websocket.close()
-        except:
+        except:  # pylint: disable=bare-except
             pass

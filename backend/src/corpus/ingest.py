@@ -1,13 +1,11 @@
 """Corpus ingestion pipeline"""
 
-from datetime import datetime
-from fastapi import UploadFile
 import logging
-import os
-from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Optional, Tuple
+from typing import Optional
 from uuid import uuid4
+
+from fastapi import UploadFile
 
 from .embed.factory import EmbeddingGeneratorFactory
 from .pdf_extractor import PDFExtractor, is_pdf_available
@@ -69,11 +67,14 @@ class CorpusIngester:
         overlap = self.config.corpus.chunk_overlap
         min_length = self.config.corpus.min_chunk_length
 
-        logger.debug(f"Chunking text: {len(text)} chars, chunk_size={chunk_size}, overlap={overlap}")
+        logger.debug(
+            "Chunking text: %s chars, chunk_size=%s, overlap=%s",
+            len(text), chunk_size, overlap
+        )
 
         if len(text) <= chunk_size:
             result = [text] if len(text) >= min_length else []
-            logger.debug(f"Text smaller than chunk size, returning {len(result)} chunks")
+            logger.debug("Text smaller than chunk size, returning %s chunks", len(result))
             return result
 
         chunks = []
@@ -84,11 +85,14 @@ class CorpusIngester:
         while start < len(text):
             iteration += 1
             if iteration > max_iterations:
-                logger.error(f"Chunking exceeded max iterations! start={start}, text_len={len(text)}")
+                logger.error(
+                    "Chunking exceeded max iterations! start=%s, text_len=%s",
+                    start, len(text)
+                )
                 break
 
             if iteration % 10 == 0:
-                logger.debug(f"Chunking iteration {iteration}, start={start}/{len(text)}")
+                logger.debug("Chunking iteration %s, start=%s/%s", iteration, start, len(text))
 
             end = start + chunk_size
 
@@ -116,7 +120,10 @@ class CorpusIngester:
                 # Move forward by at least chunk_size - overlap
                 start = max(start + 1, end - overlap)
 
-        logger.debug(f"Chunking complete: created {len(chunks)} chunks in {iteration} iterations")
+        logger.debug(
+            "Chunking complete: created %s chunks in %s iterations",
+            len(chunks), iteration
+        )
         return chunks
 
     def infer_source_type(self, filename: str) -> SourceType:
@@ -125,7 +132,13 @@ class CorpusIngester:
             return SourceType.EMAIL
         elif "chat" in filename:
             return SourceType.CHAT
-        elif "code" in filename or filename.endswith(".py") or filename.endswith(".js") or filename.endswith(".java") or filename.endswith(".cpp"):
+        elif (
+            "code" in filename
+            or filename.endswith(".py")
+            or filename.endswith(".js")
+            or filename.endswith(".java")
+            or filename.endswith(".cpp")
+        ):
             return SourceType.CODE
         elif "note" in filename:
             return SourceType.NOTE
@@ -152,35 +165,35 @@ class CorpusIngester:
             if filename.endswith(".pdf"):
                 if self.pdf_extractor is None:
                     logger.error(
-                        f"Cannot process PDF {filename}: pypdf not installed. "
-                        "Install with: pip install pypdf"
+                        "Cannot process PDF %s: pypdf not installed. "
+                        "Install with: pip install pypdf", filename
                     )
                     return []
 
                 # Extract text from PDF
                 text = self.pdf_extractor.extract_text(file)
                 if not text:
-                    logger.warning(f"No text extracted from PDF: {filename}")
+                    logger.warning("No text extracted from PDF: %s", filename)
                     return []
 
             # Check if this is an MBOX file
             elif filename.endswith(".mbox"):
-                logger.info(f"Processing MBOX file: {filename}")
+                logger.info("Processing MBOX file: %s", filename)
                 # Parse all emails from mbox
                 with NamedTemporaryFile(delete_on_close=False) as tmp:
                     tmp.write(await file.read())
                     text = self.mbox_parser.parse_mbox(tmp.name)
                 if not text:
-                    logger.warning(f"No emails extracted from MBOX: {filename}")
+                    logger.warning("No emails extracted from MBOX: %s", filename)
                     return []
 
             # Check if this is a Claude conversation JSON file
             elif filename.endswith(".json") and "chat" in filename.lower():
-                logger.info(f"Processing Claude conversation JSON: {filename}")
+                logger.info("Processing Claude conversation JSON: %s", filename)
                 # Parse conversations from JSON
                 text = self.claude_parser.parse_to_text(file)
                 if not text:
-                    logger.warning(f"No conversations extracted from JSON: {filename}")
+                    logger.warning("No conversations extracted from JSON: %s", filename)
                     return []
 
             else:
@@ -189,13 +202,13 @@ class CorpusIngester:
                 text = content.decode("utf-8")
 
             if not text.strip():
-                logger.warning(f"Empty file: {filename}")
+                logger.warning("Empty file: %s", filename)
                 return []
 
             # Chunk text
-            logger.debug(f"Chunking text ({len(text)} characters)...")
+            logger.debug("Chunking text (%s characters)...", len(text))
             chunks = self.chunk_text(text)
-            logger.info(f"  → Created {len(chunks)} chunks from {filename}")
+            logger.info("  → Created %s chunks from %s", len(chunks), filename)
 
             # Infer source type if not provided
             if source_type is None:
@@ -220,7 +233,7 @@ class CorpusIngester:
             return documents
 
         except Exception as e:
-            logger.error(f"Error processing file {filename}: {e}")
+            logger.error("Error processing file %s: %s", filename, e)
             return []
 
     async def ingest_file(self, file: UploadFile, source_type: Optional[SourceType] = None) -> int:
@@ -234,20 +247,20 @@ class CorpusIngester:
         Returns:
             Number of documents created
         """
-        logger.info(f"Ingesting file: {file.filename}")
+        logger.info("Ingesting file: %s", file.filename)
 
         # Process the file to create documents
         documents = await self.process_file(file, source_type)
 
         if not documents:
-            logger.warning(f"No documents created from file: {file.filename}")
+            logger.warning("No documents created from file: %s", file.filename)
             return 0
 
-        logger.info(f"Created {len(documents)} document chunks from {file.filename}")
+        logger.info("Created %s document chunks from %s", len(documents), file.filename)
 
         # Generate embeddings
         texts = [doc.text for doc in documents]
-        logger.info(f"Generating embeddings for {len(texts)} chunks...")
+        logger.info("Generating embeddings for %s chunks...", len(texts))
         embeddings = self.embedder.generate(texts)
 
         # Assign embeddings to documents
@@ -255,8 +268,8 @@ class CorpusIngester:
             doc.embedding = embedding
 
         # Add to database
-        logger.info(f"Adding {len(documents)} documents to vector database...")
+        logger.info("Adding %s documents to vector database...", len(documents))
         self.db.add_documents(documents)
 
-        logger.info(f"✓ Successfully ingested {len(documents)} documents from {file.filename}")
+        logger.info("✓ Successfully ingested %s documents from %s", len(documents), file.filename)
         return len(documents)

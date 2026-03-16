@@ -1,7 +1,6 @@
 """Agent factory for creating model-specific agents"""
 
 import logging
-from typing import Optional, Union
 
 from ..config import Config, ModelConfig
 from .base import BaseAgent
@@ -39,7 +38,7 @@ class AgentFactory:
 
         # OpenAI (gpt-4, gpt-3.5, etc)
         if model.provider == "openai":
-            logger.info(f"Creating OpenAIAgent for persona: {persona.name}")
+            logger.info("Creating OpenAIAgent for persona: %s", persona.name)
             return OpenAIAgent(
                 persona_id=persona_id,
                 config=config,
@@ -50,7 +49,7 @@ class AgentFactory:
 
         # DeepSeek (API)
         elif model.provider == "deepseek":
-            logger.info(f"Creating DeepSeekAgent for persona: {persona.name}")
+            logger.info("Creating DeepSeekAgent for persona: %s", persona.name)
             return OpenAIAgent(
                 persona_id=persona_id,
                 config=config,
