@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def _download_with_progress(model_id: str, callback: Callable[[float], None]) -> None:
     """Pre-download all model files from HuggingFace, reporting byte-level progress."""
     from huggingface_hub import HfApi, hf_hub_download, try_to_load_from_cache
-    from huggingface_hub.utils import tqdm
+    from huggingface_hub.utils import tqdm  # type: ignore[attr-defined]
 
     api = HfApi()
     siblings = api.model_info(model_id, files_metadata=True).siblings or []
@@ -33,7 +33,7 @@ def _download_with_progress(model_id: str, callback: Callable[[float], None]) ->
     bytes_done = 0
 
     class custom_tqdm(tqdm):
-        def update(self, n=1):
+        def update(self, n: int = 1) -> None:
             super().update(n)
             if self.unit == "B":
                 callback((bytes_done + self.n) / total_bytes)

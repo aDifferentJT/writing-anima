@@ -86,13 +86,6 @@ class WritingCriteria(BaseModel):
     criteria: list[str] = []
 
 
-class ProjectSettings(BaseModel):
-    """Project settings — stored as JSON on Project"""
-    auto_save_interval: int = 30000
-    enable_real_time_sync: bool = True
-    other_settings: dict[str, str | int | float | bool | None] = {}
-
-
 class TextPosition(BaseModel):
     """Position of a text span for highlighting"""
     start: int
@@ -302,6 +295,12 @@ class IngestionStatus(BaseModel):
 
 
 # ── Projects ──────────────────────────────────────────────────────────────────
+
+class ProjectSettings(BaseModel):
+    """Project settings — stored as JSON on Project"""
+    auto_save_interval: int = 30000
+    enable_real_time_sync: bool = True
+
 
 class Project(SQLModel, table=True):
     """Project DB model"""

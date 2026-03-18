@@ -5,14 +5,12 @@
 - Unify persistence
 - Eliminate one of response or response_stream
 - Fix corpus_available in persona thingy I messed up
-- Fix model factory
 - Global model selector
 - Project embedding selector
 - File metadate no longer contains file_path or timestamp but does contain filename
 - Prune requirements
 - Sort WritingInterface feedback stuff
 - Look at the .env stuff, pruning and tidying
-- public/index.html has been replaced by index.html, compare and fix
 
 AI suggests:
 
