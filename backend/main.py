@@ -5,7 +5,9 @@ FastAPI application providing Anima-powered writing analysis
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from pathlib import Path
 import uvicorn
 from typing import Any, AsyncGenerator, Never, Optional
 import logging
@@ -28,59 +30,53 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Never]:
     logger.info("Shutting down Writing-Anima backend...")
     # Cleanup resources
 
-app = FastAPI(
-    title="Writing-Anima API",
-    description="Anima-powered writing analysis and feedback system",
-    version="1.0.0",
-    lifespan=lifespan
-)
+def setup(allowed_origins: list[str]) -> FastAPI:
+    app = FastAPI(
+        title="Writing-Anima API",
+        description="Anima-powered writing analysis and feedback system",
+        version="1.0.0",
+        lifespan=lifespan
+    )
 
-# CORS configuration for React frontend
-# Read allowed origins from environment variable
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+    logger.info(f"CORS allowed origins: {allowed_origins}")
 
-logger.info(f"CORS allowed origins: {allowed_origins}")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-async def root() -> dict[str, str]:
-    """Root endpoint"""
-    return {
-        "message": "Writing-Anima API",
-        "version": "1.0.0",
-        "status": "running"
-    }
-
-@app.get("/api/health")
-async def health_check() -> dict[str, Any]:
-    """Health check endpoint"""
-    # TODO: Add Qdrant connection check
-    return {
-        "status": "healthy",
-        "services": {
-            "api": "running",
-            "qdrant": "pending",  # Will check in Phase 2
+    @app.get("/api/health")
+    async def health_check() -> dict[str, Any]:
+        return {
+            "status": "healthy",
+            "services": {
+                "api": "running",
+                "qdrant": "pending",
+            }
         }
-    }
 
-# Include API routers
-app.include_router(analysis_router)
-app.include_router(personas_router)
-app.include_router(projects_router)
+    # Include API routers
+    app.include_router(analysis_router)
+    app.include_router(personas_router)
+    app.include_router(projects_router)
+
+    # Serve built frontend as static files (production / desktop mode).
+    # Must come last — it's a catch-all for any path not matched by API routes.
+    frontend_dist = Path(__file__).parent / "frontend" / "dist"
+    if frontend_dist.exists():
+        app.mount(
+            "/",
+            StaticFiles(directory=str(frontend_dist), html=True),
+            name="frontend",
+        )
+
+    return app
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+    app = setup(allowed_origins)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
