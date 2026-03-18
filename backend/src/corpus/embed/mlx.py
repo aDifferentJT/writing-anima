@@ -1,6 +1,8 @@
-"""Embedding generation for text chunks using OpenAI API"""
+"""Embedding generation for text chunks using MLX"""
 
 import logging
+from collections.abc import Callable
+from pathlib import Path
 from typing import cast
 
 from mlx_embeddings.models.base import BaseModelOutput
@@ -12,17 +14,54 @@ from ...config import Config
 logger = logging.getLogger(__name__)
 
 
-class MlxEmbeddingGenerator(BaseEmbeddingGenerator):
-    """Generate embeddings for text using OpenAI API"""
+def _download_with_progress(model_id: str, callback: Callable[[float], None]) -> None:
+    """Pre-download all model files from HuggingFace, reporting byte-level progress."""
+    from huggingface_hub import HfApi, hf_hub_download, try_to_load_from_cache
+    from huggingface_hub.utils import tqdm
 
-    def __init__(self, config: Config):
+    api = HfApi()
+    siblings = api.model_info(model_id, files_metadata=True).siblings or []
+    files_to_download = [
+        s for s in siblings
+        if not (cached := try_to_load_from_cache(model_id, s.rfilename)) or not Path(str(cached)).exists()
+    ]
+    total_bytes = sum(s.size or 0 for s in files_to_download)
+    if total_bytes == 0:
+        callback(1.0)
+        return
+
+    bytes_done = 0
+
+    class custom_tqdm(tqdm):
+        def update(self, n=1):
+            super().update(n)
+            if self.unit == "B":
+                callback((bytes_done + self.n) / total_bytes)
+
+    callback(0)
+    for sibling in files_to_download:
+        logger.info("Downloading %s from %s...", sibling.rfilename, model_id)
+        hf_hub_download(repo_id=model_id, filename=sibling.rfilename, tqdm_class=custom_tqdm)
+        bytes_done += sibling.size or 0
+        callback(bytes_done / total_bytes)
+
+
+class MlxEmbeddingGenerator(BaseEmbeddingGenerator):
+    """Generate embeddings for text using MLX"""
+
+    def __init__(self, config: Config, progress_callback: Callable[[float], None] | None = None):
         """Initialize embedding generator"""
         super().__init__(config)
-        self.model, self.tokenizer = load(self.config.embedding.model)
-
+        model_name = self.config.embedding.model
+        if progress_callback:
+            try:
+                _download_with_progress(model_name, progress_callback)
+            except Exception as e:
+                logger.warning("Model download progress tracking failed (%s), loading anyway", e)
+        self.model, self.tokenizer = load(model_name)
         logger.info("Initialized embedding generator with model: %s", self.model)
 
-    def _generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
+    def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
         try:
             logger.debug("Using MLX to embed batch %d (size=%d)...", batch_num, len(batch))

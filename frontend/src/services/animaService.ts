@@ -12,15 +12,10 @@ import type {
   ChatMessage,
   CorpusFile,
 } from '../types';
+import type { CorpusUploadMessage } from '../apiTypes';
 
 const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const WS_URL: string = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
-
-interface UploadCorpusResponse {
-  message?: string;
-  files_processed?: number;
-  [key: string]: unknown;
-}
 
 interface IngestionStatusResponse {
   status?: string;
@@ -295,33 +290,68 @@ class AnimaService {
   }
 
   /**
-   * Upload corpus files for a persona
+   * Upload corpus files for a persona via WebSocket.
+   * Yields status messages during processing and a final complete message.
+   * Throws on error.
    */
-  async uploadCorpus(personaId: string, files: FileList): Promise<UploadCorpusResponse> {
-    try {
-      const formData = new FormData();
-
-      Array.from(files).forEach((file: File) => {
-        formData.append("files", file);
+  async *uploadCorpus(personaId: string, files: File[]): AsyncGenerator<CorpusUploadMessage> {
+    const toBase64 = (file: File): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
 
-      const response = await fetch(
-        `${API_URL}/api/personas/${personaId}/corpus`,
-        {
-          method: "POST",
-          body: formData,
-        },
+    type Node = { msg: CorpusUploadMessage; next: Promise<Node | null> };
+
+    let { promise: next, resolve: resolveNext, reject: rejectNext } =
+      Promise.withResolvers<Node | null>();
+
+    const push = (msg: CorpusUploadMessage) => {
+      const { promise: next, resolve, reject } = Promise.withResolvers<Node | null>();
+      resolveNext({ msg, next });
+      resolveNext = resolve;
+      rejectNext = reject;
+    };
+
+    const ws = new WebSocket(`${WS_URL}/api/personas/${personaId}/corpus/ws`);
+
+    ws.onopen = async () => {
+      const filesData = await Promise.all(
+        files.map(async (file: File) => ({
+          name: file.name,
+          size: file.size,
+          content: await toBase64(file),
+        })),
       );
+      ws.send(JSON.stringify({ files: filesData }));
+    };
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Upload failed");
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "error") {
+        rejectNext(new Error(msg.message || "Upload failed"));
+      } else {
+        push(msg as CorpusUploadMessage);
+        if (msg.type === "complete") resolveNext(null);
       }
+    };
 
-      return await response.json();
-    } catch (error) {
-      console.error("Error uploading corpus:", error);
-      throw error;
+    ws.onerror = () => rejectNext(new Error("WebSocket connection failed"));
+
+    ws.onclose = (event) => {
+      if (event.wasClean || event.code === 1000) {
+        resolveNext(null);
+      } else {
+        rejectNext(new Error("WebSocket closed unexpectedly"));
+      }
+    };
+
+    let node = await next;
+    while (node !== null) {
+      yield node.msg;
+      node = await node.next;
     }
   }
 

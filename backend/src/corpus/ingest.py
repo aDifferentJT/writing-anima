@@ -1,13 +1,15 @@
 """Corpus ingestion pipeline"""
 
+import asyncio
 import logging
+from dataclasses import dataclass
 from tempfile import NamedTemporaryFile
-from typing import Optional
+from typing import AsyncGenerator, Literal, Optional
 from uuid import uuid4
 
 from fastapi import UploadFile
 
-from .embed.factory import EmbeddingGeneratorFactory
+from .embed.base import BaseEmbeddingGenerator
 from .pdf_extractor import PDFExtractor, is_pdf_available
 from .mbox_parser import MboxParser
 from .claude_parser import ClaudeConversationParser
@@ -18,20 +20,50 @@ from ..config import Config
 logger = logging.getLogger(__name__)
 
 
+Stage = Literal["Extracting text"] | Literal["Generating embeddings"] | Literal["Storing documents"]
+_STAGES: list[Stage] = ["Extracting text", "Generating embeddings", "Storing documents"]
+
+
+@dataclass
+class IngestProgress:
+    """Status update yielded during file ingestion."""
+    steps_completed: list[Stage]
+    steps_remaining: list[Stage]
+    current_step: Stage
+    step_progress: float | None  # 0.0–1.0, or None if progress is unavailable
+
+
+@dataclass
+class IngestComplete:
+    """Final value yielded when ingestion finishes."""
+    chunks_added: int
+
+
+def _stage_progress(stage: Stage, step_progress: float | None = None) -> IngestProgress:
+    idx = _STAGES.index(stage)
+    return IngestProgress(
+        steps_completed=_STAGES[:idx],
+        steps_remaining=_STAGES[idx + 1:],
+        current_step=stage,
+        step_progress=step_progress,
+    )
+
+
 class CorpusIngester:
     """Ingest and process user corpus into vector database"""
 
-    def __init__(self, collection_name: str, config: Config):
+    def __init__(self, collection_name: str, config: Config, embedder: BaseEmbeddingGenerator):
         """
         Initialize corpus ingester.
 
         Args:
             collection_name: Name of the collection to ingest into (e.g., "persona_jules")
             config: Configuration object
+            embedder: Pre-constructed embedding generator
         """
         self.config = config
         self.collection_name = collection_name
-        self.embedder = EmbeddingGeneratorFactory.create(config)
+        self.embedder = embedder
         self.db = VectorDatabase(collection_name, config)
 
         # Initialize PDF extractor if available
@@ -68,13 +100,13 @@ class CorpusIngester:
         min_length = self.config.corpus.min_chunk_length
 
         logger.debug(
-            "Chunking text: %s chars, chunk_size=%s, overlap=%s",
+            "Chunking text: %d chars, chunk_size=%d, overlap=%d",
             len(text), chunk_size, overlap
         )
 
         if len(text) <= chunk_size:
             result = [text] if len(text) >= min_length else []
-            logger.debug("Text smaller than chunk size, returning %s chunks", len(result))
+            logger.debug("Text smaller than chunk size, returning %d chunks", len(result))
             return result
 
         chunks = []
@@ -86,13 +118,13 @@ class CorpusIngester:
             iteration += 1
             if iteration > max_iterations:
                 logger.error(
-                    "Chunking exceeded max iterations! start=%s, text_len=%s",
+                    "Chunking exceeded max iterations! start=%d, text_len=%d",
                     start, len(text)
                 )
                 break
 
             if iteration % 10 == 0:
-                logger.debug("Chunking iteration %s, start=%s/%s", iteration, start, len(text))
+                logger.debug("Chunking iteration %d, start=%d/%d", iteration, start, len(text))
 
             end = start + chunk_size
 
@@ -121,7 +153,7 @@ class CorpusIngester:
                 start = max(start + 1, end - overlap)
 
         logger.debug(
-            "Chunking complete: created %s chunks in %s iterations",
+            "Chunking complete: created %d chunks in %d iterations",
             len(chunks), iteration
         )
         return chunks
@@ -206,9 +238,9 @@ class CorpusIngester:
                 return []
 
             # Chunk text
-            logger.debug("Chunking text (%s characters)...", len(text))
+            logger.debug("Chunking text (%d characters)...", len(text))
             chunks = self.chunk_text(text)
-            logger.info("  → Created %s chunks from %s", len(chunks), filename)
+            logger.info("  → Created %d chunks from %s", len(chunks), filename)
 
             # Infer source type if not provided
             if source_type is None:
@@ -236,40 +268,44 @@ class CorpusIngester:
             logger.error("Error processing file %s: %s", filename, e)
             return []
 
-    async def ingest_file(self, file: UploadFile, source_type: Optional[SourceType] = None) -> int:
+    async def ingest(
+        self, file: UploadFile, source_type: Optional[SourceType] = None
+    ) -> AsyncGenerator[IngestProgress | IngestComplete, None]:
         """
         Ingest a single file into the corpus.
 
-        Args:
-            file: The file to ingest
-            source_type: Optional source type (auto-detected if None)
-
-        Returns:
-            Number of documents created
+        Yields IngestProgress at each stage, then a final IngestComplete.
         """
         logger.info("Ingesting file: %s", file.filename)
 
-        # Process the file to create documents
+        yield _stage_progress("Extracting text")
         documents = await self.process_file(file, source_type)
 
         if not documents:
             logger.warning("No documents created from file: %s", file.filename)
-            return 0
+            yield IngestComplete(0)
+            return
 
-        logger.info("Created %s document chunks from %s", len(documents), file.filename)
+        logger.info("Created %d document chunks from %s", len(documents), file.filename)
 
-        # Generate embeddings
-        texts = [doc.text for doc in documents]
-        logger.info("Generating embeddings for %s chunks...", len(texts))
-        embeddings = self.embedder.generate(texts)
+        yield _stage_progress("Generating embeddings", 0)
+        batch_size = self.embedder.batch_size
+        total_batches = (len(documents) + batch_size - 1) // batch_size
+        logger.info("Generating embeddings: %d chunks in %d batches (batch_size=%d)", len(documents), total_batches, batch_size)
+        for batch_num, i in enumerate(range(0, len(documents), batch_size), 1):
+            batch = documents[i : i + batch_size]
+            texts = [d.text for d in batch]
+            logger.info("Embedding batch %d/%d (%d texts)...", batch_num, total_batches, len(texts))
+            embeddings = await asyncio.to_thread(self.embedder.generate_batch, texts, batch_num)
+            logger.info("Batch %d/%d done (%d embeddings returned)", batch_num, total_batches, len(embeddings))
+            for doc, embedding in zip(batch, embeddings):
+                doc.embedding = embedding
+            yield _stage_progress("Generating embeddings", batch_num / total_batches)
 
-        # Assign embeddings to documents
-        for doc, embedding in zip(documents, embeddings):
-            doc.embedding = embedding
-
-        # Add to database
-        logger.info("Adding %s documents to vector database...", len(documents))
+        yield _stage_progress("Storing documents")
+        logger.info("Adding %d documents to vector database...", len(documents))
         self.db.add_documents(documents)
+        logger.info("Vector database insert complete")
 
-        logger.info("✓ Successfully ingested %s documents from %s", len(documents), file.filename)
-        return len(documents)
+        logger.info("✓ Successfully ingested %d documents from %s", len(documents), file.filename)
+        yield IngestComplete(len(documents))

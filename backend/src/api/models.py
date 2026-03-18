@@ -291,14 +291,6 @@ class CorpusFile(BaseModel):
     chunk_count: int
 
 
-class CorpusUploadResponse(BaseModel):
-    """Response for corpus upload"""
-    persona_id: UUID
-    files_uploaded: int
-    total_size: int
-    message: str
-
-
 class IngestionStatus(BaseModel):
     """Status of corpus ingestion"""
     persona_id: str

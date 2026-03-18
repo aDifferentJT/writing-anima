@@ -1,6 +1,7 @@
 """Embedding generator factory"""
 
 import logging
+from collections.abc import Callable
 
 from ...config import Config
 from .base import BaseEmbeddingGenerator
@@ -14,23 +15,16 @@ class EmbeddingGeneratorFactory:
     """Factory for creating appropriate embedding generator based on provider selection"""
 
     @staticmethod
-    def create(config: Config) -> BaseEmbeddingGenerator:
-        """
-        Create the embedding generator instance.
-
-        Args:
-            config: Optional configuration object
-
-        Returns:
-            Embedding generator instance
-
-        Raises:
-            ValueError: If config.embedding.provider is not supported
-        """
+    def create(
+        config: Config,
+        progress_callback: Callable[[float | None], None] | None = None,
+    ) -> BaseEmbeddingGenerator:
         if config.embedding.provider == "openai":
+            if progress_callback:
+                progress_callback(None)
             return OpenAIEmbeddingGenerator(config)
         elif config.embedding.provider == "mlx":
-            return MlxEmbeddingGenerator(config)
+            return MlxEmbeddingGenerator(config, progress_callback)
         else:
             raise ValueError(
                 f"Unsupported embedding generator provider: {config.embedding.provider}."

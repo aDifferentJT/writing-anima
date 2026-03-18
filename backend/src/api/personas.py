@@ -2,17 +2,22 @@
 Persona management API endpoints
 """
 
+import asyncio
+import base64
+import json
 import logging
 import os
 import uuid
 from datetime import datetime
+from io import BytesIO
 from typing import Any, Optional
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from sqlmodel import Session, select
 
 from ..config import get_config
-from ..corpus.ingest import CorpusIngester
+from ..corpus.embed.factory import EmbeddingGeneratorFactory
+from ..corpus.ingest import CorpusIngester, IngestComplete, IngestProgress
 from ..database.general import (
     general_db
 )
@@ -23,7 +28,6 @@ from .models import (
     CorpusChunk,
     CorpusDocumentsResponse,
     CorpusFileModel,
-    CorpusUploadResponse,
     IngestionStatus,
     Persona,
     PersonaCreate,
@@ -251,39 +255,106 @@ async def delete_persona(persona_id: uuid.UUID) -> None:
         ) from e
 
 
-@router.post("/{persona_id}/corpus", response_model=CorpusUploadResponse)
-async def upload_corpus(
-    persona_id: uuid.UUID,
-    files: list[UploadFile] = File(...),
-) -> CorpusUploadResponse:
-    """Upload corpus files for a persona"""
+
+@router.websocket("/{persona_id}/corpus/ws")
+async def upload_corpus_ws(websocket: WebSocket, persona_id: uuid.UUID) -> None:
+    """Upload corpus files via WebSocket.
+
+    Client sends: {"files": [{"name": "...", "size": N, "content": "<base64>"}]}
+    Server sends:
+      - {"type": "status", "steps_completed": [...], "steps_remaining": [...],
+         "current_step": "...", "step_progress": 0.0–1.0}
+      - {"type": "complete", "files_uploaded": N, "total_size": N, "message": "..."}
+      - {"type": "error", "message": "..."}
+    """
+    await websocket.accept()
+
     try:
+        request_data = await websocket.receive_text()
+        request_dict = json.loads(request_data)
+
         with Session(general_db) as session:
             statement = select(Persona).where(Persona.id == persona_id)
             persona = session.exec(statement).one()
 
             if persona is None:
-                raise HTTPException(status_code=404, detail="Persona not found")
+                await websocket.send_json({"type": "error", "message": "Persona not found"})
+                await websocket.close()
+                return
 
-            # Ingest corpus
             collection_name = persona.collection_name
-
-            # Ensure collection exists (create if missing - handles re-upload case)
             vector_db = VectorDatabase(collection_name, get_config())
             vector_db.create_collection()
 
-            ingester = CorpusIngester(collection_name, get_config())
+            completed: list[str] = []
+            files_data = request_dict.get("files", [])
+            file_names = [f["name"] for f in files_data]
 
-            # Process files
+            async def send_status(
+                remaining: list[str],
+                current_steps_completed: list[str],
+                current_steps_remaining: list[str],
+                current_step: str,
+                step_progress: float | None,
+            ) -> None:
+                await websocket.send_json({
+                    "type": "status",
+                    "steps_completed": completed + current_steps_completed,
+                    "steps_remaining": current_steps_remaining + remaining,
+                    "current_step": current_step,
+                    "step_progress": step_progress,
+                })
+
+            loop = asyncio.get_running_loop()                                          
+            def on_model_progress(progress: float | None) -> None:                            
+                asyncio.run_coroutine_threadsafe(                                      
+                    send_status(                                                       
+                        remaining=file_names,                                          
+                        current_steps_completed=[],                                    
+                        current_steps_remaining=[],                                    
+                        current_step="Loading embedding model",                        
+                        step_progress=progress,                                        
+                    ),                                                                 
+                    loop,                                                              
+                )                                                                      
+                                                                                       
+            embedder = await asyncio.to_thread(EmbeddingGeneratorFactory.create, get_config(), on_model_progress)                                                             
+            ingester = CorpusIngester(collection_name, get_config(), embedder)
+
+            completed.append("Loading embedding model")
+
             total_size = 0
             total_chunks_added = 0
 
-            for file in files:
-                total_size += file.size or 0
-                total_chunks_added += await ingester.ingest_file(file)
+            for file_data in files_data:
+                remaining = [n for n in file_names if n not in completed and n != file_data["name"]]
+
+                file_bytes = base64.b64decode(file_data["content"])
+                total_size += len(file_bytes)
+                upload_file = UploadFile(
+                    filename=file_data["name"],
+                    file=BytesIO(file_bytes),
+                    size=len(file_bytes),
+                )
+
+                def stage(s: str) -> str:
+                    return f"{file_data['name']}: {s}"
+
+                async for update in ingester.ingest(upload_file):
+                    if isinstance(update, IngestProgress):
+                        await send_status(
+                            remaining=remaining,
+                            current_steps_completed=[stage(s) for s in update.steps_completed],
+                            current_steps_remaining=[stage(s) for s in update.steps_remaining],
+                            current_step=stage(update.current_step),
+                            step_progress=update.step_progress,
+                        )
+                    elif isinstance(update, IngestComplete):
+                        total_chunks_added += update.chunks_added
+
+                completed.append(file_data["name"])
 
             # Get total chunk count from Qdrant
-            vector_db = VectorDatabase(collection_name, get_config())
             total_chunks: int = persona.chunk_count + total_chunks_added
             try:
                 collection_info = vector_db.client.get_collection(collection_name)
@@ -292,32 +363,31 @@ async def upload_corpus(
             except:  # pylint: disable=bare-except
                 pass
 
-            # Update persona metadata
-            persona.corpus_file_count += len(files)
+            persona.corpus_file_count += len(files_data)
             persona.chunk_count = total_chunks
             persona.updated_at = datetime.utcnow()
-
-            # Save updated metadata
             session.add(persona)
             session.commit()
 
-            logger.info("Uploaded %d files to persona %s", len(files), persona_id)
+            logger.info("Uploaded %d files via WebSocket to persona %s", len(files_data), persona_id)
 
-            return CorpusUploadResponse(
-                persona_id=persona_id,
-                files_uploaded=len(files),
-                total_size=total_size,
-                message=f"Successfully uploaded {len(files)} files",
-            )
+            await websocket.send_json({
+                "type": "complete",
+                "files_uploaded": len(files_data),
+                "total_size": total_size,
+                "message": f"Successfully uploaded {len(files_data)} files",
+            })
+            await websocket.close()
 
-    except HTTPException as e:
-        raise e
-
+    except WebSocketDisconnect:
+        logger.info("Corpus upload WebSocket disconnected")
     except Exception as e:
-        logger.error("Error uploading corpus: %s", e)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to upload corpus: {str(e)}"
-        ) from e
+        logger.error("Error in corpus upload WebSocket: %s", e)
+        try:
+            await websocket.send_json({"type": "error", "message": f"Upload failed: {str(e)}"})
+            await websocket.close()
+        except:  # pylint: disable=bare-except
+            pass
 
 
 @router.get("/{persona_id}/corpus/status", response_model=IngestionStatus)

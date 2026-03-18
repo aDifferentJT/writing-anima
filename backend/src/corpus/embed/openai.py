@@ -27,7 +27,7 @@ class OpenAIEmbeddingGenerator(BaseEmbeddingGenerator):
 
         logger.info("Initialized embedding generator with model: %s", self.model)
 
-    def _generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
+    def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
         try:
             logger.debug("Calling OpenAI API for batch %d...", batch_num)

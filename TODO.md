@@ -1,14 +1,13 @@
 - Sync type defs between frontend and backend
+- Tidy type defs, frontend and backend
 - Try to eliminate `grep -r "\[[\"\'][A-Za-z0-9_]\+[\"\']\]" src`
 - Remove firebase from direct use, particularly in frontend using `grep -r "fire\(base\|store\)" src`
 - Unify persistence
 - Eliminate one of response or response_stream
 - Fix corpus_available in persona thingy I messed up
 - Fix model factory
-- Anima corpus progress bar
 - Global model selector
 - Project embedding selector
-- User is not secure atm, do we want to fix or scrub?
 - File metadate no longer contains file_path or timestamp but does contain filename
 - Prune requirements
 - Sort WritingInterface feedback stuff

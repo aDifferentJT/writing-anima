@@ -6,8 +6,11 @@ import {
   CheckCircle,
   AlertCircle,
   Loader,
+  Clock,
 } from "lucide-react";
 import { Persona } from "../../types";
+import animaService from "../../services/animaService";
+import type { CorpusStatusMessage } from "../../apiTypes";
 
 interface CorpusUploadModalProps {
   isOpen: boolean;
@@ -24,7 +27,7 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
 }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
-  const [progress, setProgress] = useState<number>(0);
+  const [uploadStatus, setUploadStatus] = useState<CorpusStatusMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
 
@@ -49,39 +52,17 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
 
     setUploading(true);
     setError(null);
-    setProgress(0);
+    setUploadStatus(null);
 
     try {
-      const formData = new FormData();
-
-      selectedFiles.forEach((file) => {
-        formData.append("files", file);
-      });
-
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-      const response = await fetch(
-        `${API_URL}/api/personas/${persona.id}/corpus`,
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Upload failed");
+      for await (const msg of animaService.uploadCorpus(persona.id, selectedFiles)) {
+        if (msg.type === "status") {
+          setUploadStatus(msg);
+        } else if (msg.type === "complete") {
+          setSuccess(true);
+          setTimeout(() => onUploaded(), 1500);
+        }
       }
-
-      const result = await response.json();
-      console.log("Upload successful:", result);
-
-      setSuccess(true);
-      setProgress(100);
-
-      // Wait a moment to show success, then call callback
-      setTimeout(() => {
-        onUploaded();
-      }, 1500);
     } catch (err) {
       console.error("Error uploading corpus:", err);
       setError(err instanceof Error ? err.message : String(err));
@@ -198,21 +179,46 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
 
           {/* Progress */}
           {uploading && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-obsidian-text-secondary">
-                  Uploading and processing...
-                </span>
-                <span className="text-obsidian-text-primary font-medium">
-                  {progress}%
-                </span>
-              </div>
-              <div className="w-full bg-obsidian-border h-2">
-                <div
-                  className="bg-obsidian-accent-primary h-2 transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+            <div className="space-y-1">
+              {!uploadStatus ? (
+                <div className="flex items-center gap-2 text-sm text-obsidian-text-secondary">
+                  <Loader className="w-4 h-4 animate-spin" />
+                  <span>Sending files...</span>
+                </div>
+              ) : (
+                <>
+                  {uploadStatus.steps_completed.map((name) => (
+                    <div key={name} className="flex items-center gap-2 text-sm text-obsidian-text-muted">
+                      <CheckCircle className="w-4 h-4 text-obsidian-success flex-shrink-0" />
+                      <span className="truncate">{name}</span>
+                    </div>
+                  ))}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-obsidian-text-primary">
+                      <Loader className="w-4 h-4 animate-spin text-obsidian-accent-primary flex-shrink-0" />
+                      <span className="truncate">{uploadStatus.current_step}</span>
+                    </div>
+                    {uploadStatus.step_progress !== null ? (
+                      <div className="ml-6 w-full bg-obsidian-border h-1">
+                        <div
+                          className="bg-obsidian-accent-primary h-1 transition-all duration-300"
+                          style={{ width: `${uploadStatus.step_progress * 100}%` }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="ml-6 w-full bg-obsidian-border h-1 overflow-hidden">
+                        <div className="bg-obsidian-accent-primary h-1 w-1/3 animate-slide" />
+                      </div>
+                    )}
+                  </div>
+                  {uploadStatus.steps_remaining.map((name) => (
+                    <div key={name} className="flex items-center gap-2 text-sm text-obsidian-text-muted opacity-50">
+                      <Clock className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{name}</span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
 

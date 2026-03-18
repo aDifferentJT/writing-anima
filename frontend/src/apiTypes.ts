@@ -131,6 +131,25 @@ export interface CorpusFile {
   chunks: CorpusChunk[];
 }
 
+// ── Corpus upload messages ─────────────────────────────────────────────────────
+
+export interface CorpusStatusMessage {
+  type: 'status';
+  steps_completed: string[];
+  steps_remaining: string[];
+  current_step: string;
+  step_progress: number | null; // 0.0 – 1.0, or null if progress is unavailable
+}
+
+export interface CorpusCompleteMessage {
+  type: 'complete';
+  files_uploaded: number;
+  total_size: number;
+  message: string;
+}
+
+export type CorpusUploadMessage = CorpusStatusMessage | CorpusCompleteMessage;
+
 // ── Streaming / WebSocket messages ────────────────────────────────────────────
 
 /** backend: StreamStatus */
