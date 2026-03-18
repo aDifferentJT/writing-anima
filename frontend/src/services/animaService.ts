@@ -17,11 +17,6 @@ import type { CorpusUploadMessage } from '../apiTypes';
 const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const WS_URL: string = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
 
-interface IngestionStatusResponse {
-  status?: string;
-  [key: string]: unknown;
-}
-
 interface CorpusDocumentsResponse {
   files?: CorpusFile[];
   [key: string]: unknown;
@@ -56,7 +51,7 @@ class AnimaService {
     } = callbacks;
 
     return new Promise<WebSocket>((resolve, reject) => {
-      const ws = new WebSocket(`${WS_URL}/api/analyze/stream`);
+      const ws = new WebSocket(`${WS_URL}/api/analyze`);
       let feedbackReceived = 0;
       let completionReceived = false;
 
@@ -315,7 +310,7 @@ class AnimaService {
       rejectNext = reject;
     };
 
-    const ws = new WebSocket(`${WS_URL}/api/personas/${personaId}/corpus/ws`);
+    const ws = new WebSocket(`${WS_URL}/api/personas/${personaId}/corpus`);
 
     ws.onopen = async () => {
       const filesData = await Promise.all(
@@ -352,26 +347,6 @@ class AnimaService {
     while (node !== null) {
       yield node.msg;
       node = await node.next;
-    }
-  }
-
-  /**
-   * Get corpus ingestion status
-   */
-  async getIngestionStatus(personaId: string): Promise<IngestionStatusResponse> {
-    try {
-      const response = await fetch(
-        `${API_URL}/api/personas/${personaId}/corpus/status`,
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch ingestion status");
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching ingestion status:", error);
-      throw error;
     }
   }
 
@@ -413,7 +388,7 @@ class AnimaService {
     } = callbacks;
 
     return new Promise<WebSocket>((resolve) => {
-      const ws = new WebSocket(`${WS_URL}/api/chat/stream`);
+      const ws = new WebSocket(`${WS_URL}/api/chat`);
 
       ws.onopen = () => {
         ws.send(

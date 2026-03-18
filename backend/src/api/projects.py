@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
-@router.post("/create", response_model=Project, status_code=201)
+@router.post("", response_model=Project, status_code=201)
 async def create_project() -> Project:
     """Create a new writing project"""
     try:
@@ -56,7 +56,7 @@ async def create_project() -> Project:
         ) from e
 
 
-@router.get("/list", response_model=list[Project], status_code=201)
+@router.get("", response_model=list[Project])
 async def get_projects() -> list[Project]:
     """Get all the projects"""
     try:
@@ -74,7 +74,7 @@ async def get_projects() -> list[Project]:
         ) from e
 
 
-@router.get("/get", response_model=Project, status_code=201)
+@router.get("/{project_id}", response_model=Project)
 async def get_project(project_id: UUID) -> Project:
     """Get a project by id"""
     try:
@@ -90,7 +90,7 @@ async def get_project(project_id: UUID) -> Project:
         ) from e
 
 
-@router.patch("/update", response_model=Project, status_code=200)
+@router.patch("/{project_id}", response_model=Project)
 async def update_project(project_id: UUID, updates: ProjectUpdate) -> Project:
     """Update a project"""
     try:
@@ -117,7 +117,7 @@ async def update_project(project_id: UUID, updates: ProjectUpdate) -> Project:
         ) from e
 
 
-@router.delete("/delete", status_code=204)
+@router.delete("/{project_id}", status_code=204)
 async def delete_project(project_id: UUID) -> None:
     """Archive a project (soft delete)"""
     try:
@@ -139,7 +139,7 @@ async def delete_project(project_id: UUID) -> None:
         ) from e
 
 
-@router.delete("/permanently-delete", status_code=204)
+@router.delete("/{project_id}/permanent", status_code=204)
 async def permanently_delete_project(project_id: UUID) -> None:
     """Permanently delete a project"""
     try:

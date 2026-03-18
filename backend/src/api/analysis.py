@@ -300,7 +300,7 @@ def parse_json_feedback(
         return []
 
 
-@router.websocket("/analyze/stream")
+@router.websocket("/analyze")
 async def analyze_writing_stream(websocket: WebSocket) -> None:
     """
     Analyze writing with streaming updates via WebSocket
@@ -526,7 +526,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             pass
 
 
-@router.websocket("/chat/stream")
+@router.websocket("/chat")
 async def chat_with_persona_stream(websocket: WebSocket) -> None:
     """
     Chat with a persona via WebSocket with streaming text tokens.

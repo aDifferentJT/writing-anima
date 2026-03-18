@@ -21,7 +21,7 @@ class ProjectService {
    */
   async createProject(): Promise<Project> {
     try {
-      const response = await fetch(`${API_URL}/api/projects/create`, {
+      const response = await fetch(`${API_URL}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -45,7 +45,7 @@ class ProjectService {
    */
   async getProjects(): Promise<Project[]> {
     try {
-      const response = await fetch(`${API_URL}/api/projects/list`);
+      const response = await fetch(`${API_URL}/api/projects`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch projects");
@@ -63,7 +63,7 @@ class ProjectService {
    */
   async getProject(projectId: string): Promise<Project> {
     try {
-      const response = await fetch(`${API_URL}/api/projects/get?project_id=${projectId}`);
+      const response = await fetch(`${API_URL}/api/projects/${projectId}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch project");
@@ -81,7 +81,7 @@ class ProjectService {
    */
   async updateProject(projectId: string, updates: ProjectUpdates): Promise<Project> {
     try {
-      const response = await fetch(`${API_URL}/api/projects/update?project_id=${projectId}`, {
+      const response = await fetch(`${API_URL}/api/projects/${projectId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -105,7 +105,7 @@ class ProjectService {
    */
   async deleteProject(projectId: string): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/projects/delete?project_id=${projectId}`, {
+      const response = await fetch(`${API_URL}/api/projects/${projectId}`, {
         method: "DELETE",
       });
 
@@ -123,7 +123,7 @@ class ProjectService {
    */
   async permanentlyDeleteProject(projectId: string): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/projects/permanently-delete?project_id=${projectId}`, {
+      const response = await fetch(`${API_URL}/api/projects/${projectId}/permanent`, {
         method: "DELETE",
       });
 

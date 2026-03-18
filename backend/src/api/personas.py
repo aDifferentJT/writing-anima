@@ -28,7 +28,6 @@ from .models import (
     CorpusChunk,
     CorpusDocumentsResponse,
     CorpusFileModel,
-    IngestionStatus,
     Persona,
     PersonaCreate,
     PersonaList,
@@ -100,6 +99,14 @@ async def create_persona(persona: PersonaCreate) -> PersonaResponse:
         ) from e
 
 
+def _get_persona_or_404(session: Session, persona_id: uuid.UUID) -> Persona:
+    """Fetch a persona by ID or raise 404."""
+    persona = session.exec(select(Persona).where(Persona.id == persona_id)).one_or_none()
+    if persona is None:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    return persona
+
+
 def get_existing_collections() -> set[str]:
     """Get all existing Qdrant collection names (single connection)"""
     try:
@@ -164,19 +171,13 @@ async def get_persona(persona_id: uuid.UUID) -> PersonaResponse:
     """Get a specific persona"""
     try:
         with Session(general_db) as session:
-            statement = select(Persona).where(Persona.id == persona_id)
-            persona = session.exec(statement).one()
-
-            if persona is None:
-                raise HTTPException(status_code=404, detail="Persona not found")
-
+            persona = _get_persona_or_404(session, persona_id)
             existing_collections = get_existing_collections()
             corpus_available = persona.collection_name in existing_collections
-
             return PersonaResponse.from_persona(persona, corpus_available=corpus_available)
 
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        raise
 
     except Exception as e:
         logger.error("Error getting persona: %s", e)
@@ -190,12 +191,7 @@ async def update_persona(persona_id: uuid.UUID, updates: PersonaUpdate) -> Perso
     """Update a persona's settings (name, description, model)"""
     try:
         with Session(general_db) as session:
-            statement = select(Persona).where(Persona.id == persona_id)
-            persona = session.exec(statement).one()
-
-            if persona is None:
-                raise HTTPException(status_code=404, detail="Persona not found")
-
+            persona = _get_persona_or_404(session, persona_id)
             updated = False
 
             if updates.name is not None:
@@ -220,8 +216,8 @@ async def update_persona(persona_id: uuid.UUID, updates: PersonaUpdate) -> Perso
                 persona, corpus_available=persona.collection_name in existing_collections
             )
 
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        raise
 
     except Exception as e:
         logger.error("Error updating persona: %s", e)
@@ -235,18 +231,13 @@ async def delete_persona(persona_id: uuid.UUID) -> None:
     """Delete a persona and its corpus"""
     try:
         with Session(general_db) as session:
-            statement = select(Persona).where(Persona.id == persona_id)
-            persona = session.exec(statement).one()
-
-            if persona is None:
-                raise HTTPException(status_code=404, detail="Persona not found")
-
+            persona = _get_persona_or_404(session, persona_id)
             session.delete(persona)
             session.commit()
             logger.info("Deleted persona %s", persona_id)
 
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        raise
 
     except Exception as e:
         logger.error("Error deleting persona: %s", e)
@@ -256,7 +247,7 @@ async def delete_persona(persona_id: uuid.UUID) -> None:
 
 
 
-@router.websocket("/{persona_id}/corpus/ws")
+@router.websocket("/{persona_id}/corpus")
 async def upload_corpus_ws(websocket: WebSocket, persona_id: uuid.UUID) -> None:
     """Upload corpus files via WebSocket.
 
@@ -274,10 +265,9 @@ async def upload_corpus_ws(websocket: WebSocket, persona_id: uuid.UUID) -> None:
         request_dict = json.loads(request_data)
 
         with Session(general_db) as session:
-            statement = select(Persona).where(Persona.id == persona_id)
-            persona = session.exec(statement).one()
-
-            if persona is None:
+            try:
+                persona = _get_persona_or_404(session, persona_id)
+            except HTTPException:
                 await websocket.send_json({"type": "error", "message": "Persona not found"})
                 await websocket.close()
                 return
@@ -390,69 +380,12 @@ async def upload_corpus_ws(websocket: WebSocket, persona_id: uuid.UUID) -> None:
             pass
 
 
-@router.get("/{persona_id}/corpus/status", response_model=IngestionStatus)
-async def get_ingestion_status(persona_id: uuid.UUID) -> IngestionStatus:
-    """Get corpus ingestion status"""
-    logger.error("TODO not implemented")
-    raise HTTPException(status_code=500, detail="TODO not implemented")
-    """ TODO
-    persona = None
-
-    if db is not None:
-        # Get from Firestore
-        doc = db.collection("personas").document(persona_id).get()
-        if not doc.exists:
-            raise HTTPException(status_code=404, detail="Persona not found")
-        persona = doc.to_dict()
-    else:
-        # Get from memory
-        if persona_id not in personas_store:
-            raise HTTPException(status_code=404, detail="Persona not found")
-        persona = personas_store[persona_id]
-
-    try:
-        # Get collection stats
-        collection_name = persona["collection_name"]
-        vector_db = VectorDatabase(collection_name)
-
-        # Get point count from Qdrant
-        try:
-            collection_info = vector_db.client.get_collection(collection_name)
-            total_chunks = collection_info.points_count
-        except:
-            total_chunks = 0
-
-        return IngestionStatus(
-            persona_id=persona_id,
-            status="completed" if total_chunks > 0 else "pending",
-            progress=1.0 if total_chunks > 0 else 0.0,
-            chunks_processed=total_chunks,
-            total_chunks=total_chunks,
-            message="Ingestion complete"
-            if total_chunks > 0
-            else "No corpus uploaded yet",
-        )
-
-    except HTTPException as e:
-        raise e
-
-    except Exception as e:
-        logger.error(f"Error getting ingestion status: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")
-    """
-
-
 @router.get("/{persona_id}/corpus/documents", response_model=CorpusDocumentsResponse)
 async def get_corpus_documents(persona_id: uuid.UUID) -> CorpusDocumentsResponse:
     """Get all corpus documents for a persona, grouped by source file"""
     try:
         with Session(general_db) as session:
-            statement = select(Persona).where(Persona.id == persona_id)
-            persona = session.exec(statement).one()
-
-            if persona is None:
-                raise HTTPException(status_code=404, detail="Persona not found")
-
+            persona = _get_persona_or_404(session, persona_id)
             config = get_config()
             collection_name = persona.collection_name
             vector_db = VectorDatabase(collection_name, get_config())
@@ -516,8 +449,8 @@ async def get_corpus_documents(persona_id: uuid.UUID) -> CorpusDocumentsResponse
 
             return CorpusDocumentsResponse(persona_id=persona_id, files=files)
 
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        raise
 
     except Exception as e:
         logger.error("Error getting corpus documents: %s", e)
