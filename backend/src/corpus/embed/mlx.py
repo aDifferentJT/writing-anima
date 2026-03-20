@@ -9,7 +9,7 @@ from mlx_embeddings.models.base import BaseModelOutput
 from mlx_embeddings.utils import load
 
 from .base import BaseEmbeddingGenerator
-from ...config import Config
+from ...config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def _download_with_progress(model_id: str, callback: Callable[[float], None]) ->
 
     bytes_done = 0
 
-    class custom_tqdm(tqdm):
+    class CustomTqdm(tqdm):
         def update(self, n: int = 1) -> None:
             super().update(n)
             if self.unit == "B":
@@ -41,7 +41,7 @@ def _download_with_progress(model_id: str, callback: Callable[[float], None]) ->
     callback(0)
     for sibling in files_to_download:
         logger.info("Downloading %s from %s...", sibling.rfilename, model_id)
-        hf_hub_download(repo_id=model_id, filename=sibling.rfilename, tqdm_class=custom_tqdm)
+        hf_hub_download(repo_id=model_id, filename=sibling.rfilename, tqdm_class=CustomTqdm)
         bytes_done += sibling.size or 0
         callback(bytes_done / total_bytes)
 
@@ -49,10 +49,10 @@ def _download_with_progress(model_id: str, callback: Callable[[float], None]) ->
 class MlxEmbeddingGenerator(BaseEmbeddingGenerator):
     """Generate embeddings for text using MLX"""
 
-    def __init__(self, config: Config, progress_callback: Callable[[float], None] | None = None):
+    def __init__(self, embedding_config: EmbeddingConfig, progress_callback: Callable[[float], None] | None = None):
         """Initialize embedding generator"""
-        super().__init__(config)
-        model_name = self.config.embedding.model
+        super().__init__(embedding_config)
+        model_name = self.embedding_config.model
         if progress_callback:
             try:
                 _download_with_progress(model_name, progress_callback)
@@ -73,7 +73,7 @@ class MlxEmbeddingGenerator(BaseEmbeddingGenerator):
                 return_tensors="mlx",
                 padding=True,
                 truncation=True,
-                max_length=self.config.embedding.max_length,
+                max_length=self.embedding_config.max_length,
             )
 
             outputs: BaseModelOutput = self.model(

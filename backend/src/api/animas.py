@@ -1,0 +1,429 @@
+"""
+Anima management API endpoints
+"""
+
+import asyncio
+import base64
+import logging
+import uuid
+from datetime import datetime
+from io import BytesIO
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from sqlmodel import Session, select
+
+from ..config import get_config
+from ..corpus.embed.factory import create_embedding_generator
+from ..corpus.ingest import CorpusIngester, Stage, STAGES
+from ..database.general import (
+    general_db
+)
+from ..database.vector import VectorDatabase
+from ..database.vector.schema import CorpusDocument as VectorCorpusDocument
+from .models import (
+    AvailableModel,
+    AvailableModelsResponse,
+    CorpusChunk,
+    CorpusDocumentsResponse,
+    CorpusFileModel,
+    CorpusUploadRequest,
+    EmbeddingProviderInfo,
+    EmbeddingProvidersResponse,
+    Anima,
+    AnimaCreate,
+    AnimaList,
+    AnimaResponse,
+    AnimaUpdate,
+)
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/animas", tags=["animas"])
+
+
+@router.get("/embedding-providers", response_model=EmbeddingProvidersResponse)
+async def get_embedding_providers() -> EmbeddingProvidersResponse:
+    """Get list of available embedding providers"""
+    config = get_config()
+    providers = [
+        EmbeddingProviderInfo(id=id, name=emb.name, provider=emb.provider)
+        for id, emb in config.embeddings.items()
+    ]
+    return EmbeddingProvidersResponse(providers=providers)
+
+
+@router.get("/models", response_model=AvailableModelsResponse)
+async def get_available_models() -> AvailableModelsResponse:
+    """Get list of available models for anima selection"""
+    try:
+        config = get_config()
+        models = [
+            AvailableModel(
+                id=id, name=m.name, provider=m.provider, description=m.description
+            )
+            for id, m in config.models.items()
+        ]
+        return AvailableModelsResponse(models=models)
+    except Exception as e:
+        logger.error("Error getting available models: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get available models: {str(e)}"
+        ) from e
+
+
+@router.post("", response_model=AnimaResponse, status_code=201)
+async def create_anima(anima: AnimaCreate) -> AnimaResponse:
+    """Create a new anima"""
+    try:
+        # Generate unique ID
+        anima_id = uuid.uuid4()
+        collection_name = f"anima_{str(anima_id)[:8]}"
+
+        # Create anima record
+        now = datetime.utcnow()
+        anima_data = Anima(
+            id=anima_id,
+            name=anima.name,
+            description=anima.description,
+            collection_name=collection_name,
+            corpus_file_count=0,
+            chunk_count=0,
+            embedding_provider=anima.embedding_provider,
+            created_at=now,
+            updated_at=now,
+        )
+
+        # Initialize Qdrant collection
+        config = get_config()
+        vector_db = VectorDatabase(collection_name, config)
+        vector_db.create_collection(config.get_embedding(anima.embedding_provider).dimensions)
+
+        # Store anima
+        with Session(general_db) as session:
+            session.add(anima_data)
+            session.commit()
+            session.refresh(anima_data)
+
+        return AnimaResponse.from_anima(anima_data, corpus_available=True)
+
+    except Exception as e:
+        logger.error("Error creating anima: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create anima: {str(e)}"
+        ) from e
+
+
+def _get_anima_or_404(session: Session, anima_id: uuid.UUID) -> Anima:
+    """Fetch an anima by ID or raise 404."""
+    anima = session.exec(select(Anima).where(Anima.id == anima_id)).one_or_none()
+    if anima is None:
+        raise HTTPException(status_code=404, detail="Anima not found")
+    return anima
+
+
+def get_existing_collections() -> set[str]:
+    """Get all existing Qdrant collection names (single connection)"""
+    try:
+        from qdrant_client import QdrantClient
+
+        config = get_config()
+        host = config.vector_db.host
+
+        # Check if we're using a cloud URL (has https:// or contains cloud.qdrant.io)
+        is_cloud = host.startswith("https://") or "cloud.qdrant.io" in host
+
+        if is_cloud:
+            # For Qdrant Cloud, use URL parameter
+            if not host.startswith("https://"):
+                url = f"https://{host}:{config.vector_db.port}"
+            else:
+                url = host
+            client = QdrantClient(url=url, api_key=config.vector_db.api_key, https=True)
+        else:
+            # For local Qdrant, use host/port
+            client = QdrantClient(host=host, port=config.vector_db.port)
+
+        collections = client.get_collections().collections
+        return {c.name for c in collections}
+    except Exception as e:
+        logger.warning("Could not get collections from Qdrant: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get collections from Qdrant: {str(e)}"
+        ) from e
+
+
+@router.get("", response_model=AnimaList)
+async def list_animas() -> AnimaList:
+    """List all animas"""
+    try:
+        with Session(general_db) as session:
+            statement = select(Anima)
+            animas = session.exec(statement)
+
+            # Get all existing collections once (single Qdrant call)
+            existing_collections = get_existing_collections()
+
+            # Check Qdrant collection availability for each anima
+            user_animas = []
+            for p in animas:
+                corpus_available = p.collection_name in existing_collections
+                user_animas.append(
+                    AnimaResponse.from_anima(p, corpus_available=corpus_available)
+                )
+
+            return AnimaList(animas=user_animas, total=len(user_animas))
+
+    except Exception as e:
+        logger.error("Error listing animas: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list animas: {str(e)}"
+        ) from e
+
+
+@router.get("/{anima_id}", response_model=AnimaResponse)
+async def get_anima(anima_id: uuid.UUID) -> AnimaResponse:
+    """Get a specific anima"""
+    try:
+        with Session(general_db) as session:
+            anima = _get_anima_or_404(session, anima_id)
+            existing_collections = get_existing_collections()
+            corpus_available = anima.collection_name in existing_collections
+            return AnimaResponse.from_anima(anima, corpus_available=corpus_available)
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error("Error getting anima: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get anima: {str(e)}"
+        ) from e
+
+
+@router.delete("/{anima_id}", status_code=204)
+async def delete_anima(anima_id: uuid.UUID) -> None:
+    """Delete an anima and its corpus"""
+    try:
+        with Session(general_db) as session:
+            anima = _get_anima_or_404(session, anima_id)
+            session.delete(anima)
+            session.commit()
+            logger.info("Deleted anima %s", anima_id)
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error("Error deleting anima: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete anima: {str(e)}"
+        ) from e
+
+
+
+@router.websocket("/{anima_id}/corpus")
+async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:
+    """Upload corpus files via WebSocket.
+
+    Client sends: {"files": [{"name": "...", "size": N, "content": "<base64>"}]}
+    Server sends:
+      - {"type": "status", "steps_completed": [...], "steps_remaining": [...],
+         "current_step": "...", "step_progress": 0.0–1.0}
+      - {"type": "complete", "files_uploaded": N, "total_size": N, "message": "..."}
+      - {"type": "error", "message": "..."}
+    """
+    await websocket.accept()
+
+    try:
+        request_data = await websocket.receive_text()
+        request = CorpusUploadRequest.model_validate_json(request_data)
+
+        with Session(general_db) as session:
+            try:
+                anima = _get_anima_or_404(session, anima_id)
+            except HTTPException:
+                await websocket.send_json({"type": "error", "message": "Anima not found"})
+                await websocket.close()
+                return
+
+            collection_name = anima.collection_name
+            cfg = get_config()
+            vector_db = VectorDatabase(collection_name, cfg)
+            vector_db.create_collection(cfg.get_embedding(anima.embedding_provider).dimensions)
+
+            completed: list[str] = []
+            files_data = request.files
+            file_names = [f.name for f in files_data]
+
+            async def send_status(
+                remaining: list[str],
+                current_steps_completed: list[str],
+                current_steps_remaining: list[str],
+                current_step: str,
+                step_progress: float | None,
+            ) -> None:
+                await websocket.send_json({
+                    "type": "status",
+                    "steps_completed": completed + current_steps_completed,
+                    "steps_remaining": current_steps_remaining + remaining,
+                    "current_step": current_step,
+                    "step_progress": step_progress,
+                })
+
+            loop = asyncio.get_running_loop()
+            def on_model_progress(progress: float | None) -> None:
+                asyncio.run_coroutine_threadsafe(
+                    send_status(
+                        remaining=file_names,
+                        current_steps_completed=[],
+                        current_steps_remaining=[],
+                        current_step="Loading embedding model",
+                        step_progress=progress,
+                    ),
+                    loop,
+                )
+
+            embedder = await asyncio.to_thread(create_embedding_generator, get_config(), anima.embedding_provider, on_model_progress)
+            ingester = CorpusIngester(collection_name, get_config(), embedder)
+
+            completed.append("Loading embedding model")
+
+            total_size = 0
+            total_chunks_added = 0
+
+            for file_data in files_data:
+                remaining = [n for n in file_names if n not in completed and n != file_data.name]
+
+                file_bytes = base64.b64decode(file_data.content)
+                total_size += len(file_bytes)
+                upload_file = UploadFile(
+                    filename=file_data.name,
+                    file=BytesIO(file_bytes),
+                    size=len(file_bytes),
+                )
+
+                def stage(s: str) -> str:
+                    return f"{file_data.name}: {s}"
+
+                def on_ingest_progress(step: Stage, step_progress: float | None) -> None:
+                    idx = STAGES.index(step)
+                    loop.create_task(send_status(
+                        remaining=remaining,
+                        current_steps_completed=[stage(s) for s in STAGES[:idx]],
+                        current_steps_remaining=[stage(s) for s in STAGES[idx + 1:]],
+                        current_step=stage(step),
+                        step_progress=step_progress,
+                    ))
+
+                total_chunks_added += await ingester.ingest(upload_file, progress_callback=on_ingest_progress)
+
+                completed.append(file_data.name)
+
+            # Get total chunk count from Qdrant
+            total_chunks: int = anima.chunk_count + total_chunks_added
+            try:
+                collection_info = vector_db.client.get_collection(collection_name)
+                if collection_info.points_count is not None:
+                    total_chunks = collection_info.points_count
+            except:  # pylint: disable=bare-except
+                pass
+
+            anima.corpus_file_count += len(files_data)
+            anima.chunk_count = total_chunks
+            anima.updated_at = datetime.utcnow()
+            session.add(anima)
+            session.commit()
+
+            logger.info("Uploaded %d files via WebSocket to anima %s", len(files_data), anima_id)
+
+            await websocket.send_json({
+                "type": "complete",
+                "files_uploaded": len(files_data),
+                "total_size": total_size,
+                "message": f"Successfully uploaded {len(files_data)} files",
+            })
+            await websocket.close()
+
+    except WebSocketDisconnect:
+        logger.info("Corpus upload WebSocket disconnected")
+    except Exception as e:
+        logger.error("Error in corpus upload WebSocket: %s", e)
+        try:
+            await websocket.send_json({"type": "error", "message": f"Upload failed: {str(e)}"})
+            await websocket.close()
+        except:  # pylint: disable=bare-except
+            pass
+
+
+@router.get("/{anima_id}/corpus/documents", response_model=CorpusDocumentsResponse)
+async def get_corpus_documents(anima_id: uuid.UUID) -> CorpusDocumentsResponse:
+    """Get all corpus documents for an anima, grouped by source file"""
+    try:
+        with Session(general_db) as session:
+            anima = _get_anima_or_404(session, anima_id)
+            config = get_config()
+            collection_name = anima.collection_name
+            vector_db = VectorDatabase(collection_name, get_config())
+            all_docs = vector_db.get_all_documents()
+
+            # Group chunks by filename
+            files_map: dict[str, list[VectorCorpusDocument]] = {}
+            for doc_item in all_docs:
+                filename = doc_item.metadata.filename
+                if filename not in files_map:
+                    files_map[filename] = []
+                files_map[filename].append(doc_item)
+
+            # Build response, sorting chunks within each file and deduplicating overlaps
+            overlap_size = config.corpus.chunk_overlap
+            files = []
+            for filename, chunks in sorted(files_map.items()):
+                sorted_chunks = sorted(chunks, key=lambda c: c.metadata.chunk_index)
+
+                # Deduplicate overlap regions between consecutive chunks
+                last_deduped_text: Optional[str] = None
+                corpus_chunks: list[CorpusChunk] = []
+
+                for i, c in enumerate(sorted_chunks):
+                    text = c.text
+
+                    if overlap_size > 0 and last_deduped_text is not None:
+                        # Look for where the end of the previous chunk appears
+                        # at the start of this chunk (the overlap region)
+                        suffix = last_deduped_text[-overlap_size * 2 :]  # generous search window
+                        best_overlap = 0
+                        for length in range(min(len(suffix), len(text)), 0, -1):
+                            if text[:length] == suffix[-length:]:
+                                best_overlap = length
+                                break
+                        if best_overlap > 0:
+                            text = text[best_overlap:]
+
+                    last_deduped_text = text
+
+                    corpus_chunks.append(
+                        CorpusChunk(
+                            text=text,
+                            chunk_index=c.metadata.chunk_index,
+                            char_length=len(text),
+                        )
+                    )
+
+                files.append(
+                    CorpusFileModel(
+                        filename=filename,
+                        chunk_count=len(corpus_chunks),
+                        chunks=corpus_chunks,
+                    )
+                )
+
+            return CorpusDocumentsResponse(anima_id=anima_id, files=files)
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error("Error getting corpus documents: %s", e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get corpus documents: {str(e)}"
+        ) from e

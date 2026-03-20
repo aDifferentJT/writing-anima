@@ -1,6 +1,6 @@
 import type { Project, EnrichedFeedbackItem, Purpose } from '../types';
 
-const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URL: string = import.meta.env.VITE_API_URL || window.location.origin;
 
 interface ProjectUpdates {
   title?: string;

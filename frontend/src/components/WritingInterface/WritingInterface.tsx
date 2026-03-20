@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import WritingArea from "../WritingArea";
+import WritingArea, { WritingAreaHandle } from "../WritingArea";
 import FeedbackPanel from "../FeedbackPanel";
 import ThoughtProcess from "../ThoughtProcess/ThoughtProcess";
 import UnifiedAgentCustomizationPanel from "../AgentCustomization/UnifiedAgentCustomizationPanel";
@@ -10,7 +10,7 @@ import {
   EnrichedFeedbackItem,
   Project,
   WritingCriteria,
-  Persona,
+  Anima,
   ModelInfo,
   ThoughtStep,
   CorpusSource,
@@ -23,7 +23,6 @@ interface WritingInterfaceProps {
   project: Project;
   setProject: (project: Project) => void;
   writingCriteria: WritingCriteria;
-  isMonitoring: boolean;
   onFeedbackGenerated: (insights: EnrichedFeedbackItem[]) => void;
 }
 
@@ -33,19 +32,16 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   project,
   setProject,
   writingCriteria,
-  isMonitoring,
   onFeedbackGenerated,
 }) => {
-  const [hoveredFeedback, setHoveredFeedback] = useState<string | null>(null);
-  const [multiAgentFeedback, setMultiAgentFeedback] = useState<EnrichedFeedbackItem[]>([]);
   const [resolvedFeedback, setResolvedFeedback] = useState<EnrichedFeedbackItem[]>([]); // Separate storage for resolved feedback
   const [showResolvedFeedback, setShowResolvedFeedback] = useState<boolean>(false); // Toggle for viewing resolved
   const [showAgentCustomization, setShowAgentCustomization] = useState<boolean>(false);
   const [isExecutingFlow, setIsExecutingFlow] = useState<boolean>(false);
-  const [availablePersonas, setAvailablePersonas] = useState<Persona[]>([]);
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(() => {
-    // Load persisted persona selection from localStorage
-    return localStorage.getItem("selectedPersonaId") || null;
+  const [availableAnimas, setAvailableAnimas] = useState<Anima[]>([]);
+  const [selectedAnimaId, setSelectedAnimaId] = useState<string | null>(() => {
+    // Load persisted anima selection from localStorage
+    return localStorage.getItem("selectedAnimaId") || null;
   });
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     // Load persisted model selection from localStorage
@@ -57,74 +53,36 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   const [corpusViewerOpen, setCorpusViewerOpen] = useState<boolean>(false);
   const [corpusHighlightSource, setCorpusHighlightSource] = useState<(CorpusSource & { _ts?: number }) | null>(null);
   const isExecutingRef = useRef<boolean>(false);
+  const writingAreaRef = useRef<WritingAreaHandle>(null);
 
   // Multi-agent feedback management functions
   const handleMultiAgentDismiss = (feedbackId: string): void => {
-    // Find the feedback item before removing it
-    const feedbackItem = multiAgentFeedback.find(
-      (item) => item.id === feedbackId,
-    );
-
+    const feedbackItem = feedback.find((item) => item.id === feedbackId);
     if (feedbackItem) {
-      // Record this as rejected feedback for agent learning
       feedbackHistoryService.recordRejected(feedbackItem);
-      console.log(
-        "[WritingInterface] Recorded dismissed feedback for learning:",
-        feedbackItem.title,
-      );
     }
-
-    // Remove from local state
-    setMultiAgentFeedback((prev) =>
-      prev.filter((item) => item.id !== feedbackId),
-    );
-
-    // IMPORTANT: Also remove from parent state to prevent reappearing on re-render
     setFeedback(feedback.filter((item) => item.id !== feedbackId));
   };
 
   const handleMultiAgentResolve = (feedbackId: string): void => {
-    // Move resolved feedback to separate storage
-    setMultiAgentFeedback((prev) => {
-      const resolvedItem = prev.find((item) => item.id === feedbackId);
-      if (resolvedItem) {
-        // Record this as accepted feedback for agent learning
-        feedbackHistoryService.recordAccepted(resolvedItem);
-        console.log(
-          "[WritingInterface] Recorded resolved feedback for learning:",
-          resolvedItem.title,
-        );
-
-        // Add to resolved storage with timestamp
-        setResolvedFeedback((prevResolved) => [
-          ...prevResolved,
-          {
-            ...resolvedItem,
-            status: "resolved",
-            resolvedAt: new Date().toISOString(),
-          },
-        ]);
-      }
-      // Remove from active feedback
-      return prev.filter((item) => item.id !== feedbackId);
-    });
-
-    // IMPORTANT: Also remove from parent state to prevent reappearing on re-render
+    const feedbackItem = feedback.find((item) => item.id === feedbackId);
+    if (feedbackItem) {
+      feedbackHistoryService.recordAccepted(feedbackItem);
+      setResolvedFeedback((prev) => [
+        ...prev,
+        { ...feedbackItem, status: "resolved", resolvedAt: new Date().toISOString() },
+      ]);
+    }
     setFeedback(feedback.filter((item) => item.id !== feedbackId));
   };
 
-  const handleMultiAgentClear = (): void => {
-    setMultiAgentFeedback([]);
 
-    setFeedback([]);
-  };
-
-  // Persist selected persona to localStorage
+  // Persist selected anima to localStorage
   useEffect(() => {
-    if (selectedPersonaId) {
-      localStorage.setItem("selectedPersonaId", selectedPersonaId);
+    if (selectedAnimaId) {
+      localStorage.setItem("selectedAnimaId", selectedAnimaId);
     }
-  }, [selectedPersonaId]);
+  }, [selectedAnimaId]);
 
   // Persist selected model to localStorage
   useEffect(() => {
@@ -145,32 +103,32 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       });
   }, []);
 
-  // Load available personas
+  // Load available animas
   useEffect(() => {
     animaService
-      .getPersonas()
-      .then((personas: Persona[]) => {
-        setAvailablePersonas(personas);
+      .getAnimas()
+      .then((animas: Anima[]) => {
+        setAvailableAnimas(animas);
 
-        // Check if persisted persona exists in available personas
-        const persistedId = localStorage.getItem("selectedPersonaId");
-        const persistedPersonaExists =
-          persistedId && personas.some((p) => p.id === persistedId);
+        // Check if persisted anima exists in available animas
+        const persistedId = localStorage.getItem("selectedAnimaId");
+        const persistedAnimaExists =
+          persistedId && animas.some((a) => a.id === persistedId);
 
         // Only auto-select if no valid persisted selection
-        // Using setSelectedPersonaId callback to avoid dependency on selectedPersonaId
-        setSelectedPersonaId((currentId) => {
-          if (!persistedPersonaExists && !currentId) {
-            // Find a persona with corpus that is also available
-            const personaWithCorpus = personas.find(
-              (p) => (p.chunk_count ?? 0) > 0 && p.corpus_available !== false,
+        // Using setSelectedAnimaId callback to avoid dependency on selectedAnimaId
+        setSelectedAnimaId((currentId) => {
+          if (!persistedAnimaExists && !currentId) {
+            // Find an anima with corpus that is also available
+            const animaWithCorpus = animas.find(
+              (a) => (a.chunk_count ?? 0) > 0 && a.corpus_available !== false,
             );
-            return personaWithCorpus ? personaWithCorpus.id : currentId;
+            return animaWithCorpus ? animaWithCorpus.id : currentId;
           }
           return currentId;
         });
       })
-      .catch((error: unknown) => console.error("Error loading personas:", error));
+      .catch((error: unknown) => console.error("Error loading animas:", error));
   }, []);
 
   // Handle Anima analysis with streaming
@@ -181,18 +139,18 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       return;
     }
 
-    if (!selectedPersonaId) {
+    if (!selectedAnimaId) {
       alert(
         "Please select an anima first. Go to the Animas tab to create one.",
       );
       return;
     }
 
-    // Check if selected persona has available corpus
-    const selectedPersona = availablePersonas.find(
-      (p) => p.id === selectedPersonaId,
+    // Check if selected anima has available corpus
+    const selectedAnima = availableAnimas.find(
+      (a) => a.id === selectedAnimaId,
     );
-    if (selectedPersona && selectedPersona.corpus_available === false) {
+    if (selectedAnima && selectedAnima.corpus_available === false) {
       alert(
         "This anima's corpus is unavailable. Please go to the Animas tab and re-upload the corpus files.",
       );
@@ -211,7 +169,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     setThoughtSteps([]); // Clear previous thought steps
 
     console.log("[WritingInterface] Starting Anima analysis...", {
-      personaId: selectedPersonaId,
+      animaId: selectedAnimaId,
       model: selectedModel,
       contentLength: project.content.length,
     });
@@ -219,8 +177,8 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     let statusClearTimeout: ReturnType<typeof setTimeout> | null = null;
 
     try {
-      const selectedPersona = availablePersonas.find(
-        (p) => p.id === selectedPersonaId,
+      const selectedAnima = availableAnimas.find(
+        (a) => a.id === selectedAnimaId,
       );
 
       // Convert purpose to string if it's an object
@@ -228,9 +186,9 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       const purposeText = project.purpose.topic || project.purpose.context || ""
 
       // Use streaming analysis
-      await animaService.streamAnalysis(
+      await animaService.analysis(
         project.content,
-        selectedPersonaId,
+        selectedAnimaId,
         {
           purpose: purposeText,
           criteria: writingCriteria.criteria,
@@ -280,17 +238,14 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
             // Add source and timestamp
             const enrichedItem: EnrichedFeedbackItem = {
               ...item,
-              agent: selectedPersona?.name || "Unknown",
-              source: "anima",
-              personaName: selectedPersona?.name || "Unknown",
+              agent: selectedAnima?.name || "Unknown",
+              animaName: selectedAnima?.name || "Unknown",
               timestamp: new Date().toISOString(),
               status: "active",
             };
 
             // Update feedback in real-time
-            if (onFeedbackGenerated) {
-              onFeedbackGenerated([enrichedItem]);
-            }
+            onFeedbackGenerated([enrichedItem]);
 
             // Clear any existing timeout
             if (statusClearTimeout) {
@@ -397,103 +352,18 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     }
     // Note: Don't clear execution state in finally - callbacks are async and will handle cleanup
   }, [
-    selectedPersonaId,
+    selectedAnimaId,
     selectedModel,
     project,
     writingCriteria,
     feedback,
-    availablePersonas,
+    availableAnimas,
     onFeedbackGenerated,
   ]);
 
-  // Choose which system to use based on feature flag
-  // Sync feedback prop to local state for display
-  // This ensures Anima execution results show up
-  useEffect(() => {
-    // Filter out any legacy agent feedback, only keep Anima feedback
-    const animaFeedback = feedback.filter(
-      (f) => f.source === "anima" || f.source === "flow",
-    );
 
-    // Simply replace with new feedback
-    // Dismissed items are gone forever and won't come back
-    // Resolved items are in separate resolvedFeedback storage
-    setMultiAgentFeedback(animaFeedback);
-  }, [feedback]);
-
-  // Clear any legacy feedback on mount
-  useEffect(() => {
-    console.log("[WritingInterface] Clearing legacy feedback on mount");
-        const flowOnly = feedback.filter((f) => f.source === "flow");
-        if (flowOnly.length !== feedback.length) {
-          console.log(
-            "[WritingInterface] Removed",
-            feedback.length - flowOnly.length,
-            "legacy feedback items",
-          );
-        }
-      setFeedback(flowOnly);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only on mount - setFeedback is stable prop from parent
-
-  // Always use flow-based feedback system (no legacy agents)
-  const currentAnalysis = {
-    feedback: multiAgentFeedback,
-    clearFeedback: handleMultiAgentClear,
-    dismissSuggestion: handleMultiAgentDismiss,
-    markSuggestionResolved: handleMultiAgentResolve,
-    isEvaluating: false,
-    isAnalyzing: false,
-    runDocumentAnalysis: () =>
-      console.log("Legacy analysis disabled - use flow execution"),
-    isDocumentAnalyzing: false,
-  };
-
-  // NOTE: We don't sync feedback back to parent here because:
-  // 1. New feedback is already sent via onFeedbackGenerated callback (line 155)
-  // 2. Syncing here creates a circular dependency and infinite re-render loop
-  // The useEffect at line 186 handles incoming feedback from parent -> local state
-
-  // Always use current analysis feedback for display since it handles filtering correctly
-  // Only use passed feedback for initial state synchronization
-  const activeFeedback: EnrichedFeedbackItem[] = currentAnalysis.feedback || [];
-
-  // Remove local handleToggleMonitoring since it's now passed as prop
-
-  const handleFeedbackHover = (feedbackId: string): void => {
-    setHoveredFeedback(feedbackId);
-  };
-
-  const handleFeedbackLeave = (): void => {
-    setHoveredFeedback(null);
-  };
-
-  const handleExploreFramework = (
-    framework?: string,
-    keyAuthorities?: string[],
-    suggestedResources?: string[],
-  ): void => {
-    console.log("Framework exploration:", {
-      framework,
-      keyAuthorities,
-      suggestedResources,
-    });
-    // Optionally show a modal with framework information or navigate to resources
-  };
-
-  const handleJumpToText = (feedbackId: string): void => {
-    // Find the feedback item
-    const feedbackItem = activeFeedback.find((f) => f.id === feedbackId);
-    if (
-      feedbackItem &&
-      feedbackItem.positions &&
-      feedbackItem.positions.length > 0
-    ) {
-      // Trigger scroll by setting hovered feedback temporarily
-      setHoveredFeedback(feedbackId);
-      // Clear after scroll animation completes
-      setTimeout(() => setHoveredFeedback(null), 2000);
-    }
+  const handleJumpToReference = (text: string): void => {
+    writingAreaRef.current?.selectText(text);
   };
 
   const handleViewCorpusSource = (source: CorpusSource): void => {
@@ -528,23 +398,23 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              {availablePersonas.length > 0 ? (
+              {availableAnimas.length > 0 ? (
                 <select
-                  value={selectedPersonaId || ""}
-                  onChange={(e) => setSelectedPersonaId(e.target.value)}
+                  value={selectedAnimaId || ""}
+                  onChange={(e) => setSelectedAnimaId(e.target.value)}
                   className="obsidian-input w-full max-w-[280px]"
                   disabled={isExecutingFlow}
                 >
                   <option value="">Select anima...</option>
-                  {availablePersonas.map((persona) => (
-                    <option key={persona.id} value={persona.id}>
-                      {persona.corpus_available === false ? "\u26A0 " : ""}
-                      {persona.name}{" "}
-                      {persona.corpus_available === false
+                  {availableAnimas.map((anima) => (
+                    <option key={anima.id} value={anima.id}>
+                      {anima.corpus_available === false ? "\u26A0 " : ""}
+                      {anima.name}{" "}
+                      {anima.corpus_available === false
                         ? "(unavailable)"
-                        : persona.chunk_count === 0
+                        : anima.chunk_count === 0
                           ? "(empty)"
-                          : `\u00B7 ${persona.chunk_count?.toLocaleString()}`}
+                          : `\u00B7 ${anima.chunk_count?.toLocaleString()}`}
                     </option>
                   ))}
                 </select>
@@ -567,19 +437,16 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
                     </option>
                   ))
                 ) : (
-                  <>
-                    <option value="gpt-5">GPT-5</option>
-                    <option value="kimi-k2">Kimi K2</option>
-                  </>
+                  <option disabled>No models available</option>
                 )}
               </select>
             </div>
           </div>
           <button
             onClick={handleExecuteFlowClick}
-            disabled={isExecutingFlow || !project.content || !selectedPersonaId}
+            disabled={isExecutingFlow || !project.content || !selectedAnimaId}
             className={`whitespace-nowrap ${
-              isExecutingFlow || !project.content || !selectedPersonaId
+              isExecutingFlow || !project.content || !selectedAnimaId
                 ? "obsidian-button bg-obsidian-bg text-obsidian-text-muted cursor-not-allowed"
                 : "obsidian-button-primary"
             }`}
@@ -622,34 +489,23 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
           <div>
             <WritingArea
+              ref={writingAreaRef}
               content={project.content}
               onContentChange={(content: string) => setProject({ ...project, content })}
-              autoFocus={true}
-              feedback={activeFeedback.filter(
-                (item) => !item.status || item.status === "active",
-              )}
-              hoveredFeedback={hoveredFeedback}
             />
           </div>
 
           <div>
             <FeedbackPanel
-              feedback={activeFeedback}
+              feedback={feedback}
               resolvedFeedback={resolvedFeedback}
               showResolved={showResolvedFeedback}
               onToggleResolved={() =>
                 setShowResolvedFeedback(!showResolvedFeedback)
               }
-              isMonitoring={isMonitoring}
-              onFeedbackHover={handleFeedbackHover}
-              onFeedbackLeave={handleFeedbackLeave}
-              hoveredFeedback={hoveredFeedback}
-              onDismissSuggestion={currentAnalysis.dismissSuggestion}
-              onMarkSuggestionResolved={currentAnalysis.markSuggestionResolved}
-              isEvaluating={currentAnalysis.isEvaluating}
-              isAnalyzing={currentAnalysis.isAnalyzing}
-              onExploreFramework={handleExploreFramework}
-              onJumpToText={handleJumpToText}
+              onDismissSuggestion={handleMultiAgentDismiss}
+              onMarkSuggestionResolved={handleMultiAgentResolve}
+              onJumpToReference={handleJumpToReference}
               onViewCorpusSource={handleViewCorpusSource}
             />
           </div>
@@ -660,7 +516,6 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       <UnifiedAgentCustomizationPanel
         isOpen={showAgentCustomization}
         onClose={() => setShowAgentCustomization(false)}
-        initialTab="control" // Start with the control tab
         onAgentsUpdated={() => {
           console.log(
             "Agents updated - analysis will use new configuration on next run",
@@ -675,7 +530,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           setCorpusViewerOpen(false);
           setCorpusHighlightSource(null);
         }}
-        personaId={selectedPersonaId}
+        animaId={selectedAnimaId}
         highlightSource={corpusHighlightSource}
       />
     </>

@@ -2,9 +2,9 @@
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable
 from tempfile import NamedTemporaryFile
-from typing import AsyncGenerator, Literal, Optional
+from typing import Literal, Optional
 from uuid import uuid4
 
 from fastapi import UploadFile
@@ -21,32 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 Stage = Literal["Extracting text"] | Literal["Generating embeddings"] | Literal["Storing documents"]
-_STAGES: list[Stage] = ["Extracting text", "Generating embeddings", "Storing documents"]
-
-
-@dataclass
-class IngestProgress:
-    """Status update yielded during file ingestion."""
-    steps_completed: list[Stage]
-    steps_remaining: list[Stage]
-    current_step: Stage
-    step_progress: float | None  # 0.0–1.0, or None if progress is unavailable
-
-
-@dataclass
-class IngestComplete:
-    """Final value yielded when ingestion finishes."""
-    chunks_added: int
-
-
-def _stage_progress(stage: Stage, step_progress: float | None = None) -> IngestProgress:
-    idx = _STAGES.index(stage)
-    return IngestProgress(
-        steps_completed=_STAGES[:idx],
-        steps_remaining=_STAGES[idx + 1:],
-        current_step=stage,
-        step_progress=step_progress,
-    )
+STAGES: list[Stage] = ["Extracting text", "Generating embeddings", "Storing documents"]
 
 
 class CorpusIngester:
@@ -57,7 +32,7 @@ class CorpusIngester:
         Initialize corpus ingester.
 
         Args:
-            collection_name: Name of the collection to ingest into (e.g., "persona_jules")
+            collection_name: Name of the collection to ingest into (e.g., "anima_jules")
             config: Configuration object
             embedder: Pre-constructed embedding generator
         """
@@ -269,26 +244,32 @@ class CorpusIngester:
             return []
 
     async def ingest(
-        self, file: UploadFile, source_type: Optional[SourceType] = None
-    ) -> AsyncGenerator[IngestProgress | IngestComplete, None]:
+        self,
+        file: UploadFile,
+        source_type: Optional[SourceType] = None,
+        progress_callback: Callable[[Stage, float | None], None] | None = None,
+    ) -> int:
         """
         Ingest a single file into the corpus.
 
-        Yields IngestProgress at each stage, then a final IngestComplete.
+        Calls progress_callback(stage, step_progress) at each stage. Returns chunks added.
         """
+        def _notify(stage: Stage, step_progress: float | None = None) -> None:
+            if progress_callback:
+                progress_callback(stage, step_progress)
+
         logger.info("Ingesting file: %s", file.filename)
 
-        yield _stage_progress("Extracting text")
+        _notify("Extracting text")
         documents = await self.process_file(file, source_type)
 
         if not documents:
             logger.warning("No documents created from file: %s", file.filename)
-            yield IngestComplete(0)
-            return
+            return 0
 
         logger.info("Created %d document chunks from %s", len(documents), file.filename)
 
-        yield _stage_progress("Generating embeddings", 0)
+        _notify("Generating embeddings", 0)
         batch_size = self.embedder.batch_size
         total_batches = (len(documents) + batch_size - 1) // batch_size
         logger.info("Generating embeddings: %d chunks in %d batches (batch_size=%d)", len(documents), total_batches, batch_size)
@@ -300,12 +281,15 @@ class CorpusIngester:
             logger.info("Batch %d/%d done (%d embeddings returned)", batch_num, total_batches, len(embeddings))
             for doc, embedding in zip(batch, embeddings):
                 doc.embedding = embedding
-            yield _stage_progress("Generating embeddings", batch_num / total_batches)
+            _notify("Generating embeddings", batch_num / total_batches)
 
-        yield _stage_progress("Storing documents")
+        _notify("Storing documents", 0)
         logger.info("Adding %d documents to vector database...", len(documents))
-        self.db.add_documents(documents)
+        self.db.add_documents(
+            documents,
+            progress_callback=lambda p: _notify("Storing documents", p),
+        )
         logger.info("Vector database insert complete")
 
         logger.info("✓ Successfully ingested %d documents from %s", len(documents), file.filename)
-        yield IngestComplete(len(documents))
+        return len(documents)

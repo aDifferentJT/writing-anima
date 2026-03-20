@@ -10,7 +10,7 @@ interface HighlightSourceData extends CorpusSource {
 interface CorpusGroundsViewerProps {
   isOpen: boolean;
   onClose: () => void;
-  personaId: string | null;
+  animaId: string | null;
   highlightSource: HighlightSourceData | null;
 }
 
@@ -140,7 +140,7 @@ function findChunkWithText(chunks: CorpusChunk[], text: string): number {
 const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
   isOpen,
   onClose,
-  personaId,
+  animaId,
   highlightSource,
 }) => {
   const [files, setFiles] = useState<CorpusFile[]>([]);
@@ -148,23 +148,23 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedFileIndex, setSelectedFileIndex] = useState<number>(0);
   const [highlightedChunkIndex, setHighlightedChunkIndex] = useState<number>(-1);
-  const [cachedPersonaId, setCachedPersonaId] = useState<string | null>(null);
+  const [cachedAnimaId, setCachedAnimaId] = useState<string | null>(null);
 
   const highlightRef = useRef<HTMLDivElement>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Fetch corpus documents (cached by personaId)
+  // Fetch corpus documents (cached by animaId)
   const fetchDocuments = useCallback(async () => {
-    if (!personaId) return;
-    if (cachedPersonaId === personaId && files.length > 0) return;
+    if (!animaId) return;
+    if (cachedAnimaId === animaId && files.length > 0) return;
 
     setLoading(true);
     setError(null);
     try {
-      const data = await animaService.getCorpusDocuments(personaId);
+      const data = await animaService.getCorpusDocuments(animaId);
       setFiles(data.files || []);
-      setCachedPersonaId(personaId);
+      setCachedAnimaId(animaId);
       setSelectedFileIndex(0);
       setHighlightedChunkIndex(-1);
     } catch (err: unknown) {
@@ -173,7 +173,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [personaId, cachedPersonaId, files.length]);
+  }, [animaId, cachedAnimaId, files.length]);
 
   // Fetch on open
   useEffect(() => {
@@ -356,7 +356,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
               )}
               {files.map((file, idx) => (
                 <button
-                  key={file.file_path}
+                  key={file.filename}
                   onClick={() => {
                     setSelectedFileIndex(idx);
                     setHighlightedChunkIndex(-1);

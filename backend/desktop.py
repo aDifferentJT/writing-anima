@@ -107,7 +107,23 @@ def main() -> None:
             min_size=(800, 600),
         )
 
-        webview.start(ssl=True)
+        def open_anima_manager() -> None:
+            webview.create_window(
+                "Anima Manager",
+                f"{URL}/animas",
+                width=1200,
+                height=800,
+                min_size=(800, 600),
+            )
+
+        menu = [
+            webview.menu.Menu(
+                "Animas",
+               [webview.menu.MenuAction("Open Anima Manager", open_anima_manager)],
+            )
+        ]
+
+        webview.start(ssl=True, menu=menu)
 
 
 if __name__ == "__main__":

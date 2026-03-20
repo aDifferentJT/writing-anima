@@ -3,7 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 
-from ...config import Config
+from ...config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 class BaseEmbeddingGenerator(ABC):
     """Generate embeddings for text"""
 
-    def __init__(self, config: Config):
+    def __init__(self, embedding_config: EmbeddingConfig):
         """Initialize embedding generator"""
-        self.config = config
-        self.batch_size = config.embedding.batch_size
+        self.embedding_config = embedding_config
+        self.batch_size = embedding_config.batch_size
 
     @abstractmethod
     def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:

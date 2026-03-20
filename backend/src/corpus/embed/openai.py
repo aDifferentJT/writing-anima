@@ -2,11 +2,10 @@
 
 import os
 import logging
-from typing import Optional
 from openai import OpenAI
 
 from .base import BaseEmbeddingGenerator
-from ...config import Config
+from ...config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -14,16 +13,13 @@ logger = logging.getLogger(__name__)
 class OpenAIEmbeddingGenerator(BaseEmbeddingGenerator):
     """Generate embeddings for text using OpenAI API"""
 
-    def __init__(self, config: Config):
+    def __init__(self, embedding_config: EmbeddingConfig):
         """Initialize embedding generator"""
-        super().__init__(config)
+        super().__init__(embedding_config)
 
-        api_key: Optional[str]
-        if self.config.embedding.api_key_env:
-            api_key = os.getenv(self.config.embedding.api_key_env)
-
+        api_key = os.getenv(embedding_config.api_key_env) if embedding_config.api_key_env else None
         self.client = OpenAI(api_key=api_key)
-        self.model = self.config.embedding.model
+        self.model = embedding_config.model
 
         logger.info("Initialized embedding generator with model: %s", self.model)
 

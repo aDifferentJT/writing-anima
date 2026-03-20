@@ -1,18 +1,18 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useImperativeHandle } from 'react';
 import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
-import { EnrichedFeedbackItem, FeedbackPosition } from '../../types';
+export interface WritingAreaHandle {
+  selectText: (text: string) => void;
+}
 
 interface WritingAreaProps {
   content: string;
   onContentChange: (value: string) => void;
-  autoFocus?: boolean;
-  feedback?: EnrichedFeedbackItem[];
-  hoveredFeedback?: string | null;
+  ref?: React.Ref<WritingAreaHandle>;
 }
 
-const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, autoFocus = false, feedback = [], hoveredFeedback = null }) => {
+const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, ref }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cycleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -27,45 +27,28 @@ const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, aut
     }
   }, []);
 
+  useImperativeHandle(ref, () => ({
+    selectText(text: string) {
+      const textarea = textareaRef.current
+        ?? (editorRef.current?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null);
+      if (!textarea) return;
+      const start = textarea.value.indexOf(text);
+      if (start === -1) return;
+      textarea.focus();
+      textarea.setSelectionRange(start, start + text.length);
+      // Scroll the selection into view
+      const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
+      const lines = textarea.value.substring(0, start).split('\n').length;
+      textarea.scrollTop = (lines - 3) * lineHeight;
+    },
+  }));
+
   // Auto-scroll to highlighted feedback when hovered
+  // TODO does this do anything now?
   useEffect(() => {
     if (cycleIntervalRef.current) {
       clearInterval(cycleIntervalRef.current);
       cycleIntervalRef.current = null;
-    }
-
-    if (hoveredFeedback && textareaRef.current) {
-      const hoveredFeedbackData = feedback.find((f: EnrichedFeedbackItem) => f.id === hoveredFeedback);
-      if (hoveredFeedbackData) {
-        let positions: FeedbackPosition[] | undefined;
-        if (hoveredFeedbackData.positions && hoveredFeedbackData.positions.length > 0) {
-          positions = hoveredFeedbackData.positions;
-        }
-
-        if (positions && positions.length > 0) {
-          const scrollToPosition = (positionIndex: number) => {
-            const targetPosition = positions![positionIndex];
-            if (targetPosition && textareaRef.current) {
-              const textBeforeHighlight = content.substring(0, targetPosition.start);
-              const lines = textBeforeHighlight.split('\n');
-              const lineNumber = lines.length;
-              const lineHeight = 24;
-              const scrollPosition = (lineNumber - 1) * lineHeight;
-              textareaRef.current.scrollTop = Math.max(0, scrollPosition - 100);
-            }
-          };
-
-          scrollToPosition(0);
-
-          if (positions.length > 1) {
-            let currentIndex = 0;
-            cycleIntervalRef.current = setInterval(() => {
-              currentIndex = (currentIndex + 1) % positions!.length;
-              scrollToPosition(currentIndex);
-            }, 2000);
-          }
-        }
-      }
     }
 
     return () => {
@@ -74,16 +57,16 @@ const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, aut
         cycleIntervalRef.current = null;
       }
     };
-  }, [hoveredFeedback, feedback, content]);
+  }, [content]);
 
   useEffect(() => {
-    if (autoFocus && editorRef.current) {
+    if (editorRef.current) {
       const textarea = editorRef.current.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null;
       if (textarea) {
         textarea.focus();
       }
     }
-  }, [autoFocus]);
+  }, []); // TODO should this be an effect?
 
   return (
     <div className="obsidian-panel h-[calc(100vh-180px)]">

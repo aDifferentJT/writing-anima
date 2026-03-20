@@ -1,16 +1,65 @@
-- Sync type defs between frontend and backend
+- Look at vector/schema, some redundency here
+- It seems that clicking editor when purpose is blank does nothing
+- Bundle Qdrant
+- The jump to referenced thing is misaligned for some reason
+- Thinking progress would be nice
+- AnimaChat has a lot of ? and ||, hmm
 - Tidy type defs, frontend and backend
-- Try to eliminate `grep -r "\[[\"\'][A-Za-z0-9_]\+[\"\']\]" src`
-- Remove firebase from direct use, particularly in frontend using `grep -r "fire\(base\|store\)" src`
-- Unify persistence
+- Look at local storage
 - Eliminate one of response or response_stream
 - Fix corpus_available in persona thingy I messed up
 - Global model selector
-- Project embedding selector
-- File metadate no longer contains file_path or timestamp but does contain filename
-- Prune requirements
+- File metadate no longer contains timestamp, look at the instances of this
 - Sort WritingInterface feedback stuff
 - Look at the .env stuff, pruning and tidying
+- Audit noqa
+
+
+Feedback Item field JT comments:
+- render confidence probably?
+
+Feedback Item field AI comments:
+
+  Inherited from ReceivedFeedbackItem (come from the backend):
+  - id — used as React key, for dismiss/resolve callbacks, and in
+  history records
+  - type — drives the icon (intellectual, stylistic,
+  complex_suggestion, etc.) and card styling
+  - severity — drives card border/background colour
+  (high/medium/low)
+  - category — stored in feedback history records only
+  - title — rendered as the card heading
+  - content — rendered as the card body (markdown)
+  - confidence — present in the type but never read anywhere in
+  the UI
+  - model — shown as a small monospace tag on the card
+  - sources — fallback list of plain-string corpus references,
+  shown only when corpus_sources is empty
+  - corpus_sources — rich corpus grounding, rendered as clickable
+  excerpt cards with source_file and relevance
+  - positions — used to show the referenced text snippet and
+  enable "jump to reference"; positions[0].text also falls back to
+   quote in history records
+
+  Added by the frontend (EnrichedFeedbackItem extras):
+  - agent — display name shown in the card header; falls back when
+   animaName is absent; stored in history records
+  - animaName — preferred over agent for display; set when
+  feedback comes from an anima
+  - timestamp — set at enrichment time; stored in history records
+  but not rendered in the card
+  - status — drives card styling (active, resolved, retracted,
+  dismissed) and whether action buttons show
+  - source — set to "anima" at enrichment; never read anywhere
+  after that
+  - suggestion — in the type but never read anywhere
+  - quote — fallback in history records when positions[0].text is
+  absent; never rendered in the card itself
+  - resolvedAt — in the type but never read anywhere
+
+  So confidence, suggestion, source (the enrichment one), and
+  resolvedAt appear to be dead fields.
+
 
 AI suggests:
 

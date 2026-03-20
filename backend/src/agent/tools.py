@@ -8,9 +8,9 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionFunctionToolParam
 
 from ..config import Config
-from ..corpus.embed.factory import EmbeddingGeneratorFactory
+from ..corpus.embed.factory import create_embedding_generator
 from ..database.vector import VectorDatabase
-from ..database.vector.schema import SearchFilters, SourceType
+from ..database.vector.schema import CorpusDocumentMetadata, SearchFilters, SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class WritingSample(NamedTuple):
     """A writing sample with metadata and similarity score"""
 
     text: str
-    metadata: dict[str, Any]
+    metadata: CorpusDocumentMetadata
     similarity: float
 
 
@@ -34,18 +34,19 @@ class OodResult(NamedTuple):
 class CorpusSearchTool:
     """Search tool for corpus retrieval"""
 
-    def __init__(self, collection_name: str, config: Config):
+    def __init__(self, collection_name: str, config: Config, embedding_provider: str):
         """
         Initialize search tool.
 
         Args:
-            collection_name: Name of the collection to search (e.g., "persona_jules")
-            config: Optional configuration object
+            collection_name: Name of the collection to search (e.g., "anima_jules")
+            config: Configuration object
+            embedding_provider: Embedding provider used to build this corpus
         """
         self.config = config
         self.collection_name = collection_name
         self.db = VectorDatabase(collection_name, config)
-        self.embedder = EmbeddingGeneratorFactory.create(config)
+        self.embedder = create_embedding_generator(config, embedding_provider)
         self._style_pack_cache: Optional[list[WritingSample]] = None  # Cache diverse style examples
 
     def get_style_pack(self) -> list[WritingSample]:
@@ -85,11 +86,11 @@ class CorpusSearchTool:
         seen_sources = set()
 
         for result in candidates:
-            source = result.metadata.get("source", "unknown")
-            file_path = result.metadata.get("file_path", "")
+            filename = result.metadata.filename
+            source = result.metadata.source.value
 
             # Prioritize diversity in source and file
-            key = f"{source}:{file_path}"
+            key = f"{source}:{filename}"
 
             if key not in seen_sources or len(diverse_samples) < size:
                 diverse_samples.append(
@@ -171,12 +172,8 @@ class CorpusSearchTool:
             logger.debug("Top 3 results:")
             for i, r in enumerate(results[:3], 1):
                 preview = r.text[:100].replace("\n", " ")
-                source = r.metadata.get("source", "unknown")
-                file_name = (
-                    r.metadata.get("file_path", "").split("/")[-1]
-                    if r.metadata.get("file_path")
-                    else "unknown"
-                )
+                source = r.metadata.source.value
+                file_name = r.metadata.filename
                 logger.debug("  %d. [%s/%s] %s...", i, source, file_name, preview)
 
         # Convert to dict format for tool response
@@ -238,20 +235,21 @@ class CorpusSearchTool:
 class IncrementalReasoningTool:
     """Tool for detecting OOD queries and providing reasoning guidance"""
 
-    def __init__(self, collection_name: str, persona_name: str, config: Config):
+    def __init__(self, collection_name: str, anima_name: str, config: Config, embedding_provider: str):
         """
         Initialize incremental reasoning tool.
 
         Args:
             collection_name: Name of the corpus collection
-            persona_name: Name of the persona (for context in prompts)
-            config: Optional configuration object
+            anima_name: Name of the anima (for context in prompts)
+            config: Configuration object
+            embedding_provider: Embedding provider used to build this corpus
         """
         self.config = config
         self.collection_name = collection_name
-        self.persona_name = persona_name
+        self.anima_name = anima_name
         self.db = VectorDatabase(collection_name, config)
-        self.embedder = EmbeddingGeneratorFactory.create(config)
+        self.embedder = create_embedding_generator(config, embedding_provider)
 
         # Initialize OpenAI client for OOD checks
         api_key = os.getenv("OPENAI_API_KEY")
@@ -336,7 +334,7 @@ class IncrementalReasoningTool:
             for result in results:
                 # Get a snippet to represent this concept
                 text = result.text[:200].replace("\n", " ").strip()
-                source = result.metadata.get("source", "unknown")
+                source = result.metadata.source.value
                 concepts.append(f"{text}... (from {source})")
 
             return concepts
@@ -364,7 +362,7 @@ class IncrementalReasoningTool:
 
         prompt = f"""You are analyzing whether a query can be directly answered from a person's writing corpus.
 
-PERSONA: {self.persona_name}
+ANIMA: {self.anima_name}
 
 QUERY: "{query}"
 

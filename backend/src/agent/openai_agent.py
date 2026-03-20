@@ -25,7 +25,7 @@ class OpenAIAgent(BaseAgent):
     """Agent using OpenAI GPT models"""
     def __init__(
         self,
-        persona_id: str,
+        anima_id: str,
         config: Config,
         model: ModelConfig,
         use_json_mode: bool,
@@ -35,14 +35,14 @@ class OpenAIAgent(BaseAgent):
         Initialize OpenAI agent.
 
         Args:
-            persona_id: Persona identifier (e.g., "jules", "heidegger")
+            anima_id: Anima identifier (e.g., "jules", "heidegger")
             config: Optional configuration object
             model: OpenAI model identifier (gpt-4, gpt-4-turbo-preview, gpt-3.5-turbo)
             use_json_mode: Whether to use JSON response format
             prompt_file: Which prompt template to use
         """
         super().__init__(
-            persona_id,
+            anima_id,
             config,
             use_json_mode=use_json_mode,
         )
@@ -50,6 +50,8 @@ class OpenAIAgent(BaseAgent):
         api_key: Optional[str]
         if model.api_key_env is not None:
             api_key = os.getenv(model.api_key_env)
+        else:
+            api_key = None
 
         self.client = OpenAI(
             api_key=api_key,
@@ -228,7 +230,7 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
             logger.info("Style examples length: %d chars", len(style_examples))
             logger.info("Feedback JSON length: %d chars", len(feedback_json))
             logger.info("Total rewrite prompt length: %d chars", len(rewrite_prompt))
-            logger.info("Calling DeepSeek API for style rewrite...")
+            logger.info("Calling OpenAI API for style rewrite...")
 
             import time
 
@@ -241,7 +243,7 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
             )
 
             elapsed = time.time() - start_time
-            logger.info("DeepSeek style rewrite API call completed in %.1fs", elapsed)
+            logger.info("OpenAI style rewrite API call completed in %.1fs", elapsed)
             logger.info("Response object received: %s", type(response))
             logger.info(
                 "Response choices: %d",
@@ -620,7 +622,7 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                             query = tool_use.input.get("query", "")
                             k = tool_use.input.get("k", "default")
                             logger.info(
-                                "[DeepSeek SEARCH #%d] query=\"%s\" k=%s -> %d results",
+                                "[OpenAI SEARCH #%d] query=\"%s\" k=%s -> %d results",
                                 tools_called_count, query[:80], k, len(result) if isinstance(result, list) else 0
                             )
                             # Collect retrieved samples for style rewrite phase

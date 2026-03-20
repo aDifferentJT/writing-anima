@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Any, Optional
+from typing import Optional
 from uuid import UUID
 
 
@@ -42,12 +42,9 @@ class CorpusDocument(BaseModel):
         return self.metadata.char_length
 
 
-class SearchResult(BaseModel):
-    """Search result schema"""
-    text: str
-    metadata: dict[str, Any]
+class SearchResult(CorpusDocument):
+    """A corpus document returned from a search, with its similarity score."""
     similarity: float
-    document_id: str
 
 
 class SearchFilters(BaseModel):

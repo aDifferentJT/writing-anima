@@ -3,11 +3,11 @@ import { Pen, Target, Home, Users } from 'lucide-react';
 import ProjectDashboard from './components/Projects/ProjectDashboard';
 import PurposeStep from './components/PurposeStep/PurposeStep';
 import WritingInterface from './components/WritingInterface';
-import PersonaManager from './components/PersonaManager/PersonaManager';
+import AnimaManager from './components/AnimaManager/AnimaManager';
 import projectService from './services/projectService';
 import type { Project, EnrichedFeedbackItem, Purpose } from './types';
 
-type AppMode = 'purpose' | 'writing' | 'personas';
+type AppMode = 'purpose' | 'writing' | 'animas';
 
 interface NavigationProps {
   currentMode: AppMode;
@@ -74,9 +74,9 @@ function Navigation({
               </button>
 
               <button
-                onClick={() => setCurrentMode('personas')}
+                onClick={() => setCurrentMode('animas')}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                  currentMode === 'personas'
+                  currentMode === 'animas'
                     ? 'bg-obsidian-accent-pale text-obsidian-accent-primary font-medium'
                     : 'text-obsidian-text-secondary hover:text-obsidian-text-primary hover:bg-obsidian-bg'
                 }`}
@@ -106,7 +106,6 @@ function AppContent({
   setIsProjectSwitching,
 }: AppContentProps): React.ReactElement {
   const [currentMode, setCurrentMode] = useState<AppMode>(currentProject.purpose.topic == '' ? 'purpose' : 'writing');
-  const [isMonitoring] = useState<boolean>(true);
 
   // Auto-save project content
   useEffect(() => {
@@ -149,18 +148,16 @@ function AppContent({
     setCurrentMode('purpose');
   };
 
-  const handleFeedbackGenerated = useCallback((insights: EnrichedFeedbackItem[]): void => {
-    const newFeedback: EnrichedFeedbackItem[] = insights.map((insight: EnrichedFeedbackItem) => ({
-      ...insight,
-      id: insight.id || `flow-${Date.now()}-${Math.random()}`,
-      timestamp: insight.timestamp || new Date().toISOString(),
-      status: insight.status || 'active',
-      source: 'flow',
-    }));
-
+  const handleFeedbackGenerated = useCallback((newFeedback: EnrichedFeedbackItem[]): void => {
     setCurrentProject(prev => {
       if (!prev) return prev;
-      return { ...prev, feedback: [...(prev.feedback ?? []), ...newFeedback] };
+      return {
+        ...prev,
+        feedback: [
+          ...(prev.feedback ?? []),
+          ...newFeedback,
+        ],
+      };
     });
   }, [setCurrentProject]);
 
@@ -188,11 +185,10 @@ function AppContent({
             project={currentProject}
             setProject={setCurrentProject}
             writingCriteria={currentProject.writingCriteria}
-            isMonitoring={isMonitoring}
             onFeedbackGenerated={handleFeedbackGenerated}
           />
-        ) : currentMode === 'personas' ? (
-          <PersonaManager />
+        ) : currentMode === 'animas' ? (
+          <AnimaManager />
         ) : (
           "Unknown Mode"
         )}

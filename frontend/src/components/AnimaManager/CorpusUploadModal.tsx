@@ -8,21 +8,21 @@ import {
   Loader,
   Clock,
 } from "lucide-react";
-import { Persona } from "../../types";
+import { Anima } from "../../types";
 import animaService from "../../services/animaService";
 import type { CorpusStatusMessage } from "../../apiTypes";
 
 interface CorpusUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  persona: Persona;
+  anima: Anima;
   onUploaded: () => void;
 }
 
 const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
   isOpen,
   onClose,
-  persona,
+  anima,
   onUploaded,
 }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -55,7 +55,7 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
     setUploadStatus(null);
 
     try {
-      for await (const msg of animaService.uploadCorpus(persona.id, selectedFiles)) {
+      for await (const msg of animaService.uploadCorpus(anima.id, selectedFiles)) {
         if (msg.type === "status") {
           setUploadStatus(msg);
         } else if (msg.type === "complete") {
@@ -91,7 +91,7 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
             <p className="text-sm text-obsidian-text-secondary mt-1">
               for{" "}
               <span className="font-medium text-obsidian-accent-primary">
-                {persona.name}
+                {anima.name}
               </span>
             </p>
           </div>

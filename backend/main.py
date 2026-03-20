@@ -5,6 +5,7 @@ FastAPI application providing Anima-powered writing analysis
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import API routers
-from src.api import analysis_router, personas_router, projects_router
+from src.api import analysis_router, animas_router, projects_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Never]:
@@ -60,13 +61,18 @@ def setup(allowed_origins: list[str]) -> FastAPI:
 
     # Include API routers
     app.include_router(analysis_router)
-    app.include_router(personas_router)
+    app.include_router(animas_router)
     app.include_router(projects_router)
 
     # Serve built frontend as static files (production / desktop mode).
     # Must come last — it's a catch-all for any path not matched by API routes.
     frontend_dist = Path(__file__).parent / "frontend" / "dist"
     if frontend_dist.exists():
+        @app.get("/animas")
+        async def animas_page() -> FileResponse:
+            return FileResponse(str(frontend_dist / "animas.html"))
+
+
         app.mount(
             "/",
             StaticFiles(directory=str(frontend_dist), html=True),

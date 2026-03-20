@@ -12,7 +12,8 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from openai.types.chat import ChatCompletionMessageParam
 from sqlmodel import Session, select
 
-from ..agent.factory import AgentFactory
+from ..agent.base import Response
+from ..agent.factory import create_agent
 from ..config import get_config
 from ..database.general import (
     general_db
@@ -23,7 +24,7 @@ from .models import (
     FeedbackItem,
     FeedbackSeverity,
     FeedbackType,
-    Persona,
+    Anima,
     StreamComplete,
     StreamFeedback,
     StreamStatus,
@@ -33,21 +34,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["analysis"])
 
 
-def get_persona(persona_id: str) -> Optional[Persona]:
-    """Get persona from general database"""
+def get_anima(anima_id: str) -> Optional[Anima]:
+    """Get anima from general database"""
     with Session(general_db) as session:
-        statement = select(Persona).where(Persona.id == persona_id)
-        persona = session.exec(statement).one()
+        statement = select(Anima).where(Anima.id == anima_id)
+        anima = session.exec(statement).one()
 
-        if persona is None:
+        if anima is None:
             return None
 
-        return persona
+        return anima
 
 
 def parse_json_feedback(
     response_text: str,
-    persona_name: str,
+    anima_name: str,
     model: str,
 ) -> list[FeedbackItem]:
     """
@@ -55,7 +56,7 @@ def parse_json_feedback(
 
     Args:
         response_text: JSON string from Anima
-        persona_name: Name of the persona for logging
+        anima_name: Name of the anima for logging
         model: Model identifier that generated the feedback (e.g., "gpt-5", "kimi-k2")
 
     Returns:
@@ -289,7 +290,7 @@ def parse_json_feedback(
             try:
                 feedback_data = json.loads(json_match.group(0))
                 return parse_json_feedback(
-                    json.dumps(feedback_data), persona_name, model
+                    json.dumps(feedback_data), anima_name, model
                 )
             except: # pylint: disable=bare-except
                 pass
@@ -320,12 +321,12 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             await websocket.close()
             return
 
-        # Get and verify persona
+        # Get and verify anima
         try:
-            persona = get_persona(request.persona_id)
-            if not persona:
+            anima = get_anima(request.anima_id)
+            if not anima:
                 await websocket.send_json(
-                    {"type": "error", "message": "Persona not found"}
+                    {"type": "error", "message": "Anima not found"}
                 )
                 await websocket.close()
                 return
@@ -344,30 +345,16 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
         # Get configuration and create agent with JSON mode
         config = get_config()
 
-        # Add persona to config dynamically if not present
-        # This allows the BaseAgent to find it when it calls config.get_persona()
-        # TODO would it be better to just pass it in?
-        if request.persona_id not in config.personas:
-            from ..config import PersonaConfig
-
-            persona_config = PersonaConfig(
-                name=persona.name,
-                corpus_path="",  # Not needed for dynamic personas
-                collection_name=persona.collection_name,
-                description=persona.description,
-            )
-            config.personas[request.persona_id] = persona_config
-
         logger.info(
-            "Using model: %s for persona: %s",
-            request.model, persona.name
+            "Using model: %s for anima: %s",
+            request.model, anima.name
         )
 
         # Create agent using factory with selected model
         model = config.get_model(request.model)
-        agent = AgentFactory.create(
+        agent = create_agent(
             model=model,
-            persona_id=request.persona_id,
+            anima_id=request.anima_id,
             config=config,
             # Note: DeepSeek doesn't support strict JSON schema, so skip for those agents
             use_json_mode = model.provider != "deepseek",
@@ -432,8 +419,13 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
                     # Text chunk received - could stream this too
                     pass  # For now, wait for complete response
                 elif chunk.get("type") == "result":
-                    # This is the final result
-                    result = chunk
+                    # This is the final result - wrap in Response for uniform access
+                    result = Response(
+                        response=chunk["response"],
+                        tool_calls=chunk.get("tool_calls", []),
+                        iterations=chunk.get("iterations", 0),
+                        model=chunk.get("model", ""),
+                    )
         else:
             # Fallback to non-streaming
             await websocket.send_text(
@@ -466,7 +458,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
 
         try:
             feedback_items = parse_json_feedback(
-                response_text, persona.name, request.model
+                response_text, anima.name, request.model
             )
             logger.info("Parsed %d feedback items", len(feedback_items))
         except Exception as parse_error:
@@ -480,7 +472,8 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             await websocket.close()
             return
 
-        feedback_items = feedback_items[: request.max_feedback_items]
+        # TODO should we be cutting off like this?
+        feedback_items = feedback_items[:10]
         logger.info("After max limit: %d feedback items", len(feedback_items))
 
         # Stream each feedback item
@@ -527,10 +520,10 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
 
 
 @router.websocket("/chat")
-async def chat_with_persona_stream(websocket: WebSocket) -> None:
+async def chat_with_anima_stream(websocket: WebSocket) -> None:
     """
-    Chat with a persona via WebSocket with streaming text tokens.
-    Client sends: { message, persona_id, conversation_history, model? }
+    Chat with an anima via WebSocket with streaming text tokens.
+    Client sends: { message, anima_id, conversation_history, model? }
     Server sends:
       - {"type": "status", "message": str}        — tool/progress updates
       - {"type": "token", "content": str}         — streamed text token
@@ -553,14 +546,14 @@ async def chat_with_persona_stream(websocket: WebSocket) -> None:
             return
 
         message = request.message.strip()
-        persona_id = request.persona_id
+        anima_id = request.anima_id
 
-        # Get persona
+        # Get anima
         try:
-            persona = get_persona(persona_id)
-            if not persona:
+            anima = get_anima(anima_id)
+            if not anima:
                 await websocket.send_json(
-                    {"type": "error", "message": "Persona not found"}
+                    {"type": "error", "message": "Anima not found"}
                 )
                 await websocket.close()
                 return
@@ -571,20 +564,11 @@ async def chat_with_persona_stream(websocket: WebSocket) -> None:
 
         config = get_config()
 
-        if persona_id not in config.personas:
-            from ..config import PersonaConfig
-
-            config.personas[persona_id] = PersonaConfig(
-                name=persona.name,
-                corpus_path="",
-                collection_name=persona.collection_name,
-                description=persona.description,
-            )
 
         model = config.get_model(request.model)
-        agent = AgentFactory.create(
+        agent = create_agent(
             model=model,
-            persona_id=persona_id,
+            anima_id=anima_id,
             config=config,
             use_json_mode = False,
             prompt_file="base.txt",

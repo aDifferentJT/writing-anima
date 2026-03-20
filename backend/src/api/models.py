@@ -12,9 +12,25 @@ from enum import Enum
 from typing import Annotated, Any, Optional
 
 from pydantic import BaseModel, Field, TypeAdapter
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, String
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field as SQLField, SQLModel
+
+
+class UUIDString(TypeDecorator[UUID]):
+    """SQLAlchemy column type that stores UUID as string (for SQLite compatibility)."""
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
+        if value is None:
+            return None
+        return str(value)
+
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
+        if value is None:
+            return None
+        return UUID(value)
 
 
 class PydanticJSON(TypeDecorator[Any]):
@@ -41,15 +57,15 @@ class PydanticJSON(TypeDecorator[Any]):
 # Defined here so the API surface and DB schema are in one place.
 # database/general/__init__.py re-exports these and owns the engine.
 
-class Persona(SQLModel, table=True):
-    """Persona DB model"""
-    id: UUID = SQLField(primary_key=True)
+class Anima(SQLModel, table=True):
+    """Anima DB model"""
+    id: UUID = SQLField(default_factory=uuid.uuid4, sa_column=Column(UUIDString, primary_key=True))
     name: str
     description: Optional[str] = None
     collection_name: str
-    model: str = "gpt-5"
     corpus_file_count: int = 0
     chunk_count: int = 0
+    embedding_provider: str
     created_at: datetime
     updated_at: datetime
 
@@ -126,18 +142,18 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    """Request for chatting with a persona"""
+    """Request for chatting with an anima"""
     message: Annotated[str, Field(min_length=1)]
-    persona_id: str
+    anima_id: str
     conversation_history: list[ChatMessage] = []
     model: str
 
 
 class ChatResponse(BaseModel):
-    """Response from chatting with a persona"""
+    """Response from chatting with an anima"""
     response: str
-    persona_name: str
-    persona_id: str
+    anima_name: str
+    anima_id: str
 
 
 # ── Analysis ──────────────────────────────────────────────────────────────────
@@ -152,16 +168,15 @@ class AnalysisContext(BaseModel):
 class AnalysisRequest(BaseModel):
     """Request for writing analysis"""
     content: Annotated[str, Field(min_length=1)]
-    persona_id: str
+    anima_id: str
     model: str
     context: AnalysisContext
-    max_feedback_items: Annotated[int, Field(ge=1, le=50)]
 
 
 class AnalysisResponse(BaseModel):
     """Response from writing analysis"""
-    persona_id: str
-    persona_name: str
+    anima_id: str
+    anima_name: str
     feedback: list[FeedbackItem]
     processing_time: float
 
@@ -189,59 +204,73 @@ class StreamComplete(BaseModel):
     type: str = "complete"
 
 
-# ── Personas ──────────────────────────────────────────────────────────────────
+# ── Animas ────────────────────────────────────────────────────────────────────
 
-class PersonaCreate(BaseModel):
-    """Request model for creating a persona"""
+class AnimaCreate(BaseModel):
+    """Request model for creating an anima"""
     name: Annotated[str, Field(min_length=1, max_length=100)]
     description: Annotated[Optional[str], Field(max_length=500)] = None
-    model: Annotated[str, Field(description="LLM model ID for this persona")] = "gpt-5"
+    embedding_provider: str
 
 
-class PersonaResponse(BaseModel):
-    """Flat response model for a persona — all Persona fields plus corpus_available.
-    Matches the frontend Persona interface in apiTypes.ts."""
-    id: str
+class AnimaResponse(BaseModel):
+    """Flat response model for an anima — all Anima fields plus corpus_available.
+    Matches the frontend Anima interface in apiTypes.ts."""
+    id: UUID
     name: str
     description: Optional[str] = None
-    model: str
     chunk_count: int
     corpus_available: bool
+    embedding_provider: str
     created_at: datetime
 
     @classmethod
-    def from_persona(
-        cls, persona: Persona, corpus_available: bool = True
-    ) -> "PersonaResponse":
-        """Create response from Persona model"""
+    def from_anima(
+        cls, anima: "Anima", corpus_available: bool = True
+    ) -> "AnimaResponse":
+        """Create response from Anima model"""
         return cls(
-            id=str(persona.id),
-            name=persona.name,
-            description=persona.description,
-            model=persona.model,
-            chunk_count=persona.chunk_count,
+            id=anima.id,
+            name=anima.name,
+            description=anima.description,
+            chunk_count=anima.chunk_count,
             corpus_available=corpus_available,
-            created_at=persona.created_at,
+            embedding_provider=anima.embedding_provider,
+            created_at=anima.created_at,
         )
 
 
-class PersonaUpdate(BaseModel):
-    """Request model for updating a persona"""
+class AnimaUpdate(BaseModel):
+    """Request model for updating an anima"""
     name: Annotated[Optional[str], Field(min_length=1, max_length=100)] = None
     description: Annotated[Optional[str], Field(max_length=500)] = None
-    model: Annotated[Optional[str], Field(description="LLM model ID for this persona")] = None
+    model: Annotated[Optional[str], Field(description="LLM model ID for this anima")] = None
 
 
-class PersonaList(BaseModel):
-    """List of personas"""
-    personas: list[PersonaResponse]
+class AnimaList(BaseModel):
+    """List of animas"""
+    animas: list[AnimaResponse]
     total: int
+
+
+# ── Available embedding providers ─────────────────────────────────────────────
+
+class EmbeddingProviderInfo(BaseModel):
+    """An available embedding provider"""
+    id: str
+    name: str
+    provider: str
+
+
+class EmbeddingProvidersResponse(BaseModel):
+    """Response containing available embedding providers"""
+    providers: list[EmbeddingProviderInfo]
 
 
 # ── Available models ──────────────────────────────────────────────────────────
 
 class AvailableModel(BaseModel):
-    """Model available for persona selection"""
+    """Model available for anima selection"""
     id: str
     name: str
     provider: str
@@ -264,15 +293,14 @@ class CorpusChunk(BaseModel):
 
 class CorpusFileModel(BaseModel):
     """A corpus file reconstructed from its chunks"""
-    file_path: str
     filename: str
     chunk_count: int
     chunks: list[CorpusChunk]
 
 
 class CorpusDocumentsResponse(BaseModel):
-    """Response containing all corpus documents for a persona"""
-    persona_id: str
+    """Response containing all corpus documents for an anima"""
+    anima_id: UUID
     files: list[CorpusFileModel]
 
 
@@ -284,9 +312,21 @@ class CorpusFile(BaseModel):
     chunk_count: int
 
 
+class CorpusUploadFile(BaseModel):
+    """A single file in a corpus upload request"""
+    name: str
+    size: int
+    content: str  # base64-encoded
+
+
+class CorpusUploadRequest(BaseModel):
+    """Request payload for corpus upload WebSocket"""
+    files: list[CorpusUploadFile]
+
+
 class IngestionStatus(BaseModel):
     """Status of corpus ingestion"""
-    persona_id: str
+    anima_id: str
     status: str  # "pending", "processing", "completed", "failed"
     progress: float  # 0.0 to 1.0
     chunks_processed: int
@@ -304,7 +344,7 @@ class ProjectSettings(BaseModel):
 
 class Project(SQLModel, table=True):
     """Project DB model"""
-    id: UUID = SQLField(default_factory=uuid.uuid4, primary_key=True)
+    id: UUID = SQLField(default_factory=uuid.uuid4, sa_column=Column(UUIDString, primary_key=True))
     title: str
     purpose: Purpose = SQLField(sa_column=Column(PydanticJSON(Purpose)))
     content: str

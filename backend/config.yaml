@@ -1,54 +1,3 @@
-personas:
-  jules:
-    name: Jules
-    corpus_path: data/corpus/jules/
-    collection_name: persona_jules
-    description: Jules Desai - AI researcher and philosopher
-  taylor:
-    name: Charles Taylor
-    corpus_path: data/corpus/taylor/
-    collection_name: persona_taylor
-    description: Canadian philosopher, Sources of the Self
-    chunk_size: 1200
-  heidegger:
-    name: Martin Heidegger
-    corpus_path: data/corpus/heidegger/
-    collection_name: persona_heidegger
-    description: German philosopher, Being and Time
-    chunk_size: 1200
-  wittgenstein:
-    name: Ludwig Wittgenstein
-    corpus_path: data/corpus/wittgenstein/
-    collection_name: persona_wittgenstein
-    description: German philosopher, Tractatus & Investigations
-    chunk_size: 1200
-  aristotle:
-    name: Aristotle
-    corpus_path: data/corpus/aristotle/
-    collection_name: persona_aristotle
-    description: Greek philosopher, Nicomachean Ethics & Metaphysics
-    chunk_size: 1200
-  mac_lane:
-    name: Saunders Mac Lane
-    corpus_path: data/corpus/mac_lane/
-    collection_name: persona_mac_lane
-    description: Saunders Mac Lane - American mathematician
-  general_category_theorist:
-    name: General Category Theorist
-    corpus_path: data/corpus/general_category_theorist/
-    collection_name: persona_general_category_theorist
-    description: General Category Theorist - Mathematician and Philosopher
-  philipp_koralus:
-    name: Philipp Koralus
-    corpus_path: data/corpus/philipp_koralus/
-    collection_name: persona_philipp_koralus
-    description: Philipp Koralus - Philosopher
-  sasha:
-    name: A. S. Arridge
-    corpus_path: data/corpus/sasha/
-    collection_name: persona_sasha
-    description: A. S. Arridge - Philosopher
-default_persona: jules
 models:
   gpt-5:
     name: GPT-5
@@ -93,21 +42,27 @@ vector_db:
   provider: qdrant
   host: localhost
   port: 6333
-embedding:
-  # provider: openai
-  # api_key_env: OPENAI_API_KEY
-  # model: text-embedding-3-small
-  # dimensions: 1536
-  # batch_size: 100
-  # provider: openai
-  # api_key_env: OPENAI_API_KEY
-  # model: text-embedding-3-large
-  # dimensions: 3072
-  # batch_size: 100
-  provider: mlx
-  model: mlx-community/Qwen3-Embedding-8B-mxfp8
-  dimensions: 4096
-  batch_size: 100
+embeddings:
+  openai-small:
+    name: OpenAI text-embedding-3-small
+    provider: openai
+    api_key_env: OPENAI_API_KEY
+    model: text-embedding-3-small
+    dimensions: 1536
+    batch_size: 100
+  openai-large:
+    name: OpenAI text-embedding-3-large
+    provider: openai
+    api_key_env: OPENAI_API_KEY
+    model: text-embedding-3-large
+    dimensions: 3072
+    batch_size: 100
+  mlx:
+    name: MLX Qwen3 Embedding 8B (local)
+    provider: mlx
+    model: mlx-community/Qwen3-Embedding-8B-mxfp8
+    dimensions: 4096
+    batch_size: 100
 corpus:
   chunk_size: 800
   chunk_overlap: 100

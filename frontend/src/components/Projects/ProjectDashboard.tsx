@@ -11,7 +11,7 @@ import type { Project, Purpose } from '../../types';
 
 interface ProjectDashboardProps {
   onSelectProject: (project: Project) => void;
-  onCreateProject?: (project: Project) => void;
+  onCreateProject: (project: Project) => void;
 }
 
 const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, onCreateProject }) => {
@@ -40,7 +40,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
       const newProject: Project = await projectService.createProject();
 
       setProjects(prev => [newProject, ...prev]);
-      onCreateProject?.(newProject);
+      onCreateProject(newProject);
     } catch (error) {
       console.error('Error creating project:', error);
     }
@@ -88,7 +88,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
   const formatPurpose = (purpose: Purpose | null): string => {
     if (!purpose) return 'No purpose defined';
 
-    if (typeof purpose === 'object' && purpose !== null) {
+    if (purpose !== null) {
       const parts: string[] = [];
       if (purpose.topic) parts.push(purpose.topic);
       if (purpose.context) parts.push(`(${purpose.context})`);

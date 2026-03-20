@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, Send, MessageCircle } from "lucide-react";
 import animaService from "../../services/animaService";
-import type { ChatMessage, ModelInfo, Persona } from "../../types";
+import type { ChatMessage, ModelInfo, Anima } from "../../types";
 
 interface AnimaChatProps {
   isOpen: boolean;
   onClose: () => void;
-  persona: Persona | null;
+  anima: Anima | null;
 }
 
-const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
+const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamingContent, setStreamingContent] = useState<string>("");
   const [input, setInput] = useState<string>("");
@@ -23,15 +23,15 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const streamingRef = useRef<string>("");
 
-  // Reset conversation state when persona changes (render-time adjustment, avoids effect)
-  const [currentPersonaId, setCurrentPersonaId] = useState(persona?.id);
-  if (currentPersonaId !== persona?.id) {
-    setCurrentPersonaId(persona?.id);
+  // Reset conversation state when anima changes (render-time adjustment, avoids effect)
+  const [currentAnimaId, setCurrentAnimaId] = useState(anima?.id);
+  if (currentAnimaId !== anima?.id) {
+    setCurrentAnimaId(anima?.id);
     setMessages([]);
     setStreamingContent("");
     setInput("");
     setError(null);
-    setSelectedModel(persona?.model || "gpt-5");
+    setSelectedModel(null);
   }
 
   // Load available models once
@@ -71,7 +71,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || loading || !persona) return;
+    if (!text || loading || !anima) return;
 
     const userMessage: ChatMessage = { role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
@@ -87,9 +87,9 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
         content: m.content,
       }));
 
-      await animaService.streamChat(
+      await animaService.chat(
         text,
-        persona.id,
+        anima.id,
         history,
         {
           onToken: (token: string) => {
@@ -127,7 +127,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
       setError((err as Error).message || "Failed to connect");
       setLoading(false);
     }
-  }, [input, loading, persona, messages, selectedModel]);
+  }, [input, loading, anima, messages, selectedModel]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -157,11 +157,11 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
           <MessageCircle className="w-4 h-4 text-obsidian-accent-primary" />
           <div className="flex-1 min-w-0">
             <span className="font-semibold text-sm text-obsidian-text-primary tracking-tight">
-              {persona?.name || "Anima"}
+              {anima?.name || "Anima"}
             </span>
-            {persona?.description && (
+            {anima?.description && (
               <span className="ml-2 text-xs text-obsidian-text-muted truncate">
-                {persona.description}
+                {anima.description}
               </span>
             )}
           </div>
@@ -169,7 +169,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
             value={selectedModel || ""}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModel(e.target.value)}
             className="obsidian-input text-xs py-1 px-2 max-w-[200px]"
-            disabled={loading}
+            disabled={loading || availableModels == 0}
           >
             {availableModels.length > 0 ? (
               availableModels.map((model) => (
@@ -178,7 +178,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
                 </option>
               ))
             ) : (
-              <option value="gpt-5">GPT-5</option>
+              <option value="">No Models Available</option>
             )}
           </select>
           <button
@@ -195,7 +195,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
             <div className="flex flex-col items-center justify-center h-full text-center px-8">
               <MessageCircle className="w-8 h-8 text-obsidian-border mb-3 opacity-40" />
               <p className="text-sm text-obsidian-text-muted mb-1">
-                Start a conversation with {persona?.name || "this anima"}
+                Start a conversation with {anima?.name || "this anima"}
               </p>
               <p className="text-xs text-obsidian-text-tertiary">
                 They will respond in the author&apos;s voice, grounded in their
@@ -275,7 +275,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, persona }) => {
               value={input}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`Message ${persona?.name || "anima"}...`}
+              placeholder={`Message ${anima?.name || "anima"}...`}
               rows={1}
               className="obsidian-input flex-1 resize-none text-sm py-2 px-3 max-h-32 overflow-y-auto"
               style={{

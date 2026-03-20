@@ -1,10 +1,11 @@
 """Vector database interface for Qdrant"""
 
 import logging
+from collections.abc import Callable
 from datetime import datetime
 import typing
-from typing import Any, NamedTuple, Optional, TypedDict, cast
-from uuid import uuid4
+from typing import Any, NamedTuple, Optional
+from uuid import UUID, uuid4
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
@@ -24,14 +25,10 @@ from qdrant_client.models import (
 )
 
 from ...config import Config
-from .schema import CorpusDocument, SearchFilters, SearchResult, SourceType
+from .schema import CorpusDocument, CorpusDocumentMetadata, SearchFilters, SearchResult, SourceType
 
 logger = logging.getLogger(__name__)
 
-
-class Document(TypedDict):
-    text: str
-    metadata: dict[str, Any]
 
 
 class VectorDatabase:
@@ -42,7 +39,7 @@ class VectorDatabase:
         Initialize vector database connection.
 
         Args:
-            collection_name: Name of the collection to use (e.g., "persona_jules")
+            collection_name: Name of the collection to use (e.g., "anima_jules")
             config: Optional configuration object
         """
         self.config = config
@@ -95,7 +92,7 @@ class VectorDatabase:
             logger.error(error_msg)
             raise
 
-    def create_collection(self, force: bool = False) -> None:
+    def create_collection(self, dimensions: int, force: bool = False) -> None:
         """Create collection if it doesn't exist"""
         try:
             # Check if collection exists
@@ -112,7 +109,7 @@ class VectorDatabase:
                 self.client.create_collection(
                     collection_name=self.collection_name,
                     vectors_config=VectorParams(
-                        size=self.config.embedding.dimensions,
+                        size=dimensions,
                         distance=Distance.COSINE,
                     ),
                 )
@@ -134,7 +131,10 @@ class VectorDatabase:
             raise
 
     def add_documents(
-        self, documents: list[CorpusDocument], batch_size: int = 100
+        self,
+        documents: list[CorpusDocument],
+        batch_size: int = 100,
+        progress_callback: Callable[[float | None], None] | None = None,
     ) -> None:
         """Add documents to the collection in batches"""
         if not documents:
@@ -150,13 +150,7 @@ class VectorDatabase:
             point = PointStruct(
                 id=doc.id,
                 vector=doc.embedding,
-                payload=cast(
-                    dict[str, Any],
-                    Document(
-                        text=doc.text,
-                        metadata=dict(doc.metadata),
-                    ),
-                ),
+                payload={"text": doc.text, "metadata": doc.metadata.model_dump()},
             )
             points.append(point)
 
@@ -167,15 +161,19 @@ class VectorDatabase:
         total_points = len(points)
         logger.info(f"Uploading {total_points} documents in batches of {batch_size}...")
 
+        total_batches = (total_points + batch_size - 1) // batch_size
         for i in range(0, total_points, batch_size):
             batch = points[i : i + batch_size]
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=batch,
             )
+            batch_num = i // batch_size + 1
             logger.info(
-                f"  Uploaded batch {i // batch_size + 1}/{(total_points + batch_size - 1) // batch_size} ({len(batch)} documents)"
+                f"  Uploaded batch {batch_num}/{total_batches} ({len(batch)} documents)"
             )
+            if progress_callback:
+                progress_callback(batch_num / total_batches)
 
         logger.info(f"✓ Successfully added {total_points} documents to collection")
 
@@ -202,10 +200,10 @@ class VectorDatabase:
             if result.payload:
                 search_results.append(
                     SearchResult(
+                        id=UUID(str(result.id)),
                         text=result.payload["text"],
-                        metadata=result.payload["metadata"],
+                        metadata=CorpusDocumentMetadata.model_validate(result.payload["metadata"]),
                         similarity=result.score,
-                        document_id=str(result.id),
                     )
                 )
 
@@ -303,38 +301,50 @@ class VectorDatabase:
                 keyword_results = []
 
         # 3. Combine results using Reciprocal Rank Fusion (RRF)
+        # TODO the id stuff here is pretty odd
         class ResultScore(NamedTuple):
+            id: UUID
             semantic_score: float
             semantic_rank: Optional[int]
             keyword_rank: Optional[int]
             text: str
-            metadata: dict[str, Any]
-        result_scores: dict[str, ResultScore] = {}  # document_id -> (semantic_score, keyword_rank, text, metadata)
+            metadata: CorpusDocumentMetadata
+        result_scores: dict[str, ResultScore] = {}
+
+        def _parse_result(result: Any) -> tuple[UUID, str, CorpusDocumentMetadata]:
+            doc_id = UUID(str(result.id))
+            text = result.payload["text"] if result.payload else ""
+            metadata = CorpusDocumentMetadata.model_validate(result.payload["metadata"] if result.payload else {})
+            return doc_id, text, metadata
 
         # Process semantic results
         for rank, result in enumerate(semantic_results, 1):
-            doc_id = str(result.id)
-            result_scores[doc_id] = ResultScore(
+            doc_id_str = str(result.id)
+            doc_id, text, metadata = _parse_result(result)
+            result_scores[doc_id_str] = ResultScore(
+                id=doc_id,
                 semantic_score=result.score,
                 semantic_rank=rank,
                 keyword_rank=None,
-                text=result.payload["text"] if result.payload else "",
-                metadata=result.payload["metadata"] if result.payload else {},
+                text=text,
+                metadata=metadata,
             )
 
         # Process keyword results (if any)
         if keyword_results:
             for rank, result in enumerate(keyword_results, 1):
-                doc_id = str(result.id)
-                if doc_id in result_scores:
-                    result_scores[doc_id] = result_scores[doc_id]._replace(keyword_rank=rank)
+                doc_id_str = str(result.id)
+                if doc_id_str in result_scores:
+                    result_scores[doc_id_str] = result_scores[doc_id_str]._replace(keyword_rank=rank)
                 else:
-                    result_scores[doc_id] = ResultScore(
+                    doc_id, text, metadata = _parse_result(result)
+                    result_scores[doc_id_str] = ResultScore(
+                        id=doc_id,
                         semantic_score=result.score,
                         semantic_rank=None,
                         keyword_rank=rank,
-                        text=result.payload["text"] if result.payload else "",
-                        metadata=result.payload["metadata"] if result.payload else {},
+                        text=text,
+                        metadata=metadata,
                     )
 
         # Calculate hybrid scores
@@ -342,13 +352,13 @@ class VectorDatabase:
 
         # If no keyword results, just use semantic scores directly
         if not keyword_results:
-            for doc_id, info in result_scores.items():
+            for info in result_scores.values():
                 final_results.append(
                     SearchResult(
+                        id=info.id,
                         text=info.text,
                         metadata=info.metadata,
-                        similarity=info.semantic_score,  # Use raw semantic score
-                        document_id=doc_id,
+                        similarity=info.semantic_score,
                     )
                 )
         else:
@@ -357,7 +367,7 @@ class VectorDatabase:
             # We'll use k=60 as standard in literature
             k_rrf = 60
 
-            for doc_id, info in result_scores.items():
+            for info in result_scores.values():
                 # Semantic component
                 semantic_component: float
                 if info.semantic_rank is not None:
@@ -387,10 +397,10 @@ class VectorDatabase:
 
                 final_results.append(
                     SearchResult(
+                        id=info.id,
                         text=info.text,
                         metadata=info.metadata,
-                        similarity=hybrid_score,  # Use hybrid score as similarity
-                        document_id=doc_id,
+                        similarity=hybrid_score,
                     )
                 )
 
@@ -405,7 +415,7 @@ class VectorDatabase:
 
         return final_results[:k]
 
-    def get_all_documents(self) -> list[Document]:
+    def get_all_documents(self) -> list[CorpusDocument]:
         """
         Retrieve all documents from the collection using scroll pagination.
 
@@ -428,12 +438,11 @@ class VectorDatabase:
 
                 for point in results:
                     if point.payload:
-                        all_docs.append(
-                            Document(
-                                text=point.payload.get("text", ""),
-                                metadata=point.payload.get("metadata", {}),
-                            )
-                        )
+                        all_docs.append(CorpusDocument.model_validate({
+                            "id": point.id,
+                            "text": point.payload.get("text", ""),
+                            "metadata": point.payload.get("metadata", {}),
+                        }))
 
                 if next_offset is None:
                     break

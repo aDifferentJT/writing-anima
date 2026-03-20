@@ -3,12 +3,36 @@
  * This helps agents learn from user preferences over time
  */
 
-import type {
-  EnrichedFeedbackItem,
-  FeedbackHistory,
-  FeedbackHistoryRecord,
-  FeedbackStatistics,
-} from '../types';
+import type { EnrichedFeedbackItem } from '../types';
+
+export interface FeedbackHistoryRecord {
+  id: string;
+  agent: string;
+  category: string;
+  title: string;
+  feedback: string;
+  quote?: string;
+  timestamp: string;
+  severity: string;
+}
+
+export interface FeedbackHistory {
+  accepted: FeedbackHistoryRecord[];
+  rejected: FeedbackHistoryRecord[];
+}
+
+export interface FeedbackStatistics {
+  totalAccepted: number;
+  totalRejected: number;
+  categoryCounts: {
+    accepted: Record<string, number>;
+    rejected: Record<string, number>;
+  };
+  agentCounts: {
+    accepted: Record<string, number>;
+    rejected: Record<string, number>;
+  };
+}
 
 interface RecentHistoryItem extends FeedbackHistoryRecord {
   action: 'accepted' | 'rejected';

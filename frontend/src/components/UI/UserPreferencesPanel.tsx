@@ -4,7 +4,29 @@
  */
 
 import React, { useState } from 'react';
-import type { UserPreferences, UserFeedback, SystemMetrics, AvailableAgent } from '../../types';
+import type { SystemMetrics } from '../../types';
+
+interface UserPreferences {
+  thoroughness: number;
+  speedPriority: number;
+  costSensitivity: number;
+  preferredAgents: string[];
+  blockedAgents: string[];
+}
+
+interface UserFeedback {
+  overallRating: number;
+  speedSatisfaction: number;
+  thoroughnessSatisfaction: number;
+  mostHelpfulFeatures: string[];
+  improvementSuggestions: string;
+}
+
+interface AvailableAgent {
+  id: string;
+  name: string;
+  description: string;
+}
 
 interface SystemWithPreferences {
   userPreferences?: {

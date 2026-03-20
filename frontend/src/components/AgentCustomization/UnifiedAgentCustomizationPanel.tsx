@@ -10,20 +10,18 @@ import {
   Layout, Edit3, X, Download, Upload
 } from 'lucide-react';
 import userAgentService from '../../services/userAgentService';
-import { UserAgent, AgentTemplate, AgentConfig } from '../../types';
+import type { UserAgent, AgentConfig } from '../../types';
+import type { AgentTemplate } from '../../services/userAgentService';
 
 interface UnifiedAgentCustomizationPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: string;
-  embedded?: boolean;
-  onAgentsUpdated?: () => void;
+  onAgentsUpdated: () => void;
 }
 
 export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationPanelProps> = ({
   isOpen,
   onClose,
-  embedded = false,
   onAgentsUpdated
 }) => {
   const [agents, setAgents] = useState<UserAgent[]>([]);
@@ -121,9 +119,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
       await loadData();
 
       // Notify parent about agent changes
-      if (onAgentsUpdated) {
-        onAgentsUpdated();
-      }
+      onAgentsUpdated();
 
     } catch (err) {
       console.error('Failed to save agent:', err);
@@ -185,9 +181,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
       await loadData();
       setSuccess('Agent deleted successfully');
 
-      if (onAgentsUpdated) {
-        onAgentsUpdated();
-      }
+      onAgentsUpdated();
 
     } catch (err) {
       console.error('Failed to delete agent:', err);
@@ -207,9 +201,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
         setSelectedAgent({ ...selectedAgent, enabled });
       }
 
-      if (onAgentsUpdated) {
-        onAgentsUpdated();
-      }
+      onAgentsUpdated();
 
     } catch (err) {
       console.error('Failed to toggle agent:', err);
@@ -224,9 +216,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
       await loadData();
       setSuccess('Agent cloned successfully');
 
-      if (onAgentsUpdated) {
-        onAgentsUpdated();
-      }
+      onAgentsUpdated();
     } catch (err) {
       console.error('Failed to clone agent:', err);
       setError('Failed to clone agent');
@@ -314,9 +304,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
         setSuccess(`Agent "${importedAgent.name}" imported successfully`);
       }
 
-      if (onAgentsUpdated) {
-        onAgentsUpdated();
-      }
+      onAgentsUpdated();
     } catch (err) {
       console.error('Failed to import agent(s):', err);
       setError((err as Error).message || 'Failed to import agent(s). Please check the file format.');
@@ -374,14 +362,12 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
               Create and manage your analysis agents
             </p>
           </div>
-          {!embedded && (
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          )}
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
       </div>
 
@@ -818,10 +804,6 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
       </div>
     </div>
   );
-
-  if (embedded) {
-    return content;
-  }
 
   return isOpen ? (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

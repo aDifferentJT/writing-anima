@@ -13,7 +13,7 @@ import { ThoughtStep } from "../../types";
 interface ThoughtProcessProps {
   steps: ThoughtStep[] | null;
   isAnalyzing: boolean;
-  model?: string;
+  model: string;
 }
 
 /**
@@ -91,11 +91,9 @@ const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, mod
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {model && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-obsidian-bg rounded border border-obsidian-border text-obsidian-text-muted font-mono">
-              {model}
-            </span>
-          )}
+          <span className="text-[10px] px-1.5 py-0.5 bg-obsidian-bg rounded border border-obsidian-border text-obsidian-text-muted font-mono">
+            {model}
+          </span>
           {steps.length > 1 && (
             <span className="text-xs text-obsidian-text-muted">
               {searchSteps.length} searches / {steps.length} steps

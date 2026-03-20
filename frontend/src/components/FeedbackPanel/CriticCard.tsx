@@ -8,7 +8,6 @@ import {
   Clock,
   Target,
   Lightbulb,
-  ArrowRight,
   BookOpen,
   ExternalLink,
 } from "lucide-react";
@@ -91,23 +90,17 @@ const renderInlineMarkdown = (text: string): React.ReactNode => {
 
 interface CriticCardProps {
   feedback: EnrichedFeedbackItem | string;
-  onDismiss?: (id: string) => void;
-  onMarkResolved?: (id: string) => void;
-  onCreateComplex?: (question?: string, relevantText?: string) => void;
-  onApplyInsight?: (suggestion?: string, complexId?: string, nodeId?: string) => void;
-  onExploreFramework?: (framework?: string, keyAuthorities?: string[], suggestedResources?: string[]) => void;
-  onJumpToText?: (id: string) => void;
-  onViewCorpusSource?: (source: CorpusSource) => void;
+  onDismiss: (id: string) => void;
+  onMarkResolved: (id: string) => void;
+  onJumpToReference: (text: string) => void;
+  onViewCorpusSource: (source: CorpusSource) => void;
 }
 
 const CriticCard: React.FC<CriticCardProps> = ({
   feedback,
   onDismiss,
   onMarkResolved,
-  onCreateComplex,
-  onApplyInsight,
-  onExploreFramework,
-  onJumpToText,
+  onJumpToReference,
   onViewCorpusSource,
 }) => {
   if (typeof feedback === "string") {
@@ -126,9 +119,9 @@ const CriticCard: React.FC<CriticCardProps> = ({
   console.log("[CriticCard] sources:", feedbackData.sources);
   console.log("[CriticCard] corpus_sources:", feedbackData.corpus_sources);
 
-  // Use personaName if available (from anima), otherwise fall back to agent
+  // Use animaName if available (from anima), otherwise fall back to agent
   const displayAgent =
-    feedbackData.personaName || feedbackData.agent || "AI Critic";
+    feedbackData.animaName || feedbackData.agent || "AI Critic";
 
   // Map feedback type to icon and color
   const getIconAndColor = (type: string, _severity: string): { Icon: React.ComponentType<{ className?: string }>; color: string } => {
@@ -205,35 +198,6 @@ const CriticCard: React.FC<CriticCardProps> = ({
   );
   const statusIcon = getStatusIcon(feedbackData.status);
 
-  // Handle special inquiry integration actions
-  const handleSpecialAction = (): void => {
-    const actionData = feedbackData.actionData;
-    if (!actionData) return;
-
-    switch (actionData.type) {
-      case "create_complex":
-        onCreateComplex?.(actionData.question, actionData.relevantText);
-        break;
-      case "apply_insight":
-        onApplyInsight?.(
-          actionData.suggestion,
-          actionData.complexId,
-          actionData.nodeId,
-        );
-        break;
-      case "explore_framework":
-        onExploreFramework?.(
-          actionData.framework,
-          actionData.keyAuthorities,
-          actionData.suggestedResources,
-        );
-        break;
-      default:
-        console.warn("Unknown action type:", actionData.type);
-        break;
-    }
-  };
-
   return (
     <div
       className={`border rounded p-2.5 ${severityStyle} transition-all duration-150 hover:border-obsidian-border-focus group`}
@@ -254,50 +218,17 @@ const CriticCard: React.FC<CriticCardProps> = ({
         {statusIcon}
 
         <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Special action button for inquiry integration */}
-          {feedbackData.actionData && feedbackData.actionData.type && (
-            <button
-              onClick={handleSpecialAction}
-              className={`p-0.5 rounded transition-colors ${
-                feedbackData.actionData.type === "create_complex"
-                  ? "hover:bg-green-100"
-                  : feedbackData.actionData.type === "apply_insight"
-                    ? "hover:bg-yellow-100"
-                    : "hover:bg-indigo-100"
-              }`}
-              title={
-                feedbackData.actionData.type === "create_complex"
-                  ? "Create Inquiry Complex"
-                  : feedbackData.actionData.type === "apply_insight"
-                    ? "Apply Insight"
-                    : "Explore Framework"
-              }
-            >
-              <ArrowRight
-                className={`w-3 h-3 ${
-                  feedbackData.actionData.type === "create_complex"
-                    ? "text-green-600"
-                    : feedbackData.actionData.type === "apply_insight"
-                      ? "text-yellow-600"
-                      : "text-indigo-600"
-                }`}
-              />
-            </button>
-          )}
-
           {(!feedbackData.status || feedbackData.status === "active") && (
             <>
               <button
-                onClick={() =>
-                  onMarkResolved && onMarkResolved(feedbackData.id)
-                }
+                onClick={() => onMarkResolved(feedbackData.id)}
                 className="p-0.5 hover:bg-green-100 rounded transition-colors"
                 title="Mark as resolved"
               >
                 <Check className="w-3 h-3 text-green-600" />
               </button>
               <button
-                onClick={() => onDismiss && onDismiss(feedbackData.id)}
+                onClick={() => onDismiss(feedbackData.id)}
                 className="p-0.5 hover:bg-red-100 rounded transition-colors"
                 title="Dismiss"
               >
@@ -312,12 +243,6 @@ const CriticCard: React.FC<CriticCardProps> = ({
         <h4 className="font-semibold text-obsidian-text-primary text-sm mb-1.5 leading-tight">
           {feedbackData.title}
         </h4>
-      )}
-
-      {feedbackData.status === "retracted" && feedbackData.retractedReason && (
-        <div className="mb-2 p-1.5 bg-obsidian-bg rounded text-xs text-obsidian-text-secondary border border-obsidian-border">
-          <strong>Retracted:</strong> {feedbackData.retractedReason}
-        </div>
       )}
 
       <div
@@ -339,8 +264,8 @@ const CriticCard: React.FC<CriticCardProps> = ({
         feedbackData.positions[0].text && (
           <div
             className="mt-2 p-2 bg-obsidian-bg rounded border-l-2 border-obsidian-accent-light cursor-pointer hover:bg-obsidian-surface transition-colors"
-            onClick={() => onJumpToText && onJumpToText(feedbackData.id)}
-            title="Click to jump"
+            onClick={() => onJumpToReference(feedbackData.positions[0].text)}
+            title="Click to jump to reference in editor"
           >
             <div className="text-xs text-obsidian-text-muted mono mb-0.5">
               Referenced:
@@ -365,12 +290,8 @@ const CriticCard: React.FC<CriticCardProps> = ({
           {feedbackData.corpus_sources.map((source, idx) => (
             <div
               key={idx}
-              className={`p-2 bg-purple-50/50 rounded border border-purple-200 text-xs group/source ${
-                onViewCorpusSource
-                  ? "cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors"
-                  : ""
-              }`}
-              onClick={() => onViewCorpusSource && onViewCorpusSource(source)}
+              className="p-2 bg-purple-50/50 rounded border border-purple-200 text-xs group/source cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors"
+              onClick={() => onViewCorpusSource(source)}
             >
               <div className="text-obsidian-text-primary italic leading-tight mb-1">
                 &ldquo;
@@ -390,9 +311,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
                     {source.relevance}
                   </span>
                 )}
-                {onViewCorpusSource && (
-                  <ExternalLink className="w-3 h-3 text-purple-400 opacity-0 group-hover/source:opacity-100 transition-opacity flex-shrink-0" />
-                )}
+                <ExternalLink className="w-3 h-3 text-purple-400 opacity-0 group-hover/source:opacity-100 transition-opacity flex-shrink-0" />
               </div>
             </div>
           ))}
@@ -439,34 +358,6 @@ const CriticCard: React.FC<CriticCardProps> = ({
             <strong className="text-obsidian-text-primary">Suggestion:</strong>{" "}
             {feedbackData.suggestion}
           </p>
-        </div>
-      )}
-
-      {/* Special inquiry integration content */}
-      {feedbackData.actionData && (
-        <div className="mt-2 p-2 bg-obsidian-bg rounded text-xs border border-obsidian-border">
-          {feedbackData.actionData.type === "create_complex" && (
-            <div>
-              <strong className="text-obsidian-text-primary">Q:</strong> &ldquo;
-              {feedbackData.actionData.question}&rdquo;
-              {feedbackData.actionData.relevantText && (
-                <div className="mt-1 text-obsidian-text-tertiary">
-                  <strong>Context:</strong>{" "}
-                  {feedbackData.actionData.relevantText}
-                </div>
-              )}
-            </div>
-          )}
-
-          {feedbackData.actionData.type === "explore_framework" &&
-            feedbackData.actionData.keyAuthorities && (
-              <div>
-                <strong className="text-obsidian-text-primary">
-                  Authorities:
-                </strong>{" "}
-                {feedbackData.actionData.keyAuthorities.join(", ")}
-              </div>
-            )}
         </div>
       )}
     </div>

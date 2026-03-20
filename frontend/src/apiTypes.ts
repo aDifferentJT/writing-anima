@@ -54,15 +54,12 @@ export interface ReceivedFeedbackItem {
 /** Frontend enrichment of ReceivedFeedbackItem with UI state */
 export interface EnrichedFeedbackItem extends ReceivedFeedbackItem {
   agent: string;
-  personaName?: string;
+  animaName?: string;
   timestamp?: string;
   status: string;
-  source?: string;
   suggestion?: string;
   quote?: string;
-  retractedReason?: string;
   resolvedAt?: string;
-  actionData?: ActionData;
 }
 
 // ── Projects ──────────────────────────────────────────────────────────────────
@@ -93,17 +90,24 @@ export interface Project {
   updated_at: string;
 }
 
-// ── Personas ──────────────────────────────────────────────────────────────────
+// ── Animas ────────────────────────────────────────────────────────────────────
 
-/** backend: PersonaResponse (flat — Persona SQLModel fields + corpus_available) */
-export interface Persona {
+/** backend: AnimaResponse (flat — Anima SQLModel fields + corpus_available) */
+export interface Anima {
   id: string;
   name: string;
   description?: string;
-  model: string;
   chunk_count: number;
   corpus_available: boolean;
+  embedding_provider: string;
   created_at: string;
+}
+
+/** backend: EmbeddingProviderInfo */
+export interface EmbeddingProviderInfo {
+  id: string;
+  name: string;
+  provider: string;
 }
 
 /** backend: AvailableModel */
@@ -126,7 +130,6 @@ export interface CorpusChunk {
 /** backend: CorpusFileModel */
 export interface CorpusFile {
   filename: string;
-  file_path: string;
   chunk_count: number;
   chunks: CorpusChunk[];
 }

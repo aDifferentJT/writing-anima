@@ -4,18 +4,21 @@
  */
 
 import type {
-  Persona,
+  Anima,
   ModelInfo,
-  StreamAnalysisCallbacks,
-  StreamAnalysisContext,
-  ChatCallbacks,
   ChatMessage,
+  CompleteMessage,
   CorpusFile,
+  EnrichedFeedbackItem,
+  ReceivedFeedbackItem,
+  StatusMessage,
 } from '../types';
-import type { CorpusUploadMessage } from '../apiTypes';
 
-const API_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const WS_URL: string = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
+import type { CorpusUploadMessage, EmbeddingProviderInfo } from '../apiTypes';
+
+const API_URL: string = import.meta.env.VITE_API_URL || window.location.origin;
+const WS_URL: string = import.meta.env.VITE_WS_URL ||
+  window.location.origin.replace(/^http/, "ws");
 
 interface CorpusDocumentsResponse {
   files?: CorpusFile[];
@@ -27,27 +30,41 @@ interface HealthCheckResponse {
   [key: string]: unknown;
 }
 
-interface PersonaUpdates {
-  name?: string;
-  description?: string;
-  model?: string;
+interface StreamAnalysisContext {
+  purpose: string;
+  criteria: string[];
+  feedbackHistory: EnrichedFeedbackItem[];
+  model: string;
+}
+
+interface StreamAnalysisCallbacks {
+  onStatus: (status: StatusMessage) => void;
+  onFeedback: (item: ReceivedFeedbackItem) => void;
+  onComplete: (result: CompleteMessage) => void;
+  onError: (error: Error) => void;
+}
+
+export interface ChatCallbacks {
+  onToken: (token: string) => void;
+  onComplete: (response: string) => void;
+  onError: (error: Error) => void;
 }
 
 class AnimaService {
   /**
    * Analyze writing with streaming updates via WebSocket
    */
-  async streamAnalysis(
+  async analysis(
     content: string,
-    personaId: string,
-    context: StreamAnalysisContext = {},
-    callbacks: StreamAnalysisCallbacks = {},
+    animaId: string,
+    context: StreamAnalysisContext,
+    callbacks: StreamAnalysisCallbacks,
   ): Promise<WebSocket> {
     const {
-      onStatus = () => {},
-      onFeedback = () => {},
-      onComplete = () => {},
-      onError = () => {},
+      onStatus,
+      onFeedback,
+      onComplete,
+      onError,
     } = callbacks;
 
     return new Promise<WebSocket>((resolve, reject) => {
@@ -62,14 +79,13 @@ class AnimaService {
         ws.send(
           JSON.stringify({
             content,
-            persona_id: personaId,
+            anima_id: animaId,
             model: context.model,
             context: {
               purpose: context.purpose || null,
               criteria: context.criteria || [],
               feedback_history: context.feedbackHistory || [],
             },
-            max_feedback_items: context.maxFeedbackItems || 10,
           }),
         );
 
@@ -151,50 +167,50 @@ class AnimaService {
   }
 
   /**
-   * Get all personas for a user
+   * Get all animas for a user
    */
-  async getPersonas(): Promise<Persona[]> {
+  async getAnimas(): Promise<Anima[]> {
     try {
-      const response = await fetch(`${API_URL}/api/personas`);
+      const response = await fetch(`${API_URL}/api/animas`);
 
       if (!response.ok) {
-        throw new Error("Failed to fetch personas");
+        throw new Error("Failed to fetch animas");
       }
 
       const data = await response.json();
-      return data.personas || [];
+      return data.animas || [];
     } catch (error) {
-      console.error("Error fetching personas:", error);
+      console.error("Error fetching animas:", error);
       throw error;
     }
   }
 
   /**
-   * Get a specific persona
+   * Get a specific anima
    */
-  async getPersona(personaId: string): Promise<Persona> {
+  async getAnima(animaId: string): Promise<Anima> {
     try {
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}`,
+        `${API_URL}/api/animas/${animaId}`,
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch persona");
+        throw new Error("Failed to fetch anima");
       }
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching persona:", error);
+      console.error("Error fetching anima:", error);
       throw error;
     }
   }
 
   /**
-   * Get available models for persona selection
+   * Get available models for anima selection
    */
   async getAvailableModels(): Promise<ModelInfo[]> {
     try {
-      const response = await fetch(`${API_URL}/api/personas/models`);
+      const response = await fetch(`${API_URL}/api/animas/models`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch available models");
@@ -209,11 +225,26 @@ class AnimaService {
   }
 
   /**
-   * Create a new persona
+   * Get available embedding providers
    */
-  async createPersona(name: string, description: string, model: string = "gpt-5"): Promise<Persona> {
+  async getEmbeddingProviders(): Promise<EmbeddingProviderInfo[]> {
     try {
-      const response = await fetch(`${API_URL}/api/personas`, {
+      const response = await fetch(`${API_URL}/api/animas/embedding-providers`);
+      if (!response.ok) throw new Error("Failed to fetch embedding providers");
+      const data = await response.json();
+      return data.providers || [];
+    } catch (error) {
+      console.error("Error fetching embedding providers:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new anima
+   */
+  async createAnima(name: string, description: string, embeddingProvider: string): Promise<Anima> {
+    try {
+      const response = await fetch(`${API_URL}/api/animas`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -221,75 +252,47 @@ class AnimaService {
         body: JSON.stringify({
           name,
           description,
-          model,
+          embedding_provider: embeddingProvider,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || "Failed to create persona");
+        throw new Error(error.detail || "Failed to create anima");
       }
 
       return await response.json();
     } catch (error) {
-      console.error("Error creating persona:", error);
+      console.error("Error creating anima:", error);
       throw error;
     }
   }
 
   /**
-   * Update a persona's settings
+   * Delete an anima
    */
-  async updatePersona(personaId: string, updates: PersonaUpdates): Promise<Persona> {
+  async deleteAnima(animaId: string): Promise<void> {
     try {
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updates),
-        },
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to update persona");
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error updating persona:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a persona
-   */
-  async deletePersona(personaId: string): Promise<void> {
-    try {
-      const response = await fetch(
-        `${API_URL}/api/personas/${personaId}`,
+        `${API_URL}/api/animas/${animaId}`,
         { method: "DELETE" },
       );
 
       if (!response.ok) {
-        throw new Error("Failed to delete persona");
+        throw new Error("Failed to delete anima");
       }
     } catch (error) {
-      console.error("Error deleting persona:", error);
+      console.error("Error deleting anima:", error);
       throw error;
     }
   }
 
   /**
-   * Upload corpus files for a persona via WebSocket.
+   * Upload corpus files for an anima via WebSocket.
    * Yields status messages during processing and a final complete message.
    * Throws on error.
    */
-  async *uploadCorpus(personaId: string, files: File[]): AsyncGenerator<CorpusUploadMessage> {
+  async *uploadCorpus(animaId: string, files: File[]): AsyncGenerator<CorpusUploadMessage> {
     const toBase64 = (file: File): Promise<string> =>
       new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -300,8 +303,10 @@ class AnimaService {
 
     type Node = { msg: CorpusUploadMessage; next: Promise<Node | null> };
 
-    let { promise: next, resolve: resolveNext, reject: rejectNext } =
+    const { promise: next, resolve: initialResolve, reject: initialReject } =
       Promise.withResolvers<Node | null>();
+    let resolveNext = initialResolve;
+    let rejectNext = initialReject;
 
     const push = (msg: CorpusUploadMessage) => {
       const { promise: next, resolve, reject } = Promise.withResolvers<Node | null>();
@@ -310,7 +315,7 @@ class AnimaService {
       rejectNext = reject;
     };
 
-    const ws = new WebSocket(`${WS_URL}/api/personas/${personaId}/corpus`);
+    const ws = new WebSocket(`${WS_URL}/api/animas/${animaId}/corpus`);
 
     ws.onopen = async () => {
       const filesData = await Promise.all(
@@ -351,12 +356,12 @@ class AnimaService {
   }
 
   /**
-   * Get all corpus documents for a persona, grouped by source file
+   * Get all corpus documents for an anima, grouped by source file
    */
-  async getCorpusDocuments(personaId: string): Promise<CorpusDocumentsResponse> {
+  async getCorpusDocuments(animaId: string): Promise<CorpusDocumentsResponse> {
     try {
       const response = await fetch(
-        `${API_URL}/api/personas/${personaId}/corpus/documents`,
+        `${API_URL}/api/animas/${animaId}/corpus/documents`,
       );
 
       if (!response.ok) {
@@ -371,18 +376,17 @@ class AnimaService {
   }
 
   /**
-   * Chat with a persona using streaming WebSocket
+   * Chat with an anima using streaming WebSocket
    */
-  streamChat(
+  chat(
     message: string,
-    personaId: string,
+    animaId: string,
     conversationHistory: ChatMessage[],
     callbacks: ChatCallbacks,
     model: string,
   ): Promise<WebSocket> {
     const {
       onToken = () => {},
-      onStatus = () => {},
       onComplete = () => {},
       onError = () => {},
     } = callbacks;
@@ -394,7 +398,7 @@ class AnimaService {
         ws.send(
           JSON.stringify({
             message,
-            persona_id: personaId,
+            anima_id: animaId,
             conversation_history: conversationHistory,
             model,
           }),
@@ -410,7 +414,7 @@ class AnimaService {
               onToken(data.content);
               break;
             case "status":
-              onStatus(data.message);
+              // TODO unused onStatus(data.message);
               break;
             case "complete":
               onComplete(data.response);

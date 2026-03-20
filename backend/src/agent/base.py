@@ -7,7 +7,11 @@ from typing import Any, NamedTuple, Optional
 
 from openai.types.chat import ChatCompletionMessageParam
 
+from sqlmodel import Session, select
+
+from ..api.models import Anima
 from ..config import Config
+from ..database.general import general_db
 from .tools import CorpusSearchTool, IncrementalReasoningTool
 
 logger = logging.getLogger(__name__)
@@ -45,7 +49,7 @@ class BaseAgent(ABC):
 
     def __init__(
         self,
-        persona_id: str,
+        anima_id: str,
         config: Config,
         use_json_mode: bool,
     ):
@@ -53,18 +57,21 @@ class BaseAgent(ABC):
         Initialize base agent.
 
         Args:
-            persona_id: Persona identifier (e.g., "jules", "heidegger")
+            anima_id: Anima identifier (e.g., "jules", "heidegger")
             config: Configuration object
         """
         self.config = config
         self.use_json_mode = use_json_mode
-        self.persona_id = persona_id
-        self.persona = config.get_persona(persona_id)
-        self.user_name = self.persona.name  # For backwards compatibility
+        self.anima_id = anima_id
+
+        with Session(general_db) as session:
+            self.anima = session.exec(select(Anima).where(Anima.id == anima_id)).one()
+
+        self.user_name = self.anima.name
         self.max_iterations = 20
-        self.search_tool = CorpusSearchTool(self.persona.collection_name, config)
+        self.search_tool = CorpusSearchTool(self.anima.collection_name, config, self.anima.embedding_provider)
         self.reasoning_tool = IncrementalReasoningTool(
-            self.persona.collection_name, self.persona.name, config
+            self.anima.collection_name, self.anima.name, config, self.anima.embedding_provider
         )
 
         self.prompt_file: Optional[str] = None
@@ -179,13 +186,7 @@ class BaseAgent(ABC):
                 )
 
                 for i, sample in enumerate(style_pack, 1):
-                    source = sample.metadata.get("source", "unknown")
-                    file_path = sample.metadata.get("file_path", "")
-                    # Extract filename from path for better reference
-                    if file_path:
-                        import os
-
-                        source = os.path.basename(file_path)
+                    source = sample.metadata.filename
                     prompt += f"\n--- Example {i} (from {source}) ---\n"
                     # Use longer samples to capture style better (1000 chars)
                     text = sample.text

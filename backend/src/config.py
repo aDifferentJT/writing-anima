@@ -12,19 +12,6 @@ from pydantic import BaseModel, Field, model_validator
 load_dotenv()
 
 
-class PersonaConfig(BaseModel):
-    """Persona configuration"""
-
-    name: str
-    corpus_path: str
-    collection_name: str
-    description: Optional[str] = None
-    # Optional per-persona overrides
-    chunk_size: Optional[int] = None
-    chunk_overlap: Optional[int] = None
-    similarity_threshold: Optional[float] = None
-
-
 class ModelConfig(BaseModel):
     """Configuration for a model available in the UI"""
 
@@ -67,9 +54,10 @@ class VectorDBConfig(BaseModel):
 
 
 class EmbeddingConfig(BaseModel):
-    """Embedding configuration"""
+    """Embedding configuration for a single provider"""
 
-    provider: str = "openai"
+    name: str
+    provider: str  # backend discriminator: "openai" or "mlx"
     api_key_env: Optional[str] = None
     model: str = "text-embedding-3-small"
     dimensions: int = 1536
@@ -112,11 +100,10 @@ class RetrievalConfig(BaseModel):
 class Config(BaseModel):
     """Main configuration"""
 
-    personas: dict[str, PersonaConfig]
     models: dict[str, ModelConfig]
     agent: AgentConfig
     vector_db: VectorDBConfig
-    embedding: EmbeddingConfig
+    embeddings: dict[str, EmbeddingConfig]
     corpus: CorpusConfig
     retrieval: RetrievalConfig
 
@@ -132,26 +119,11 @@ class Config(BaseModel):
 
         return cls(**config_data)
 
-    def get_persona(self, persona_id: str) -> PersonaConfig:
-        """
-        Get persona configuration by ID.
-
-        Args:
-            persona_id: Persona identifier
-
-        Returns:
-            PersonaConfig for the requested persona
-
-        Raises:
-            ValueError: If persona_id not found
-        """
-        if persona_id not in self.personas:
-            available = ", ".join(self.personas.keys())
-            raise ValueError(
-                f"Persona '{persona_id}' not found. Available personas: {available}"
-            )
-
-        return self.personas[persona_id]
+    def get_embedding(self, embedding_id: str) -> EmbeddingConfig:
+        if embedding_id not in self.embeddings:
+            available = ", ".join(self.embeddings.keys())
+            raise ValueError(f"Embedding '{embedding_id}' not found. Available: {available}")
+        return self.embeddings[embedding_id]
 
     def get_model(self, model_id: str) -> ModelConfig:
         """

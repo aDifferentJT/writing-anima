@@ -3,15 +3,44 @@
  * Manages user-created agents with simple prompt editing
  */
 
-import type {
-  UserAgent,
-  AgentConfig,
-  AgentTemplate,
-  AgentExport,
-  BulkAgentExport,
-  ImportResults,
-  AgentStats,
-} from '../types';
+import type { UserAgent, AgentConfig } from '../types';
+
+export interface AgentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  icon: string;
+  defaultTier: string;
+  capabilities: string[];
+  responseFormat: string;
+  basePrompt: string;
+}
+
+export interface AgentExport extends UserAgent {
+  exportedAt: string;
+  exportVersion: string;
+}
+
+export interface BulkAgentExport {
+  agents: AgentExport[];
+  exportedAt: string;
+  exportVersion: string;
+  totalAgents: number;
+}
+
+export interface ImportResults {
+  imported: UserAgent[];
+  skipped: UserAgent[];
+  errors: { agentName: string; error: string }[];
+}
+
+export interface AgentStats {
+  total: number;
+  enabled: number;
+  byCategory: Record<string, number>;
+  totalUsage: number;
+}
 
 // Agent templates (formerly built-in agents)
 export const AGENT_TEMPLATES: Record<string, AgentTemplate> = {
@@ -329,7 +358,7 @@ class UserAgentService {
   /**
    * Clone agent
    */
-  cloneAgent(agentId: string, modifications: AgentConfig = {}): UserAgent {
+  cloneAgent(agentId: string): UserAgent {
     const sourceAgent = this.userAgents[agentId];
     if (!sourceAgent) {
       throw new Error(`Agent ${agentId} not found`);
@@ -337,8 +366,7 @@ class UserAgentService {
 
     return this.createAgent({
       ...sourceAgent,
-      name: modifications.name || `${sourceAgent.name} (Copy)`,
-      ...modifications
+      name: `${sourceAgent.name} (Copy)`,
     });
   }
 

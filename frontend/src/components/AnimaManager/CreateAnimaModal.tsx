@@ -1,21 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import animaService from "../../services/animaService";
+import type { EmbeddingProviderInfo } from "../../apiTypes";
 
-interface CreatePersonaData {
+interface AnimaCreateData {
   name: string;
   description: string | null;
+  embeddingProvider: string;
 }
 
-interface CreatePersonaModalProps {
+interface CreateAnimaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (data: CreatePersonaData) => Promise<void>;
+  onCreate: (data: AnimaCreateData) => Promise<void>;
 }
 
-const CreatePersonaModal: React.FC<CreatePersonaModalProps> = ({ isOpen, onClose, onCreate }) => {
+const CreateAnimaModal: React.FC<CreateAnimaModalProps> = ({ isOpen, onClose, onCreate }) => {
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  const [embeddingProvider, setEmbeddingProvider] = useState<string | null>(null);
+  const [providers, setProviders] = useState<EmbeddingProviderInfo[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    animaService.getEmbeddingProviders().then(setProviders);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -27,16 +37,18 @@ const CreatePersonaModal: React.FC<CreatePersonaModalProps> = ({ isOpen, onClose
       return;
     }
 
+    if (!embeddingProvider) {
+      alert("Please select an embedding provider");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await onCreate({
         name: name.trim(),
         description: description.trim() || null,
+        embeddingProvider: embeddingProvider!,
       });
-
-      // Reset form
-      setName("");
-      setDescription("");
     } catch (error) {
       console.error("Error creating anima:", error);
     } finally {
@@ -97,6 +109,27 @@ const CreatePersonaModal: React.FC<CreatePersonaModalProps> = ({ isOpen, onClose
             </p>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-obsidian-text-primary mb-2">
+              Embedding Provider *
+            </label>
+            <select
+              value={embeddingProvider ?? ""}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                setEmbeddingProvider(e.target.value || null)
+              }
+              className="w-full px-4 py-2 bg-obsidian-bg border border-obsidian-border text-obsidian-text-primary focus:outline-none focus:border-obsidian-accent-primary"
+            >
+              <option value="" disabled>Select a provider...</option>
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-obsidian-text-muted">
+              Must match the provider used when uploading corpus
+            </p>
+          </div>
+
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-4">
             <button
@@ -121,4 +154,4 @@ const CreatePersonaModal: React.FC<CreatePersonaModalProps> = ({ isOpen, onClose
   );
 };
 
-export default CreatePersonaModal;
+export default CreateAnimaModal;
