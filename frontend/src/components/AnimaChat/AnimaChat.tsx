@@ -149,18 +149,18 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
       {/* Panel */}
       <div
         ref={panelRef}
-        className="fixed inset-y-0 right-0 w-[50vw] max-w-2xl bg-obsidian-surface shadow-obsidian-xl flex flex-col transition-transform duration-300 ease-out"
+        className="fixed inset-y-0 right-0 w-[50vw] max-w-2xl bg-base-100 shadow-xl flex flex-col transition-transform duration-300 ease-out"
         style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)" }}
       >
         {/* Header */}
-        <div className="h-[48px] px-4 border-b border-obsidian-border flex items-center gap-3 flex-shrink-0">
-          <MessageCircle className="w-4 h-4 text-obsidian-accent-primary" />
+        <div className="h-[48px] px-4 border-b border-base-300 flex items-center gap-3 flex-shrink-0">
+          <MessageCircle className="w-4 h-4 text-primary" />
           <div className="flex-1 min-w-0">
-            <span className="font-semibold text-sm text-obsidian-text-primary tracking-tight">
+            <span className="font-semibold text-sm text-base-content tracking-tight">
               {anima?.name || "Anima"}
             </span>
             {anima?.description && (
-              <span className="ml-2 text-xs text-obsidian-text-muted truncate">
+              <span className="ml-2 text-xs text-base-content/40 truncate">
                 {anima.description}
               </span>
             )}
@@ -168,8 +168,8 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
           <select
             value={selectedModel || ""}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModel(e.target.value)}
-            className="obsidian-input text-xs py-1 px-2 max-w-[200px]"
-            disabled={loading || availableModels == 0}
+            className="select select-bordered select-sm text-xs max-w-[200px]"
+            disabled={loading || availableModels.length === 0}
           >
             {availableModels.length > 0 ? (
               availableModels.map((model) => (
@@ -183,9 +183,9 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
           </select>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-obsidian-bg rounded transition-colors"
+            className="p-1.5 hover:bg-base-200 rounded transition-colors"
           >
-            <X className="w-4 h-4 text-obsidian-text-tertiary" />
+            <X className="w-4 h-4 text-base-content/50" />
           </button>
         </div>
 
@@ -193,11 +193,11 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
         <div className="flex-1 overflow-y-auto obsidian-scrollbar p-4 space-y-3">
           {messages.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center h-full text-center px-8">
-              <MessageCircle className="w-8 h-8 text-obsidian-border mb-3 opacity-40" />
-              <p className="text-sm text-obsidian-text-muted mb-1">
+              <MessageCircle className="w-8 h-8 text-base-300 mb-3 opacity-40" />
+              <p className="text-sm text-base-content/40 mb-1">
                 Start a conversation with {anima?.name || "this anima"}
               </p>
-              <p className="text-xs text-obsidian-text-tertiary">
+              <p className="text-xs text-base-content/50">
                 They will respond in the author&apos;s voice, grounded in their
                 corpus.
               </p>
@@ -212,8 +212,8 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
               <div
                 className={`max-w-[80%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-obsidian-accent-pale text-obsidian-text-primary"
-                    : "bg-obsidian-bg border border-obsidian-border text-obsidian-text-primary"
+                    ? "bg-primary/10 text-base-content"
+                    : "bg-base-200 border border-base-300 text-base-content"
                 }`}
               >
                 <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -224,10 +224,10 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
           {/* Streaming response */}
           {streamingContent && (
             <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-lg px-3 py-2 text-sm leading-relaxed bg-obsidian-bg border border-obsidian-border text-obsidian-text-primary">
+              <div className="max-w-[80%] rounded-lg px-3 py-2 text-sm leading-relaxed bg-base-200 border border-base-300 text-base-content">
                 <div className="whitespace-pre-wrap">
                   {streamingContent}
-                  <span className="inline-block w-1.5 h-4 bg-obsidian-text-muted animate-pulse ml-0.5 align-text-bottom" />
+                  <span className="inline-block w-1.5 h-4 bg-base-content/40 animate-pulse ml-0.5 align-text-bottom" />
                 </div>
               </div>
             </div>
@@ -236,18 +236,18 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
           {/* Loading indicator (before tokens arrive) */}
           {loading && !streamingContent && (
             <div className="flex justify-start">
-              <div className="bg-obsidian-bg border border-obsidian-border rounded-lg px-4 py-3">
+              <div className="bg-base-200 border border-base-300 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-1.5">
                   <div
-                    className="w-1.5 h-1.5 rounded-full bg-obsidian-text-muted animate-bounce"
+                    className="w-1.5 h-1.5 rounded-full bg-base-content/40 animate-bounce"
                     style={{ animationDelay: "0ms" }}
                   />
                   <div
-                    className="w-1.5 h-1.5 rounded-full bg-obsidian-text-muted animate-bounce"
+                    className="w-1.5 h-1.5 rounded-full bg-base-content/40 animate-bounce"
                     style={{ animationDelay: "150ms" }}
                   />
                   <div
-                    className="w-1.5 h-1.5 rounded-full bg-obsidian-text-muted animate-bounce"
+                    className="w-1.5 h-1.5 rounded-full bg-base-content/40 animate-bounce"
                     style={{ animationDelay: "300ms" }}
                   />
                 </div>
@@ -268,7 +268,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-obsidian-border p-3 flex-shrink-0">
+        <div className="border-t border-base-300 p-3 flex-shrink-0">
           <div className="flex items-end gap-2">
             <textarea
               ref={inputRef}
@@ -277,7 +277,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
               onKeyDown={handleKeyDown}
               placeholder={`Message ${anima?.name || "anima"}...`}
               rows={1}
-              className="obsidian-input flex-1 resize-none text-sm py-2 px-3 max-h-32 overflow-y-auto"
+              className="textarea textarea-bordered flex-1 resize-none text-sm py-2 px-3 max-h-32 overflow-y-auto"
               style={{
                 height: "auto",
                 minHeight: "36px",
@@ -293,7 +293,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
             <button
               onClick={handleSend}
               disabled={!input.trim() || loading}
-              className="p-2 rounded bg-obsidian-accent-primary text-white hover:bg-obsidian-accent-primary/80 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              className="btn btn-primary btn-sm p-2 rounded disabled:opacity-30 flex-shrink-0"
             >
               <Send className="w-4 h-4" />
             </button>

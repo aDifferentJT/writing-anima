@@ -147,32 +147,32 @@ const AnimaManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-obsidian-bg">
+      <div className="flex items-center justify-center h-full bg-base-200">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-obsidian-accent-primary mx-auto mb-2"></div>
-          <p className="text-xs text-obsidian-text-muted">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-xs text-base-content/40">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-obsidian-bg overflow-auto">
+    <div className="h-full bg-base-200 overflow-auto">
       <div className="mx-auto px-2 py-6">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-obsidian-text-primary">
+              <h1 className="text-2xl font-bold text-base-content">
                 Animas
               </h1>
-              <p className="text-xs text-obsidian-text-muted mt-0.5 mono">
+              <p className="text-xs text-base-content/40 mt-0.5 mono">
                 {animas.length} total
               </p>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="obsidian-button-primary flex items-center gap-1.5"
+              className="btn btn-primary btn-sm flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
               <span>New</span>
@@ -182,20 +182,20 @@ const AnimaManager: React.FC = () => {
           {/* Search and Controls */}
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
-              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-obsidian-text-muted w-3.5 h-3.5" />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-base-content/40 w-3.5 h-3.5" />
               <input
                 type="text"
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-                className="obsidian-input w-full pl-8 pr-3"
+                className="input input-bordered input-sm w-full pl-8 pr-3"
               />
             </div>
 
             <select
               value={sortBy}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortBy(e.target.value)}
-              className="obsidian-input"
+              className="select select-bordered select-sm"
             >
               <option value="created">Recent</option>
               <option value="name">Name</option>
@@ -213,12 +213,12 @@ const AnimaManager: React.FC = () => {
 
         {/* Animas List */}
         {filteredAndSortedAnimas.length === 0 ? (
-          <div className="obsidian-panel p-12 text-center max-w-lg mx-auto">
-            <FileText className="w-8 h-8 text-obsidian-border mx-auto mb-3 opacity-40" />
-            <h3 className="text-sm font-semibold text-obsidian-text-primary mb-1">
+          <div className="card bg-base-100 border border-base-300 p-12 text-center max-w-lg mx-auto">
+            <FileText className="w-8 h-8 text-base-300 mx-auto mb-3 opacity-40" />
+            <h3 className="text-sm font-semibold text-base-content mb-1">
               {searchTerm ? "No matches" : "No animas"}
             </h3>
-            <p className="text-xs text-obsidian-text-muted mb-4">
+            <p className="text-xs text-base-content/40 mb-4">
               {searchTerm
                 ? "Try different search terms"
                 : "Create an anima from writing samples"}
@@ -226,7 +226,7 @@ const AnimaManager: React.FC = () => {
             {!searchTerm && (
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="obsidian-button-primary inline-flex items-center gap-1.5 text-xs"
+                className="btn btn-primary btn-sm inline-flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Create Anima</span>
@@ -234,39 +234,39 @@ const AnimaManager: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="obsidian-panel overflow-hidden">
+          <div className="card bg-base-100 border border-base-300 overflow-hidden">
             <table className="w-full">
-              <thead className="bg-obsidian-bg border-b border-obsidian-border">
+              <thead className="bg-base-200 border-b border-base-300">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-obsidian-text-tertiary uppercase tracking-wide">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-base-content/50 uppercase tracking-wide">
                     Name
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-obsidian-text-tertiary uppercase tracking-wide">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-base-content/50 uppercase tracking-wide">
                     Description
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-obsidian-text-tertiary uppercase tracking-wide">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-base-content/50 uppercase tracking-wide">
                     Created
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-obsidian-text-tertiary uppercase tracking-wide">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-base-content/50 uppercase tracking-wide">
                     Chunks
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-obsidian-text-tertiary uppercase tracking-wide">
+                  <th className="px-3 py-2 text-right text-xs font-medium text-base-content/50 uppercase tracking-wide">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-obsidian-border">
+              <tbody className="divide-y divide-base-300">
                 {filteredAndSortedAnimas.map((anima) => (
                   <tr
                     key={anima.id}
                     onClick={() => handleOpenChat(anima)}
-                    className={`hover:bg-obsidian-bg cursor-pointer transition-colors group ${
+                    className={`hover:bg-base-200 cursor-pointer transition-colors group ${
                       anima.corpus_available === false ? "opacity-60" : ""
                     }`}
                   >
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-obsidian-text-primary">
+                        <span className="text-sm font-medium text-base-content">
                           {anima.name}
                         </span>
                         {anima.corpus_available === false && (
@@ -277,19 +277,19 @@ const AnimaManager: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="text-xs text-obsidian-text-secondary max-w-md truncate">
+                      <div className="text-xs text-base-content/70 max-w-md truncate">
                         {anima.corpus_available === false
                           ? "Corpus unavailable - click to re-upload"
                           : anima.description || "\u2014"}
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="text-xs text-obsidian-text-tertiary mono">
+                      <div className="text-xs text-base-content/50 mono">
                         {formatDate(anima.created_at)}
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="text-xs text-obsidian-text-tertiary mono">
+                      <div className="text-xs text-base-content/50 mono">
                         {(anima.chunk_count || 0).toLocaleString()}
                       </div>
                     </td>
@@ -297,14 +297,14 @@ const AnimaManager: React.FC = () => {
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={(e: React.MouseEvent) => handleUploadCorpus(anima, e)}
-                          className="p-1 text-obsidian-text-muted hover:text-obsidian-accent-primary hover:bg-obsidian-accent-pale rounded transition-colors"
+                          className="p-1 text-base-content/40 hover:text-primary hover:bg-primary/10 rounded transition-colors"
                           title="Edit corpus"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={(e: React.MouseEvent) => handleDeleteAnima(anima.id, e)}
-                          className="p-1 text-obsidian-text-muted hover:text-red-600 hover:bg-red-50/50 rounded transition-colors"
+                          className="p-1 text-base-content/40 hover:text-red-600 hover:bg-red-50/50 rounded transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

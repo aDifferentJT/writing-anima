@@ -81,23 +81,23 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-obsidian-surface border border-obsidian-border shadow-obsidian-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="card bg-base-100 border border-base-300 shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-obsidian-border">
+        <div className="flex items-center justify-between p-6 border-b border-base-300">
           <div>
-            <h2 className="text-xl font-semibold text-obsidian-text-primary">
+            <h2 className="text-xl font-semibold text-base-content">
               Upload Corpus
             </h2>
-            <p className="text-sm text-obsidian-text-secondary mt-1">
+            <p className="text-sm text-base-content/70 mt-1">
               for{" "}
-              <span className="font-medium text-obsidian-accent-primary">
+              <span className="font-medium text-primary">
                 {anima.name}
               </span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-obsidian-text-muted hover:text-obsidian-text-primary hover:bg-obsidian-bg transition-colors"
+            className="p-2 text-base-content/40 hover:text-base-content hover:bg-base-200 transition-colors rounded"
             disabled={uploading}
           >
             <X className="w-5 h-5" />
@@ -109,16 +109,16 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
           {/* File Input */}
           <div>
             <label className="block w-full">
-              <div className="flex items-center justify-center w-full h-32 px-4 transition bg-obsidian-bg border-2 border-obsidian-border border-dashed hover:border-obsidian-accent-primary hover:bg-obsidian-accent-pale cursor-pointer">
+              <div className="flex items-center justify-center w-full h-32 px-4 transition bg-base-200 border-2 border-base-300 border-dashed hover:border-primary hover:bg-primary/5 cursor-pointer rounded">
                 <div className="text-center">
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-obsidian-text-muted" />
-                  <p className="text-sm text-obsidian-text-secondary">
-                    <span className="font-medium text-obsidian-accent-primary">
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-base-content/40" />
+                  <p className="text-sm text-base-content/70">
+                    <span className="font-medium text-primary">
                       Click to upload
                     </span>{" "}
                     or drag and drop
                   </p>
-                  <p className="text-xs text-obsidian-text-muted mt-1">
+                  <p className="text-xs text-base-content/40 mt-1">
                     PDF, TXT, MD, DOCX (max 100MB per file)
                   </p>
                 </div>
@@ -138,10 +138,10 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
           {selectedFiles.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-obsidian-text-primary">
+                <h3 className="text-sm font-medium text-base-content">
                   Selected Files ({selectedFiles.length})
                 </h3>
-                <span className="text-sm text-obsidian-text-muted">
+                <span className="text-sm text-base-content/40">
                   Total: {formatFileSize(totalSize)}
                 </span>
               </div>
@@ -150,15 +150,15 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
                 {selectedFiles.map((file, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-obsidian-bg border border-obsidian-border"
+                    className="flex items-center justify-between p-3 bg-base-200 border border-base-300 rounded"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <File className="w-5 h-5 text-obsidian-accent-primary flex-shrink-0" />
+                      <File className="w-5 h-5 text-primary flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-obsidian-text-primary truncate">
+                        <p className="text-sm font-medium text-base-content truncate">
                           {file.name}
                         </p>
-                        <p className="text-xs text-obsidian-text-muted">
+                        <p className="text-xs text-base-content/40">
                           {formatFileSize(file.size)}
                         </p>
                       </div>
@@ -166,7 +166,7 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
                     {!uploading && (
                       <button
                         onClick={() => removeFile(index)}
-                        className="p-1 text-obsidian-text-muted hover:text-obsidian-error hover:bg-red-50 transition-colors"
+                        className="p-1 text-base-content/40 hover:text-error hover:bg-error/10 transition-colors rounded"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -181,38 +181,38 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
           {uploading && (
             <div className="space-y-1">
               {!uploadStatus ? (
-                <div className="flex items-center gap-2 text-sm text-obsidian-text-secondary">
+                <div className="flex items-center gap-2 text-sm text-base-content/70">
                   <Loader className="w-4 h-4 animate-spin" />
                   <span>Sending files...</span>
                 </div>
               ) : (
                 <>
                   {uploadStatus.steps_completed.map((name) => (
-                    <div key={name} className="flex items-center gap-2 text-sm text-obsidian-text-muted">
-                      <CheckCircle className="w-4 h-4 text-obsidian-success flex-shrink-0" />
+                    <div key={name} className="flex items-center gap-2 text-sm text-base-content/40">
+                      <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
                       <span className="truncate">{name}</span>
                     </div>
                   ))}
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-obsidian-text-primary">
-                      <Loader className="w-4 h-4 animate-spin text-obsidian-accent-primary flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-sm text-base-content">
+                      <Loader className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
                       <span className="truncate">{uploadStatus.current_step}</span>
                     </div>
                     {uploadStatus.step_progress !== null ? (
-                      <div className="ml-6 w-full bg-obsidian-border h-1">
+                      <div className="ml-6 w-full bg-base-300 h-1 rounded">
                         <div
-                          className="bg-obsidian-accent-primary h-1 transition-all duration-300"
+                          className="bg-primary h-1 transition-all duration-300 rounded"
                           style={{ width: `${uploadStatus.step_progress * 100}%` }}
                         />
                       </div>
                     ) : (
-                      <div className="ml-6 w-full bg-obsidian-border h-1 overflow-hidden">
-                        <div className="bg-obsidian-accent-primary h-1 w-1/3 animate-slide" />
+                      <div className="ml-6 w-full bg-base-300 h-1 overflow-hidden rounded">
+                        <div className="bg-primary h-1 w-1/3 animate-slide" />
                       </div>
                     )}
                   </div>
                   {uploadStatus.steps_remaining.map((name) => (
-                    <div key={name} className="flex items-center gap-2 text-sm text-obsidian-text-muted opacity-50">
+                    <div key={name} className="flex items-center gap-2 text-sm text-base-content/40 opacity-50">
                       <Clock className="w-4 h-4 flex-shrink-0" />
                       <span className="truncate">{name}</span>
                     </div>
@@ -224,7 +224,7 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
 
           {/* Success Message */}
           {success && (
-            <div className="flex items-center gap-2 p-4 bg-green-50 border border-obsidian-success text-obsidian-success">
+            <div className="flex items-center gap-2 p-4 bg-success/10 border border-success text-success rounded">
               <CheckCircle className="w-5 h-5" />
               <span>Files uploaded and processed successfully!</span>
             </div>
@@ -232,18 +232,18 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
 
           {/* Error Message */}
           {error && (
-            <div className="flex items-center gap-2 p-4 bg-red-50 border border-obsidian-error text-obsidian-error">
+            <div className="flex items-center gap-2 p-4 bg-error/10 border border-error text-error rounded">
               <AlertCircle className="w-5 h-5" />
               <span>{error}</span>
             </div>
           )}
 
           {/* Info */}
-          <div className="p-4 bg-obsidian-accent-pale border border-obsidian-accent-lighter">
-            <h4 className="text-sm font-medium text-obsidian-accent-secondary mb-2">
+          <div className="p-4 bg-primary/10 border border-primary/20 rounded">
+            <h4 className="text-sm font-medium text-primary mb-2">
               How it works
             </h4>
-            <ul className="text-sm text-obsidian-accent-secondary space-y-1">
+            <ul className="text-sm text-primary/80 space-y-1">
               <li>Upload writings in the style you want to emulate</li>
               <li>Files will be chunked and vectorized automatically</li>
               <li>More content = better quality feedback</li>
@@ -253,10 +253,10 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-obsidian-border">
+        <div className="flex justify-end gap-3 p-6 border-t border-base-300">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-obsidian-text-secondary bg-obsidian-bg border border-obsidian-border hover:bg-obsidian-border transition-colors"
+            className="btn btn-sm"
             disabled={uploading}
           >
             {success ? "Close" : "Cancel"}
@@ -264,17 +264,17 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
           {!success && (
             <button
               onClick={handleUpload}
-              className="flex items-center gap-2 px-6 py-2 bg-obsidian-accent-primary text-white hover:bg-obsidian-accent-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-primary btn-sm flex items-center gap-2"
               disabled={uploading || selectedFiles.length === 0}
             >
               {uploading ? (
                 <>
-                  <Loader className="w-5 h-5 animate-spin" />
+                  <Loader className="w-4 h-4 animate-spin" />
                   <span>Uploading...</span>
                 </>
               ) : (
                 <>
-                  <Upload className="w-5 h-5" />
+                  <Upload className="w-4 h-4" />
                   <span>Upload Files</span>
                 </>
               )}

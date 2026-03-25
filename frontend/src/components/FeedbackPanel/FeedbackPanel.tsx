@@ -28,14 +28,14 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
   const displayFeedback = showResolved ? resolvedFeedback : feedback;
 
   return (
-    <div className="obsidian-panel h-[calc(100vh-180px)] flex flex-col">
-      <div className="h-[36px] px-3 border-b border-obsidian-border flex items-center">
-        <h2 className="text-xs font-semibold text-obsidian-text-tertiary uppercase tracking-wide">
+    <div className="card bg-base-100 border border-base-300 h-[calc(100vh-180px)] flex flex-col">
+      <div className="h-[36px] px-3 border-b border-base-300 flex items-center">
+        <h2 className="text-xs font-semibold text-base-content/50 uppercase tracking-wide">
           {showResolved ? "Resolved" : "Criticism"}
         </h2>
 
         {!onToggleResolved && (
-          <span className="ml-auto text-xs text-obsidian-text-muted mono">
+          <span className="ml-auto text-xs text-base-content/40 mono">
             {feedback.length}
           </span>
         )}
@@ -47,7 +47,7 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
             className={`ml-auto text-xs px-2 py-0.5 rounded transition-colors ${
               showResolved
                 ? "bg-green-100/50 text-green-700 hover:bg-green-100 border border-green-300"
-                : "bg-obsidian-bg text-obsidian-text-muted hover:bg-obsidian-surface border border-obsidian-border mono"
+                : "bg-base-200 text-base-content/40 hover:bg-base-100 border border-base-300 mono"
             }`}
             title={
               showResolved ? "Show active criticism" : "Show resolved criticism"
@@ -63,8 +63,8 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
       <div className="flex-1 overflow-y-auto p-2 space-y-2 obsidian-scrollbar">
         {displayFeedback.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <MessageSquare className="w-8 h-8 text-obsidian-border mx-auto mb-2 opacity-40" />
-            <p className="text-xs text-obsidian-text-muted">
+            <MessageSquare className="w-8 h-8 text-base-300 mx-auto mb-2 opacity-40" />
+            <p className="text-xs text-base-content/40">
               {showResolved
                 ? "No resolved items"
                 : "No criticism yet"}

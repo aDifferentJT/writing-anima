@@ -15,6 +15,10 @@ import {
   ThoughtStep,
   CorpusSource,
 } from "../../types";
+import DropdownSelect, { DropdownOption } from "../UI/DropdownSelect";
+import { ExternalLink, Star } from "lucide-react";
+import projectService from "../../services/projectService";
+import { openAnimaManager } from "../../services/desktopApi";
 
 interface WritingInterfaceProps {
   feedback: EnrichedFeedbackItem[];
@@ -54,6 +58,17 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   const [corpusHighlightSource, setCorpusHighlightSource] = useState<(CorpusSource & { _ts?: number }) | null>(null);
   const isExecutingRef = useRef<boolean>(false);
   const writingAreaRef = useRef<WritingAreaHandle>(null);
+
+  const favouriteAnimas: string[] = (project.settings?.favouriteAnimas as string[]) ?? [];
+
+  const handleToggleFavourite = useCallback((animaId: string) => {
+    const next = favouriteAnimas.includes(animaId)
+      ? favouriteAnimas.filter((id) => id !== animaId)
+      : [...favouriteAnimas, animaId];
+    const updated = { ...project, settings: { ...project.settings, favouriteAnimas: next } };
+    setProject(updated);
+    projectService.updateProject(project.id, { settings: updated.settings });
+  }, [project, favouriteAnimas, setProject]);
 
   // Multi-agent feedback management functions
   const handleMultiAgentDismiss = (feedbackId: string): void => {
@@ -377,78 +392,111 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     <>
       <div className="mx-auto px-2 py-3 space-y-3">
         {/* Anima Analysis Toolbar - Minimal */}
-        <div className="obsidian-panel p-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <svg
-                className="w-4 h-4 text-obsidian-accent-primary flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              <span className="text-sm font-semibold text-obsidian-text-primary whitespace-nowrap">
-                Anima
-              </span>
-            </div>
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              {availableAnimas.length > 0 ? (
-                <select
-                  value={selectedAnimaId || ""}
-                  onChange={(e) => setSelectedAnimaId(e.target.value)}
-                  className="obsidian-input w-full max-w-[280px]"
-                  disabled={isExecutingFlow}
-                >
-                  <option value="">Select anima...</option>
-                  {availableAnimas.map((anima) => (
-                    <option key={anima.id} value={anima.id}>
-                      {anima.corpus_available === false ? "\u26A0 " : ""}
-                      {anima.name}{" "}
-                      {anima.corpus_available === false
-                        ? "(unavailable)"
-                        : anima.chunk_count === 0
-                          ? "(empty)"
-                          : `\u00B7 ${anima.chunk_count?.toLocaleString()}`}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="text-sm text-obsidian-text-tertiary">
-                  No animas
-                </span>
-              )}
-              {/* Model Selector */}
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="obsidian-input max-w-[280px]"
-                disabled={isExecutingFlow}
-              >
-                {availableModels.length > 0 ? (
-                  availableModels.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No models available</option>
-                )}
-              </select>
-            </div>
+        <div className="card bg-base-100 border border-base-300 p-3 flex !flex-row items-center gap-4">
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-4 h-4 text-primary flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            <span className="text-sm font-semibold text-base-content whitespace-nowrap">
+              Anima
+            </span>
           </div>
+          {availableAnimas.length > 0 ? (
+            <DropdownSelect
+              value={selectedAnimaId || ""}
+              onChange={(v) => setSelectedAnimaId(v)}
+              disabled={isExecutingFlow}
+              placeholder="Select anima..."
+              options={(() => {
+                const toOption = (anima: Anima): DropdownOption => ({
+                  value: anima.id,
+                  label:
+                    (anima.corpus_available === false ? "⚠ " : "") +
+                    anima.name +
+                    (anima.corpus_available === false
+                      ? " (unavailable)"
+                      : anima.chunk_count === 0
+                        ? " (empty)"
+                        : ` · ${anima.chunk_count?.toLocaleString()}`),
+                  action: {
+                    icon: <Star className={`w-3 h-3 ${favouriteAnimas.includes(anima.id) ? "fill-primary text-primary" : ""}`} />,
+                    title: favouriteAnimas.includes(anima.id) ? "Remove from favourites" : "Add to favourites",
+                    onClick: (e) => { e.stopPropagation(); handleToggleFavourite(anima.id); },
+                  },
+                });
+                const favs = availableAnimas.filter((a) => favouriteAnimas.includes(a.id));
+                const rest = availableAnimas.filter((a) => !favouriteAnimas.includes(a.id));
+                return [
+                  ...(favs.length > 0 ? favs.map(toOption) : []),
+                  ...(favs.length > 0 && rest.length > 0 ? [{ value: "__sep__", label: "", separator: true }] : []),
+                  ...rest.map(toOption),
+                ];
+              })()}
+              header={
+                <>
+                  <span>Anima</span>
+                  <button
+                    type="button"
+                    onClick={openAnimaManager}
+                    className="flex items-center gap-1 hover:text-base-content transition-colors"
+                    title="Open Anima Manager"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Manage</span>
+                  </button>
+                </>
+              }
+            />
+          ) : (
+            <DropdownSelect
+              value=""
+              onChange={() => {}}
+              placeholder="No animas"
+              options={[]}
+              header={
+                <>
+                  <span>Anima</span>
+                  <button
+                    type="button"
+                    onClick={openAnimaManager}
+                    className="flex items-center gap-1 hover:text-base-content transition-colors"
+                    title="Open Anima Manager"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Manage</span>
+                  </button>
+                </>
+              }
+            />
+          )}
+          {/* Model Selector */}
+          <DropdownSelect
+            value={selectedModel}
+            onChange={(v) => setSelectedModel(v)}
+            disabled={isExecutingFlow}
+            options={
+              availableModels.length > 0
+                ? availableModels.map((m) => ({ value: m.id, label: m.name }))
+                : [{ value: "", label: "No models available", disabled: true }]
+            }
+          />
           <button
             onClick={handleExecuteFlowClick}
             disabled={isExecutingFlow || !project.content || !selectedAnimaId}
-            className={`whitespace-nowrap ${
+            className={`btn btn-sm whitespace-nowrap flex-shrink-0 ml-auto ${
               isExecutingFlow || !project.content || !selectedAnimaId
-                ? "obsidian-button bg-obsidian-bg text-obsidian-text-muted cursor-not-allowed"
-                : "obsidian-button-primary"
+                ? "btn-disabled"
+                : "btn-primary"
             }`}
           >
             {isExecutingFlow ? (

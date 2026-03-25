@@ -46,33 +46,33 @@ const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, mod
 
   const getStepIcon = (step: ThoughtStep, size: string = "w-3.5 h-3.5", showSpinner: boolean = true): React.ReactNode => {
     if (step.type === "search") {
-      return <Search className={`${size} text-obsidian-accent-primary`} />;
+      return <Search className={`${size} text-primary`} />;
     } else if (step.type === "generate") {
-      return <Lightbulb className={`${size} text-obsidian-warning`} />;
+      return <Lightbulb className={`${size} text-warning`} />;
     } else if (step.type === "complete") {
-      return <CheckCircle className={`${size} text-obsidian-success`} />;
+      return <CheckCircle className={`${size} text-success`} />;
     } else if (step.type === "error") {
       return <AlertCircle className={`${size} text-red-500`} />;
     } else if (showSpinner) {
       return (
         <Loader2
-          className={`${size} text-obsidian-text-tertiary animate-spin`}
+          className={`${size} text-base-content/50 animate-spin`}
         />
       );
     } else {
-      return <CheckCircle className={`${size} text-obsidian-text-tertiary`} />;
+      return <CheckCircle className={`${size} text-base-content/50`} />;
     }
   };
 
   return (
     <div
-      className={`border-l-2 border-obsidian-accent-primary rounded-obsidian text-sm text-obsidian-text-secondary transition-all duration-300 ${
-        isFlashing ? "bg-obsidian-accent-pale/60" : "bg-obsidian-accent-pale/30"
+      className={`border-l-2 border-primary rounded text-sm text-base-content/70 transition-all duration-300 ${
+        isFlashing ? "bg-primary/15" : "bg-primary/10"
       }`}
     >
       {/* Main row - ALWAYS visible with latest status, auto-updates as new statuses arrive */}
       <div
-        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-obsidian-accent-pale/50 transition-colors"
+        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-primary/15 transition-colors"
         onClick={() => steps.length > 1 && setIsExpanded(!isExpanded)}
       >
         <div
@@ -81,44 +81,44 @@ const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, mod
           {getStepIcon(latestStep, "w-3.5 h-3.5", isAnalyzing)}
         </div>
         <div className="flex-1 min-w-0 overflow-hidden">
-          <span className="font-medium text-obsidian-text-primary">
+          <span className="font-medium text-base-content">
             {latestStep.message}
           </span>
           {latestStep.details && (
-            <span className="text-obsidian-text-tertiary ml-2 font-mono text-xs">
+            <span className="text-base-content/50 ml-2 font-mono text-xs">
               {latestStep.details}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-[10px] px-1.5 py-0.5 bg-obsidian-bg rounded border border-obsidian-border text-obsidian-text-muted font-mono">
+          <span className="text-[10px] px-1.5 py-0.5 bg-base-200 rounded border border-base-300 text-base-content/40 font-mono">
             {model}
           </span>
           {steps.length > 1 && (
-            <span className="text-xs text-obsidian-text-muted">
+            <span className="text-xs text-base-content/40">
               {searchSteps.length} searches / {steps.length} steps
             </span>
           )}
           {steps.length > 1 &&
             (isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-obsidian-text-muted" />
+              <ChevronUp className="w-4 h-4 text-base-content/40" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-obsidian-text-muted" />
+              <ChevronDown className="w-4 h-4 text-base-content/40" />
             ))}
         </div>
       </div>
 
       {/* Expanded view - all steps */}
       {isExpanded && steps.length > 1 && (
-        <div className="border-t border-obsidian-border/50 px-4 py-2 max-h-48 overflow-y-auto">
+        <div className="border-t border-base-300/50 px-4 py-2 max-h-48 overflow-y-auto">
           <div className="space-y-1.5">
             {steps.map((step, idx) => (
               <div
                 key={idx}
                 className={`flex items-start gap-2 py-1 text-xs ${
                   step.type === "search"
-                    ? "text-obsidian-accent-primary"
-                    : "text-obsidian-text-tertiary"
+                    ? "text-primary"
+                    : "text-base-content/50"
                 }`}
               >
                 <span className="flex-shrink-0 mt-0.5">
@@ -129,12 +129,12 @@ const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, mod
                     {step.message}
                   </span>
                   {step.details && (
-                    <span className="text-obsidian-text-muted ml-1 font-mono">
+                    <span className="text-base-content/40 ml-1 font-mono">
                       ({step.details})
                     </span>
                   )}
                 </div>
-                <span className="text-obsidian-text-muted font-mono flex-shrink-0">
+                <span className="text-base-content/40 font-mono flex-shrink-0">
                   #{idx + 1}
                 </span>
               </div>

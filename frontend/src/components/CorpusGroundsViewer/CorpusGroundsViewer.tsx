@@ -312,35 +312,35 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
       {/* Panel */}
       <div
         ref={panelRef}
-        className="fixed inset-y-0 right-0 w-[62vw] max-w-5xl bg-obsidian-surface shadow-obsidian-xl flex flex-col transition-transform duration-300 ease-out"
+        className="fixed inset-y-0 right-0 w-[62vw] max-w-5xl bg-base-100 shadow-xl flex flex-col transition-transform duration-300 ease-out"
         style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)" }}
       >
         {/* Header */}
-        <div className="h-[48px] px-4 border-b border-obsidian-border flex items-center gap-3 flex-shrink-0">
-          <BookOpen className="w-4 h-4 text-obsidian-accent-primary" />
-          <span className="font-semibold text-sm text-obsidian-text-primary tracking-tight">
+        <div className="h-[48px] px-4 border-b border-base-300 flex items-center gap-3 flex-shrink-0">
+          <BookOpen className="w-4 h-4 text-primary" />
+          <span className="font-semibold text-sm text-base-content tracking-tight">
             Corpus Grounds
           </span>
           {files.length > 0 && (
-            <span className="text-xs text-obsidian-text-muted mono">
+            <span className="text-xs text-base-content/40 mono">
               {files.length} file{files.length !== 1 ? "s" : ""}
             </span>
           )}
           <button
             onClick={onClose}
-            className="ml-auto p-1.5 hover:bg-obsidian-bg rounded transition-colors"
+            className="ml-auto p-1.5 hover:bg-base-200 rounded transition-colors"
           >
-            <X className="w-4 h-4 text-obsidian-text-tertiary" />
+            <X className="w-4 h-4 text-base-content/50" />
           </button>
         </div>
 
         {/* Body */}
         <div className="flex flex-1 overflow-hidden">
           {/* File sidebar */}
-          <div className="w-56 border-r border-obsidian-border bg-obsidian-bg overflow-y-auto obsidian-scrollbar flex-shrink-0">
+          <div className="w-56 border-r border-base-300 bg-base-200 overflow-y-auto obsidian-scrollbar flex-shrink-0">
             <div className="p-2 space-y-0.5">
               {loading && (
-                <div className="p-4 text-xs text-obsidian-text-muted text-center">
+                <div className="p-4 text-xs text-base-content/40 text-center">
                   Loading corpus...
                 </div>
               )}
@@ -350,7 +350,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
                 </div>
               )}
               {!loading && files.length === 0 && !error && (
-                <div className="p-4 text-xs text-obsidian-text-muted text-center">
+                <div className="p-4 text-xs text-base-content/40 text-center">
                   No corpus files found
                 </div>
               )}
@@ -364,23 +364,23 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
                   }}
                   className={`w-full text-left px-2.5 py-2 rounded text-xs transition-colors ${
                     idx === selectedFileIndex
-                      ? "bg-obsidian-surface border border-obsidian-accent-light text-obsidian-text-primary"
-                      : "hover:bg-obsidian-surface text-obsidian-text-secondary border border-transparent"
+                      ? "bg-base-100 border border-primary/30 text-base-content"
+                      : "hover:bg-base-100 text-base-content/70 border border-transparent"
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
                     <FileText
                       className={`w-3 h-3 flex-shrink-0 ${
                         idx === selectedFileIndex
-                          ? "text-obsidian-accent-primary"
-                          : "text-obsidian-text-muted"
+                          ? "text-primary"
+                          : "text-base-content/40"
                       }`}
                     />
                     <span className="truncate font-medium">
                       {file.filename}
                     </span>
                   </div>
-                  <div className="mt-0.5 ml-[18px] text-obsidian-text-muted mono text-[10px]">
+                  <div className="mt-0.5 ml-[18px] text-base-content/40 mono text-[10px]">
                     {file.chunk_count} chunk{file.chunk_count !== 1 ? "s" : ""}
                   </div>
                 </button>
@@ -396,11 +396,11 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
             {selectedFile ? (
               <div className="p-6 max-w-3xl">
                 {/* File header */}
-                <div className="mb-6 pb-3 border-b border-obsidian-border">
-                  <h2 className="text-base font-semibold text-obsidian-text-primary tracking-tight">
+                <div className="mb-6 pb-3 border-b border-base-300">
+                  <h2 className="text-base font-semibold text-base-content tracking-tight">
                     {selectedFile.filename}
                   </h2>
-                  <div className="mt-1 text-xs text-obsidian-text-muted mono">
+                  <div className="mt-1 text-xs text-base-content/40 mono">
                     {selectedFile.chunk_count} chunks
                   </div>
                 </div>
@@ -419,7 +419,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
                             : "border-l-2 border-transparent"
                         }`}
                       >
-                        <span className="text-obsidian-text-primary whitespace-pre-wrap">
+                        <span className="text-base-content whitespace-pre-wrap">
                           {renderChunkText(chunk.text, isHighlighted)}
                         </span>
                       </div>
@@ -428,7 +428,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-obsidian-text-muted text-sm">
+              <div className="flex items-center justify-center h-full text-base-content/40 text-sm">
                 {loading ? "Loading..." : "Select a file to view"}
               </div>
             )}

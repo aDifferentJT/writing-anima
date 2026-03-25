@@ -41,7 +41,7 @@ force-include = {"../frontend/dist" = "frontend/dist"}
 installer = "uv"
 
 [tool.hatch.envs.default.scripts]
-dist = "bash -c 'cd ../frontend && npm run build && cd ../backend && rm -rf ~/Library/Application\\ Support/pyapp/backend ~/Library/Caches/pyapp && hatch build -t wheel && PYAPP_PROJECT_PATH=$(realpath $(ls dist/backend-*.whl | tail -1)) hatch build -t binary'"
+dist = "bash -c 'cd ../frontend && npm install && npm run build && cd ../backend && rm -rf ~/Library/Application\\ Support/pyapp/backend ~/Library/Caches/pyapp && hatch build -t wheel && PYAPP_PROJECT_PATH=$(realpath $(ls dist/backend-*.whl | tail -1)) hatch build -t binary'"
 
 [tool.hatch.envs.dev]
 installer = "uv"

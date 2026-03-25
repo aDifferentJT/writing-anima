@@ -137,9 +137,9 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
       dialog.innerHTML = `
         <div class="bg-white rounded-lg p-6 max-w-sm mx-4">
           <h3 class="text-lg font-semibold mb-4">Delete Agent</h3>
-          <p class="text-gray-600 mb-6">Are you sure you want to delete this agent? This action cannot be undone.</p>
+          <p class="text-base-content/70 mb-6">Are you sure you want to delete this agent? This action cannot be undone.</p>
           <div class="flex justify-end gap-3">
-            <button id="cancel-delete" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+            <button id="cancel-delete" class="px-4 py-2 text-base-content/70 hover:text-base-content">Cancel</button>
             <button id="confirm-delete" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
           </div>
         </div>
@@ -333,11 +333,11 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
 
   const getTierBadgeColor = (tier: string): string => {
     const colors: Record<string, string> = {
-      fast: 'bg-gray-100 text-gray-700',
-      standard: 'bg-gray-100 text-gray-700',
-      premium: 'bg-gray-100 text-gray-700'
+      fast: 'bg-base-200 text-gray-700',
+      standard: 'bg-base-200 text-gray-700',
+      premium: 'bg-base-200 text-gray-700'
     };
-    return colors[tier] || 'bg-gray-100 text-gray-700';
+    return colors[tier] || 'bg-base-200 text-gray-700';
   };
 
   // Clear messages after 5 seconds
@@ -354,17 +354,17 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
   const content = (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-base-300">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Agent Management</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 className="text-xl font-semibold text-base-content">Agent Management</h2>
+            <p className="text-sm text-base-content/70 mt-1">
               Create and manage your analysis agents
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-base-content/40 hover:text-base-content transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -392,12 +392,12 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Agent List */}
-        <div className="w-1/3 border-r border-gray-200 flex flex-col">
+        <div className="w-1/3 border-r border-base-300 flex flex-col">
           {/* Action Buttons */}
-          <div className="p-4 border-b border-gray-200 space-y-2">
+          <div className="p-4 border-b border-base-300 space-y-2">
             <button
               onClick={() => handleCreateAgent()}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 btn btn-primary rounded-lg"
             >
               <Plus className="w-4 h-4" />
               Create New Agent
@@ -437,7 +437,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
 
           {/* Templates Section */}
           {showTemplates && (
-            <div className="border-b border-gray-200">
+            <div className="border-b border-base-300">
               <div className="p-3 bg-green-50">
                 <h3 className="font-medium text-green-900 text-sm">Available Templates</h3>
                 <p className="text-xs text-green-700 mt-1">Click to create agent from template</p>
@@ -452,8 +452,8 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                     <div className="flex items-center gap-3">
                       <span className="text-lg">{template.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-900 text-sm truncate">{template.name}</h4>
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{template.description}</p>
+                        <h4 className="font-medium text-base-content text-sm truncate">{template.name}</h4>
+                        <p className="text-xs text-base-content/70 mt-1 line-clamp-2">{template.description}</p>
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getTierBadgeColor(template.defaultTier)}`}>
                           {template.defaultTier}
                         </span>
@@ -468,23 +468,23 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
 
           {/* User Agents List */}
           <div className="flex-1 overflow-y-auto">
-            <div className="p-3 bg-blue-50 border-b border-blue-100">
-              <h3 className="font-medium text-blue-900 text-sm">My Agents ({agents.length})</h3>
+            <div className="p-3 bg-primary/10 border-b border-primary/20">
+              <h3 className="font-medium text-primary text-sm">My Agents ({agents.length})</h3>
             </div>
 
             {agents.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
+              <div className="p-8 text-center text-base-content/50">
                 <Settings className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No agents created yet</p>
                 <p className="text-xs">Create your first agent</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-200">
+              <div className="divide-y divide-base-300">
                 {agents.map(agent => (
                   <div
                     key={agent.id}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 ${
-                      selectedAgent?.id === agent.id ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                    className={`p-4 cursor-pointer hover:bg-base-200 ${
+                      selectedAgent?.id === agent.id ? 'bg-primary/10 border-r-2 border-primary' : ''
                     }`}
                     onClick={() => {
                       setSelectedAgent(agent);
@@ -496,7 +496,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{agent.icon}</span>
-                          <h4 className="font-medium text-gray-900 text-sm">{agent.name}</h4>
+                          <h4 className="font-medium text-base-content text-sm">{agent.name}</h4>
                           <button
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
@@ -505,24 +505,24 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                             className={`flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
                               agent.enabled
                                 ? 'bg-green-500 hover:bg-green-600 text-white'
-                                : 'bg-gray-300 hover:bg-gray-400 text-gray-600'
+                                : 'bg-base-300 hover:bg-base-300 text-base-content/70'
                             }`}
                             title={agent.enabled ? 'Disable agent' : 'Enable agent'}
                           >
                             <Power className="w-3 h-3" />
                           </button>
                         </div>
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{agent.description}</p>
+                        <p className="text-xs text-base-content/70 mt-1 line-clamp-2">{agent.description}</p>
                         <div className="flex items-center gap-2 mt-2">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTierBadgeColor(agent.defaultTier)}`}>
                             {agent.defaultTier}
                           </span>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            agent.enabled ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-600'
+                            agent.enabled ? 'bg-base-200 text-gray-700' : 'bg-gray-200 text-base-content/70'
                           }`}>
                             {agent.enabled ? 'Active' : 'Inactive'}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-base-content/50">
                             {agent.usageCount || 0} uses
                           </span>
                         </div>
@@ -534,7 +534,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                             e.stopPropagation();
                             handleEditAgent(agent);
                           }}
-                          className="p-1 text-gray-400 hover:text-blue-600 text-sm"
+                          className="p-1 text-base-content/40 hover:text-primary text-sm"
                           title="Edit"
                         >
                           <Edit3 className="w-3 h-3" />
@@ -544,7 +544,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                             e.stopPropagation();
                             handleCloneAgent(agent.id);
                           }}
-                          className="p-1 text-gray-400 hover:text-gray-600 text-sm"
+                          className="p-1 text-base-content/40 hover:text-base-content text-sm"
                           title="Clone"
                         >
                           <Copy className="w-3 h-3" />
@@ -554,7 +554,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                             e.stopPropagation();
                             handleExportAgent(agent.id);
                           }}
-                          className="p-1 text-gray-400 hover:text-blue-600 text-sm"
+                          className="p-1 text-base-content/40 hover:text-primary text-sm"
                           title="Export Agent"
                         >
                           <Download className="w-3 h-3" />
@@ -564,7 +564,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                             e.stopPropagation();
                             handleDeleteAgent(agent.id);
                           }}
-                          className="p-1 text-gray-400 hover:text-red-600 text-sm"
+                          className="p-1 text-base-content/40 hover:text-red-600 text-sm"
                           title="Delete"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -583,9 +583,9 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
           {isEditing ? (
             <>
               {/* Edit Header */}
-              <div className="p-6 border-b border-gray-200">
+              <div className="p-6 border-b border-base-300">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-base-content">
                     {selectedAgent ? 'Edit Agent' : 'Create Agent'}
                   </h3>
                   <div className="flex gap-2">
@@ -594,14 +594,14 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                         setIsEditing(false);
                         setEditForm({});
                       }}
-                      className="px-3 py-1 text-gray-600 hover:text-gray-800 text-sm"
+                      className="px-3 py-1 text-base-content/70 hover:text-base-content text-sm"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveAgent}
                       disabled={loading}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+                      className="px-4 py-2 btn btn-primary rounded-lg disabled:cursor-not-allowed"
                     >
                       {loading ? 'Saving...' : 'Save Agent'}
                     </button>
@@ -620,7 +620,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                         type="text"
                         value={editForm.name || ''}
                         onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="input input-bordered w-full"
                       />
                     </div>
                     <div>
@@ -629,7 +629,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                         type="text"
                         value={editForm.icon || ''}
                         onChange={(e) => setEditForm({...editForm, icon: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="input input-bordered w-full"
                         placeholder="🤖"
                       />
                     </div>
@@ -641,7 +641,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                       type="text"
                       value={editForm.description || ''}
                       onChange={(e) => setEditForm({...editForm, description: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="input input-bordered w-full"
                     />
                   </div>
 
@@ -651,7 +651,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                       <select
                         value={editForm.category || ''}
                         onChange={(e) => setEditForm({...editForm, category: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="input input-bordered w-full"
                       >
                         <option value="custom">Custom</option>
                         <option value="writing">Writing</option>
@@ -665,7 +665,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                       <select
                         value={editForm.defaultTier || ''}
                         onChange={(e) => setEditForm({...editForm, defaultTier: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="input input-bordered w-full"
                       >
                         <option value="fast">Fast (GPT-4o-mini)</option>
                         <option value="standard">Standard (GPT-4o)</option>
@@ -678,7 +678,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Agent Prompt
-                      <span className="text-xs text-gray-500 ml-2">
+                      <span className="text-xs text-base-content/50 ml-2">
                         <br></br>• Give your agent clear instructions on how to support your writing. Try to give the agent a singular and well-defined set of instructions.
                         <br></br>• Your agent will automatically be aware of your current writing sample and your writing aims.
                         <br></br>• We will automatically format and parse your feedback.
@@ -688,7 +688,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
                       value={editForm.prompt || ''}
                       onChange={(e) => setEditForm({...editForm, prompt: e.target.value})}
                       rows={25}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                      className="input input-bordered w-full font-mono text-sm"
                       placeholder="Enter your agent prompt here..."
                     />
                   </div>
@@ -698,31 +698,31 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
           ) : selectedAgent ? (
             <>
               {/* Agent Details Header */}
-              <div className="p-6 border-b border-gray-200">
+              <div className="p-6 border-b border-base-300">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-base-content flex items-center gap-2">
                       <span className="text-xl">{selectedAgent.icon}</span>
                       {selectedAgent.name}
                     </h3>
-                    <p className="text-sm text-gray-600 mt-1">{selectedAgent.description}</p>
+                    <p className="text-sm text-base-content/70 mt-1">{selectedAgent.description}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTierBadgeColor(selectedAgent.defaultTier)}`}>
                         {selectedAgent.defaultTier}
                       </span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        selectedAgent.enabled ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-600'
+                        selectedAgent.enabled ? 'bg-base-200 text-gray-700' : 'bg-gray-200 text-base-content/70'
                       }`}>
                         {selectedAgent.enabled ? 'Active' : 'Inactive'}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-base-content/50">
                         {selectedAgent.usageCount || 0} uses
                       </span>
                     </div>
                   </div>
                   <button
                     onClick={() => handleEditAgent(selectedAgent)}
-                    className="flex items-center gap-2 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-medium"
+                    className="flex items-center gap-2 px-3 py-2 text-primary hover:bg-primary/10 rounded-lg text-sm font-medium"
                   >
                     <Edit3 className="w-4 h-4" />
                     Edit
@@ -734,16 +734,16 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Current Prompt</h4>
-                    <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap max-h-96 overflow-y-auto">
+                    <h4 className="font-medium text-base-content mb-2">Current Prompt</h4>
+                    <pre className="bg-base-200 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap max-h-96 overflow-y-auto">
                       {selectedAgent.prompt}
                     </pre>
                   </div>
 
                   {selectedAgent.templateOrigin && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Template Origin</h4>
-                      <p className="text-sm text-gray-600">
+                      <h4 className="font-medium text-base-content mb-2">Template Origin</h4>
+                      <p className="text-sm text-base-content/70">
                         Created from template: {selectedAgent.templateOrigin}
                       </p>
                     </div>
@@ -773,18 +773,18 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
           ) : (
             <div className="flex-1 flex items-center justify-center p-6">
               <div className="text-center max-w-md">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Settings className="w-8 h-8 text-gray-400" />
+                <div className="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Settings className="w-8 h-8 text-base-content/40" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Agent Management</h3>
-                <p className="text-gray-600 mb-6">
+                <h3 className="text-lg font-semibold text-base-content mb-2">Agent Management</h3>
+                <p className="text-base-content/70 mb-6">
                   Create agents from scratch or use our templates to get started quickly.
                   Each agent can be customized with its own prompt and settings.
                 </p>
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => handleCreateAgent()}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 btn btn-primary rounded-lg"
                   >
                     <Plus className="w-4 h-4" />
                     Create New Agent
@@ -807,7 +807,7 @@ export const UnifiedAgentCustomizationPanel: React.FC<UnifiedAgentCustomizationP
 
   return isOpen ? (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[90vh] flex flex-col">
+      <div className="bg-base-100 rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[90vh] flex flex-col">
         {content}
       </div>
     </div>

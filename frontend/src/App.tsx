@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Pen, Target, Home, Users } from 'lucide-react';
+import { Pen, Target, Home } from 'lucide-react';
 import ProjectDashboard from './components/Projects/ProjectDashboard';
 import PurposeStep from './components/PurposeStep/PurposeStep';
 import WritingInterface from './components/WritingInterface';
-import AnimaManager from './components/AnimaManager/AnimaManager';
 import projectService from './services/projectService';
 import type { Project, EnrichedFeedbackItem, Purpose } from './types';
 
-type AppMode = 'purpose' | 'writing' | 'animas';
+type AppMode = 'purpose' | 'writing';
 
 interface NavigationProps {
   currentMode: AppMode;
@@ -27,20 +26,20 @@ function Navigation({
   };
 
   return (
-    <div className="bg-obsidian-surface border-b border-obsidian-border px-2 py-2">
+    <div className="bg-base-100 border-b border-base-300 px-2 py-2">
       <div className="mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             onClick={handleBackToDashboard}
-            className="flex items-center gap-1.5 text-obsidian-text-secondary hover:text-obsidian-text-primary transition-colors"
+            className="flex items-center gap-1.5 text-base-content/70 hover:text-base-content transition-colors"
           >
             <Home className="w-3.5 h-3.5" />
             <span className="text-sm font-medium">Projects</span>
           </button>
           {currentProject && (
             <>
-              <span className="text-obsidian-text-muted text-xs">/</span>
-              <span className="text-obsidian-text-primary text-sm font-medium truncate max-w-xs">{currentProject.title}</span>
+              <span className="text-base-content/40 text-xs">/</span>
+              <span className="text-base-content text-sm font-medium truncate max-w-xs">{currentProject.title}</span>
             </>
           )}
         </div>
@@ -52,8 +51,8 @@ function Navigation({
                 onClick={() => setCurrentMode('purpose')}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
                   currentMode === 'purpose'
-                    ? 'bg-obsidian-accent-pale text-obsidian-accent-primary font-medium'
-                    : 'text-obsidian-text-secondary hover:text-obsidian-text-primary hover:bg-obsidian-bg'
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-base-content/70 hover:text-base-content hover:bg-base-200'
                 }`}
               >
                 <Target className="w-3 h-3" />
@@ -64,8 +63,8 @@ function Navigation({
                 onClick={() => setCurrentMode('writing')}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
                   currentMode === 'writing'
-                    ? 'bg-obsidian-accent-pale text-obsidian-accent-primary font-medium'
-                    : 'text-obsidian-text-secondary hover:text-obsidian-text-primary hover:bg-obsidian-bg'
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-base-content/70 hover:text-base-content hover:bg-base-200'
                 }`}
                 disabled={currentProject.purpose.topic == ''}
               >
@@ -73,17 +72,6 @@ function Navigation({
                 <span>Editor</span>
               </button>
 
-              <button
-                onClick={() => setCurrentMode('animas')}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                  currentMode === 'animas'
-                    ? 'bg-obsidian-accent-pale text-obsidian-accent-primary font-medium'
-                    : 'text-obsidian-text-secondary hover:text-obsidian-text-primary hover:bg-obsidian-bg'
-                }`}
-              >
-                <Users className="w-3 h-3" />
-                <span>Animas</span>
-              </button>
             </>
           )}
         </div>
@@ -162,7 +150,7 @@ function AppContent({
   }, [setCurrentProject]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-base-200">
       <Navigation
         currentMode={currentMode}
         currentProject={currentProject}
@@ -187,11 +175,7 @@ function AppContent({
             writingCriteria={currentProject.writingCriteria}
             onFeedbackGenerated={handleFeedbackGenerated}
           />
-        ) : currentMode === 'animas' ? (
-          <AnimaManager />
-        ) : (
-          "Unknown Mode"
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -215,7 +199,7 @@ function App(): React.ReactElement {
 
   if (currentProject == null) {
      return (
-       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+       <div className="min-h-screen bg-base-200">
          <div className='h-screen'>
            <ProjectDashboard
              onSelectProject={handleSelectProject}

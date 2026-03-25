@@ -98,7 +98,7 @@ export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
       {/* Analysis Mode Selector */}
       {systemReady && (
         <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600">Mode:</span>
+          <span className="text-sm text-base-content/70">Mode:</span>
           <div className="flex items-center space-x-1">
             {(['quick', 'progressive', 'thorough'] as AnalysisMode[]).map((mode: AnalysisMode) => (
               <button
@@ -107,7 +107,7 @@ export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
                 className={`px-2 py-1 rounded text-xs font-medium transition-colors duration-200 ${
                   analysisMode === mode
                     ? getModeColor(mode)
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-base-200 text-base-content/70 hover:bg-base-300'
                 }`}
                 title={getModeDescription(mode)}
               >
@@ -120,7 +120,7 @@ export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
 
       {/* Performance Metrics */}
       {systemReady && metrics && (
-        <div className="flex items-center space-x-3 text-xs text-gray-500 border-l border-gray-200 pl-3">
+        <div className="flex items-center space-x-3 text-xs text-base-content/50 border-l border-base-300 pl-3">
 
           {/* Success Rate */}
           <div className="flex items-center space-x-1">

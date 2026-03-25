@@ -148,7 +148,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
       return "bg-green-50/50 border-green-300";
     }
     if (status === "retracted" || status === "dismissed") {
-      return "bg-obsidian-bg border-obsidian-border opacity-60";
+      return "bg-base-200 border-base-300 opacity-60";
     }
 
     // Special styling for inquiry integration types
@@ -159,7 +159,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
       return "bg-yellow-50/50 border-yellow-300";
     }
     if (type === "framework_connection") {
-      return "bg-obsidian-accent-pale border-obsidian-accent-light";
+      return "bg-primary/10 border-primary/30";
     }
 
     switch (severity) {
@@ -170,7 +170,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
       case "low":
         return "bg-blue-50/50 border-blue-300";
       default:
-        return "bg-obsidian-surface border-obsidian-border";
+        return "bg-base-100 border-base-300";
     }
   };
 
@@ -200,17 +200,17 @@ const CriticCard: React.FC<CriticCardProps> = ({
 
   return (
     <div
-      className={`border rounded p-2.5 ${severityStyle} transition-all duration-150 hover:border-obsidian-border-focus group`}
+      className={`border rounded p-2.5 ${severityStyle} transition-all duration-150 hover:border-primary group`}
     >
       <div className="flex items-center gap-1.5 mb-2">
         <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${color}`} />
-        <span className="font-medium text-obsidian-text-primary text-xs truncate">
+        <span className="font-medium text-base-content text-xs truncate">
           {displayAgent}
         </span>
 
         {/* Model tag */}
         {feedbackData.model && (
-          <span className="text-[10px] px-1.5 py-0.5 bg-obsidian-bg rounded border border-obsidian-border text-obsidian-text-muted font-mono">
+          <span className="text-[10px] px-1.5 py-0.5 bg-base-200 rounded border border-base-300 text-base-content/40 font-mono">
             {feedbackData.model}
           </span>
         )}
@@ -240,7 +240,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
       </div>
 
       {feedbackData.title && (
-        <h4 className="font-semibold text-obsidian-text-primary text-sm mb-1.5 leading-tight">
+        <h4 className="font-semibold text-base-content text-sm mb-1.5 leading-tight">
           {feedbackData.title}
         </h4>
       )}
@@ -249,8 +249,8 @@ const CriticCard: React.FC<CriticCardProps> = ({
         className={`text-xs leading-normal ${
           feedbackData.status === "retracted" ||
           feedbackData.status === "dismissed"
-            ? "text-obsidian-text-muted"
-            : "text-obsidian-text-secondary"
+            ? "text-base-content/40"
+            : "text-base-content/70"
         }`}
       >
         {renderMarkdown(
@@ -263,14 +263,14 @@ const CriticCard: React.FC<CriticCardProps> = ({
         feedbackData.positions.length > 0 &&
         feedbackData.positions[0].text && (
           <div
-            className="mt-2 p-2 bg-obsidian-bg rounded border-l-2 border-obsidian-accent-light cursor-pointer hover:bg-obsidian-surface transition-colors"
+            className="mt-2 p-2 bg-base-200 rounded border-l-2 border-primary/40 cursor-pointer hover:bg-base-100 transition-colors"
             onClick={() => onJumpToReference(feedbackData.positions[0].text)}
             title="Click to jump to reference in editor"
           >
-            <div className="text-xs text-obsidian-text-muted mono mb-0.5">
+            <div className="text-xs text-base-content/40 mono mb-0.5">
               Referenced:
             </div>
-            <div className="text-xs text-obsidian-text-primary italic leading-tight">
+            <div className="text-xs text-base-content italic leading-tight">
               &ldquo;
               {feedbackData.positions[0].text.length > 80
                 ? feedbackData.positions[0].text.substring(0, 80) + "..."
@@ -283,7 +283,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
       {/* Show corpus sources that ground this feedback */}
       {feedbackData.corpus_sources && feedbackData.corpus_sources.length > 0 ? (
         <div className="mt-2 space-y-1.5">
-          <div className="text-xs text-obsidian-text-muted mono flex items-center gap-1">
+          <div className="text-xs text-base-content/40 mono flex items-center gap-1">
             <BookOpen className="w-3 h-3" />
             <span>Grounded in corpus:</span>
           </div>
@@ -293,21 +293,21 @@ const CriticCard: React.FC<CriticCardProps> = ({
               className="p-2 bg-purple-50/50 rounded border border-purple-200 text-xs group/source cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors"
               onClick={() => onViewCorpusSource(source)}
             >
-              <div className="text-obsidian-text-primary italic leading-tight mb-1">
+              <div className="text-base-content italic leading-tight mb-1">
                 &ldquo;
                 {source.text.length > 120
                   ? source.text.substring(0, 120) + "..."
                   : source.text}
                 &rdquo;
               </div>
-              <div className="flex items-center gap-2 text-obsidian-text-muted">
+              <div className="flex items-center gap-2 text-base-content/40">
                 {source.source_file && (
                   <span className="mono text-purple-600">
                     {source.source_file}
                   </span>
                 )}
                 {source.relevance && (
-                  <span className="text-obsidian-text-tertiary flex-1 truncate">
+                  <span className="text-base-content/50 flex-1 truncate">
                     {source.relevance}
                   </span>
                 )}
@@ -321,7 +321,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
         feedbackData.sources.length > 0 && (
           /* Fallback: display old-format sources as simple list */
           <div className="mt-2 space-y-1">
-            <div className="text-xs text-obsidian-text-muted mono flex items-center gap-1">
+            <div className="text-xs text-base-content/40 mono flex items-center gap-1">
               <BookOpen className="w-3 h-3" />
               <span>Corpus references:</span>
             </div>
@@ -329,7 +329,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
               {feedbackData.sources.map((source, idx) => (
                 <div
                   key={idx}
-                  className="text-obsidian-text-primary leading-tight"
+                  className="text-base-content leading-tight"
                 >
                   <span className="text-purple-600 mr-1">{idx + 1}.</span>
                   {source}
@@ -342,7 +342,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
 
       {feedbackData.suggestion && (
         <div
-          className={`mt-2 p-2 bg-obsidian-surface rounded border-l-2 ${
+          className={`mt-2 p-2 bg-base-100 rounded border-l-2 ${
             feedbackData.status === "resolved"
               ? "border-green-400"
               : feedbackData.type === "complex_suggestion"
@@ -350,12 +350,12 @@ const CriticCard: React.FC<CriticCardProps> = ({
                 : feedbackData.type === "complex_insight"
                   ? "border-yellow-400"
                   : feedbackData.type === "framework_connection"
-                    ? "border-obsidian-accent-primary"
+                    ? "border-primary"
                     : "border-blue-400"
-          } border border-obsidian-border`}
+          } border border-base-300`}
         >
-          <p className="text-xs text-obsidian-text-secondary leading-tight">
-            <strong className="text-obsidian-text-primary">Suggestion:</strong>{" "}
+          <p className="text-xs text-base-content/70 leading-tight">
+            <strong className="text-base-content">Suggestion:</strong>{" "}
             {feedbackData.suggestion}
           </p>
         </div>

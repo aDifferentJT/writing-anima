@@ -69,9 +69,9 @@ const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, ref
   }, []); // TODO should this be an effect?
 
   return (
-    <div className="obsidian-panel h-[calc(100vh-180px)]">
-      <div className="h-[36px] px-3 border-b border-obsidian-border flex items-center">
-        <h2 className="text-xs font-semibold text-obsidian-text-tertiary uppercase tracking-wide">Editor</h2>
+    <div className="card bg-base-100 border border-base-300 h-[calc(100vh-180px)]">
+      <div className="h-[36px] px-3 border-b border-base-300 flex items-center">
+        <h2 className="text-xs font-semibold text-base-content/50 uppercase tracking-wide">Editor</h2>
       </div>
 
       <div className="relative h-[calc(100%-36px)]" data-color-mode="dark" ref={editorRef}>

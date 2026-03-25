@@ -99,27 +99,40 @@ def main() -> None:
         threading.Thread(target=server.run, daemon=True).start()
         _wait_for_server()
 
+        class JsApi:
+            def __init__(self) -> None:
+                self._anima_window: webview.Window | None = None
+
+            def open_anima_manager(self) -> None:
+                if self._anima_window is None:
+                    win = webview.create_window(
+                        "Anima Manager",
+                        f"{URL}/animas",
+                        width=1200,
+                        height=800,
+                        min_size=(800, 600),
+                    )
+                    def _on_closed() -> None:
+                        self._anima_window = None
+                    win.events.closed += _on_closed
+                    self._anima_window = win
+                self._anima_window.show()
+
+        js_api = JsApi()
+
         window = webview.create_window(
             "Writing Anima",
             URL,
             width=1400,
             height=900,
             min_size=(800, 600),
+            js_api=js_api,
         )
-
-        def open_anima_manager() -> None:
-            webview.create_window(
-                "Anima Manager",
-                f"{URL}/animas",
-                width=1200,
-                height=800,
-                min_size=(800, 600),
-            )
 
         menu = [
             webview.menu.Menu(
                 "Animas",
-               [webview.menu.MenuAction("Open Anima Manager", open_anima_manager)],
+               [webview.menu.MenuAction("Open Anima Manager", js_api.open_anima_manager)],
             )
         ]
 
