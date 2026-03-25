@@ -1,5 +1,10 @@
 """Desktop entry point — wraps the FastAPI app in a native window via pywebview."""
 
+# Inside a macOS .app bundle the locale is unset, so open() calls without an
+# explicit encoding= fall back to ASCII.  Setting LC_CTYPE fixes this properly.
+import locale
+locale.setlocale(locale.LC_CTYPE, "UTF-8")
+
 import ipaddress
 import logging
 import ssl
@@ -131,8 +136,8 @@ def main() -> None:
 
         menu = [
             webview.menu.Menu(
-                "Animas",
-               [webview.menu.MenuAction("Open Anima Manager", js_api.open_anima_manager)],
+                "__app__",
+                [webview.menu.MenuAction("Open Anima Manager", js_api.open_anima_manager)],
             )
         ]
 

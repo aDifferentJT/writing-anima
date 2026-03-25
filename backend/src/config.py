@@ -147,9 +147,15 @@ class Config(BaseModel):
         return self.models[model_id]
 
 
-# Global config instance
-CONFIG_PATH: str = "config.yaml"
-_config: Config = Config.from_yaml(CONFIG_PATH)
+# Global config instance — resolve relative to the bundle Resources dir when
+# frozen (py2app), otherwise relative to this file's parent (backend/).
+import sys as _sys, os as _os
+if getattr(_sys, "frozen", False):
+    _config_path = Path(_os.environ["RESOURCEPATH"]) / "config.yaml"
+else:
+    _config_path = Path(__file__).parent.parent / "config.yaml"
+
+_config: Config = Config.from_yaml(str(_config_path))
 
 
 def get_config() -> Config:

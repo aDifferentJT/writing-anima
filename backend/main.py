@@ -13,6 +13,7 @@ import uvicorn
 from typing import Any, AsyncGenerator, Never, Optional
 import logging
 import os
+import sys
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -66,18 +67,18 @@ def setup(allowed_origins: list[str]) -> FastAPI:
 
     # Serve built frontend as static files (production / desktop mode).
     # Must come last — it's a catch-all for any path not matched by API routes.
-    frontend_dist = Path(__file__).parent / "frontend" / "dist"
+    if getattr(sys, "frozen", False):
+        # py2app sets RESOURCEPATH to Contents/Resources/
+        frontend_dist = Path(os.environ["RESOURCEPATH"]) / "frontend" / "dist"
+    else:
+        frontend_dist = Path(__file__).parent / "frontend" / "dist"
+
     if frontend_dist.exists():
         @app.get("/animas")
         async def animas_page() -> FileResponse:
             return FileResponse(str(frontend_dist / "animas.html"))
 
-
-        app.mount(
-            "/",
-            StaticFiles(directory=str(frontend_dist), html=True),
-            name="frontend",
-        )
+        app.mount("/", StaticFiles(directory=str(frontend_dist), html=True, follow_symlink=True), name="frontend")
 
     return app
 
