@@ -15,6 +15,7 @@ import type {
 } from '../types';
 
 import type { CorpusUploadMessage, EmbeddingProviderInfo } from '../apiTypes';
+import { websocketStream } from './websocketStream';
 
 const API_URL: string = import.meta.env.VITE_API_URL || window.location.origin;
 const WS_URL: string = import.meta.env.VITE_WS_URL ||
@@ -167,6 +168,18 @@ class AnimaService {
   }
 
   /**
+   * Subscribe to live anima list updates via WebSocket.
+   * Yields the full anima list on connect and after every mutation.
+   * The generator closes cleanly when the caller calls .return() (e.g. on unmount).
+   */
+  async *watchAnimas(): AsyncGenerator<Anima[]> {
+    yield* websocketStream<Anima[]>(
+      `${WS_URL}/api/animas/subscribe`,
+      (data, push) => push((data as { animas?: Anima[] }).animas ?? []),
+    );
+  }
+
+  /**
    * Get all animas for a user
    */
   async getAnimas(): Promise<Anima[]> {
@@ -301,58 +314,28 @@ class AnimaService {
         reader.readAsDataURL(file);
       });
 
-    type Node = { msg: CorpusUploadMessage; next: Promise<Node | null> };
-
-    const { promise: next, resolve: initialResolve, reject: initialReject } =
-      Promise.withResolvers<Node | null>();
-    let resolveNext = initialResolve;
-    let rejectNext = initialReject;
-
-    const push = (msg: CorpusUploadMessage) => {
-      const { promise: next, resolve, reject } = Promise.withResolvers<Node | null>();
-      resolveNext({ msg, next });
-      resolveNext = resolve;
-      rejectNext = reject;
-    };
-
-    const ws = new WebSocket(`${WS_URL}/api/animas/${animaId}/corpus`);
-
-    ws.onopen = async () => {
-      const filesData = await Promise.all(
-        files.map(async (file: File) => ({
-          name: file.name,
-          size: file.size,
-          content: await toBase64(file),
-        })),
-      );
-      ws.send(JSON.stringify({ files: filesData }));
-    };
-
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      if (msg.type === "error") {
-        rejectNext(new Error(msg.message || "Upload failed"));
-      } else {
-        push(msg as CorpusUploadMessage);
-        if (msg.type === "complete") resolveNext(null);
-      }
-    };
-
-    ws.onerror = () => rejectNext(new Error("WebSocket connection failed"));
-
-    ws.onclose = (event) => {
-      if (event.wasClean || event.code === 1000) {
-        resolveNext(null);
-      } else {
-        rejectNext(new Error("WebSocket closed unexpectedly"));
-      }
-    };
-
-    let node = await next;
-    while (node !== null) {
-      yield node.msg;
-      node = await node.next;
-    }
+    yield* websocketStream<CorpusUploadMessage>(
+      `${WS_URL}/api/animas/${animaId}/corpus`,
+      (data, push, close, error) => {
+        const msg = data as CorpusUploadMessage;
+        if (msg.type === "error") {
+          error(new Error(msg.message || "Upload failed"));
+        } else {
+          push(msg);
+          if (msg.type === "complete") close();
+        }
+      },
+      async (send) => {
+        const filesData = await Promise.all(
+          files.map(async (file: File) => ({
+            name: file.name,
+            size: file.size,
+            content: await toBase64(file),
+          })),
+        );
+        send(JSON.stringify({ files: filesData }));
+      },
+    );
   }
 
   /**

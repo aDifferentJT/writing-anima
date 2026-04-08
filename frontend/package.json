@@ -28,6 +28,7 @@
     "@eslint/js": "^9.39.4",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
+    "baseline-browser-mapping": "^2.10.16",
     "concurrently": "^8.2.2",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",

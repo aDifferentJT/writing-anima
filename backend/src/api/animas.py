@@ -8,9 +8,10 @@ import logging
 import uuid
 from datetime import datetime
 from io import BytesIO
-from typing import Optional
+from typing import Callable, Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from qdrant_client import QdrantClient
 from sqlmodel import Session, select
 
 from ..config import get_config
@@ -25,8 +26,11 @@ from .models import (
     AvailableModel,
     AvailableModelsResponse,
     CorpusChunk,
+    CorpusCompleteMessage,
     CorpusDocumentsResponse,
+    CorpusErrorMessage,
     CorpusFileModel,
+    CorpusStatusMessage,
     CorpusUploadRequest,
     EmbeddingProviderInfo,
     EmbeddingProvidersResponse,
@@ -34,11 +38,50 @@ from .models import (
     AnimaCreate,
     AnimaList,
     AnimaResponse,
-    AnimaUpdate,
 )
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/animas", tags=["animas"])
+
+
+class AnimaSubscriptionManager:
+    """Broadcasts the current anima list to all subscribed WebSocket clients."""
+
+    def __init__(self) -> None:
+        self._subscribers: set[WebSocket] = set()
+
+    def add(self, ws: WebSocket) -> None:
+        """Add a subscriber."""
+        self._subscribers.add(ws)
+
+    def remove(self, ws: WebSocket) -> None:
+        """Remove a subscriber."""
+        self._subscribers.discard(ws)
+
+    async def broadcast(self, anima_list: AnimaList) -> None:
+        """Broadcast anima list to all subscribers."""
+        data = anima_list.model_dump(mode="json")
+        dead: set[WebSocket] = set()
+        for ws in self._subscribers:
+            try:
+                await ws.send_json(data)
+            except Exception:  # pylint: disable=broad-exception-caught
+                dead.add(ws)
+        self._subscribers -= dead
+
+
+anima_subscriptions = AnimaSubscriptionManager()
+
+
+def _build_anima_list(session: Session) -> AnimaList:
+    """Fetch all animas and return an AnimaList (checks Qdrant availability)."""
+    animas = list(session.exec(select(Anima)))
+    existing_collections = get_existing_collections()
+    responses = [
+        AnimaResponse.from_anima(a, corpus_available=a.collection_name in existing_collections)
+        for a in animas
+    ]
+    return AnimaList(animas=responses, total=len(responses))
 
 
 @router.get("/embedding-providers", response_model=EmbeddingProvidersResponse)
@@ -103,6 +146,7 @@ async def create_anima(anima: AnimaCreate) -> AnimaResponse:
             session.add(anima_data)
             session.commit()
             session.refresh(anima_data)
+            await anima_subscriptions.broadcast(_build_anima_list(session))
 
         return AnimaResponse.from_anima(anima_data, corpus_available=True)
 
@@ -124,8 +168,6 @@ def _get_anima_or_404(session: Session, anima_id: uuid.UUID) -> Anima:
 def get_existing_collections() -> set[str]:
     """Get all existing Qdrant collection names (single connection)"""
     try:
-        from qdrant_client import QdrantClient
-
         config = get_config()
         host = config.vector_db.host
 
@@ -150,6 +192,23 @@ def get_existing_collections() -> set[str]:
         raise HTTPException(
             status_code=500, detail=f"Failed to get collections from Qdrant: {str(e)}"
         ) from e
+
+
+@router.websocket("/subscribe")
+async def subscribe_animas(websocket: WebSocket) -> None:
+    """Push the anima list to the client on connect and on every mutation."""
+    await websocket.accept()
+    anima_subscriptions.add(websocket)
+    try:
+        with Session(general_db) as session:
+            await websocket.send_json(_build_anima_list(session).model_dump(mode="json"))
+        # Keep connection alive until the client disconnects
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        anima_subscriptions.remove(websocket)
 
 
 @router.get("", response_model=AnimaList)
@@ -209,6 +268,7 @@ async def delete_anima(anima_id: uuid.UUID) -> None:
             session.delete(anima)
             session.commit()
             logger.info("Deleted anima %s", anima_id)
+            await anima_subscriptions.broadcast(_build_anima_list(session))
 
     except HTTPException:
         raise
@@ -220,17 +280,14 @@ async def delete_anima(anima_id: uuid.UUID) -> None:
         ) from e
 
 
+CorpusMessage = CorpusStatusMessage | CorpusCompleteMessage | CorpusErrorMessage
 
 @router.websocket("/{anima_id}/corpus")
-async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:
+async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """Upload corpus files via WebSocket.
 
-    Client sends: {"files": [{"name": "...", "size": N, "content": "<base64>"}]}
-    Server sends:
-      - {"type": "status", "steps_completed": [...], "steps_remaining": [...],
-         "current_step": "...", "step_progress": 0.0–1.0}
-      - {"type": "complete", "files_uploaded": N, "total_size": N, "message": "..."}
-      - {"type": "error", "message": "..."}
+    Client sends: CorpusUploadRequest (JSON)
+    Server sends: CorpusStatusMessage | CorpusCompleteMessage | CorpusErrorMessage (JSON)
     """
     await websocket.accept()
 
@@ -238,11 +295,15 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:
         request_data = await websocket.receive_text()
         request = CorpusUploadRequest.model_validate_json(request_data)
 
+        async def send_msg(msg: CorpusMessage) -> None:
+            await websocket.send_json(msg.model_dump(mode="json"))
+
         with Session(general_db) as session:
+
             try:
                 anima = _get_anima_or_404(session, anima_id)
             except HTTPException:
-                await websocket.send_json({"type": "error", "message": "Anima not found"})
+                await send_msg(CorpusErrorMessage(message="Anima not found"))
                 await websocket.close()
                 return
 
@@ -262,13 +323,12 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:
                 current_step: str,
                 step_progress: float | None,
             ) -> None:
-                await websocket.send_json({
-                    "type": "status",
-                    "steps_completed": completed + current_steps_completed,
-                    "steps_remaining": current_steps_remaining + remaining,
-                    "current_step": current_step,
-                    "step_progress": step_progress,
-                })
+                await send_msg(CorpusStatusMessage(
+                    steps_completed=completed + current_steps_completed,
+                    steps_remaining=current_steps_remaining + remaining,
+                    current_step=current_step,
+                    step_progress=step_progress,
+                ))
 
             loop = asyncio.get_running_loop()
             def on_model_progress(progress: float | None) -> None:
@@ -283,7 +343,12 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:
                     loop,
                 )
 
-            embedder = await asyncio.to_thread(create_embedding_generator, get_config(), anima.embedding_provider, on_model_progress)
+            embedder = await asyncio.to_thread(
+                create_embedding_generator,
+                get_config(),
+                anima.embedding_provider,
+                on_model_progress,
+            )
             ingester = CorpusIngester(collection_name, get_config(), embedder)
 
             completed.append("Loading embedding model")
@@ -302,10 +367,15 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:
                     size=len(file_bytes),
                 )
 
-                def stage(s: str) -> str:
-                    return f"{file_data.name}: {s}"
+                def stage(s: str, filename: str = file_data.name) -> str:
+                    return f"{filename}: {s}"
 
-                def on_ingest_progress(step: Stage, step_progress: float | None) -> None:
+                def on_ingest_progress(
+                    step: Stage,
+                    step_progress: float | None,
+                    remaining: list[str] = remaining,
+                    stage: Callable[[str], str] = stage,
+                ) -> None:
                     idx = STAGES.index(step)
                     loop.create_task(send_status(
                         remaining=remaining,
@@ -315,7 +385,9 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:
                         step_progress=step_progress,
                     ))
 
-                total_chunks_added += await ingester.ingest(upload_file, progress_callback=on_ingest_progress)
+                total_chunks_added += await ingester.ingest(
+                    upload_file, progress_callback=on_ingest_progress
+                )
 
                 completed.append(file_data.name)
 
@@ -333,30 +405,30 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:
             anima.updated_at = datetime.utcnow()
             session.add(anima)
             session.commit()
+            await anima_subscriptions.broadcast(_build_anima_list(session))
 
             logger.info("Uploaded %d files via WebSocket to anima %s", len(files_data), anima_id)
 
-            await websocket.send_json({
-                "type": "complete",
-                "files_uploaded": len(files_data),
-                "total_size": total_size,
-                "message": f"Successfully uploaded {len(files_data)} files",
-            })
+            await send_msg(CorpusCompleteMessage(
+                files_uploaded=len(files_data),
+                total_size=total_size,
+                message=f"Successfully uploaded {len(files_data)} files",
+            ))
             await websocket.close()
 
     except WebSocketDisconnect:
         logger.info("Corpus upload WebSocket disconnected")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Error in corpus upload WebSocket: %s", e)
         try:
-            await websocket.send_json({"type": "error", "message": f"Upload failed: {str(e)}"})
+            await send_msg(CorpusErrorMessage(message=f"Upload failed: {str(e)}"))
             await websocket.close()
         except:  # pylint: disable=bare-except
             pass
 
 
 @router.get("/{anima_id}/corpus/documents", response_model=CorpusDocumentsResponse)
-async def get_corpus_documents(anima_id: uuid.UUID) -> CorpusDocumentsResponse:
+async def get_corpus_documents(anima_id: uuid.UUID) -> CorpusDocumentsResponse:  # pylint: disable=too-many-locals
     """Get all corpus documents for an anima, grouped by source file"""
     try:
         with Session(general_db) as session:
@@ -377,27 +449,29 @@ async def get_corpus_documents(anima_id: uuid.UUID) -> CorpusDocumentsResponse:
             # Build response, sorting chunks within each file and deduplicating overlaps
             overlap_size = config.corpus.chunk_overlap
             files = []
-            for filename, chunks in sorted(files_map.items()):
+            for filename, chunks in sorted(files_map.items()):  # pylint: disable=too-many-nested-blocks
                 sorted_chunks = sorted(chunks, key=lambda c: c.metadata.chunk_index)
 
                 # Deduplicate overlap regions between consecutive chunks
                 last_deduped_text: Optional[str] = None
                 corpus_chunks: list[CorpusChunk] = []
 
-                for i, c in enumerate(sorted_chunks):
+                for _, c in enumerate(sorted_chunks):
                     text = c.text
 
-                    if overlap_size > 0 and last_deduped_text is not None:
-                        # Look for where the end of the previous chunk appears
-                        # at the start of this chunk (the overlap region)
-                        suffix = last_deduped_text[-overlap_size * 2 :]  # generous search window
-                        best_overlap = 0
-                        for length in range(min(len(suffix), len(text)), 0, -1):
-                            if text[:length] == suffix[-length:]:
-                                best_overlap = length
-                                break
-                        if best_overlap > 0:
-                            text = text[best_overlap:]
+                    if overlap_size > 0:
+                        if last_deduped_text is not None:
+                            # Look for where the end of the previous chunk appears
+                            # at the start of this chunk (the overlap region)
+                            # Generous search window for overlap detection
+                            suffix = last_deduped_text[-overlap_size * 2 :]
+                            best_overlap = 0
+                            for length in range(min(len(suffix), len(text)), 0, -1):
+                                if text[:length] == suffix[-length:]:
+                                    best_overlap = length
+                                    break
+                            if best_overlap > 0:
+                                text = text[best_overlap:]
 
                     last_deduped_text = text
 

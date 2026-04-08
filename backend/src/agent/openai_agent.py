@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import time
 from typing import Any, Generator, Literal, Optional, TypedDict
 
 from openai import Omit, omit, OpenAI
@@ -23,7 +24,8 @@ logger = logging.getLogger(__name__)
 
 class OpenAIAgent(BaseAgent):
     """Agent using OpenAI GPT models"""
-    def __init__(
+
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         anima_id: str,
         config: Config,
@@ -195,7 +197,8 @@ class OpenAIAgent(BaseAgent):
             style_examples += f"\n--- Example {i} ---\n{text}\n"
 
         # Build the rewrite prompt
-        rewrite_prompt = f"""You ARE this author. Rewrite each feedback item as if YOU wrote it from scratch.
+        rewrite_prompt = f"""
+You ARE this author. Rewrite each feedback item as if YOU wrote it from scratch.
 
 STUDY YOUR VOICE - These are examples of how you actually write:
 {style_examples}
@@ -223,7 +226,9 @@ INPUT FEEDBACK:
 {feedback_json}
 
 OUTPUT:
-Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start with [ and end with ]."""
+Return ONLY the rewritten JSON array. No explanation, no markdown fences.
+Start with [ and end with ].
+"""
 
         try:
             logger.info("Starting style rewrite phase with %d samples...", len(samples))
@@ -231,8 +236,6 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
             logger.info("Feedback JSON length: %d chars", len(feedback_json))
             logger.info("Total rewrite prompt length: %d chars", len(rewrite_prompt))
             logger.info("Calling OpenAI API for style rewrite...")
-
-            import time
 
             start_time = time.time()
 
@@ -277,7 +280,7 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
         except json.JSONDecodeError as e:
             logger.error("Style rewrite produced invalid JSON: %s", e)
             return feedback_json  # Return original on failure
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Style rewrite failed: %s", e)
             return feedback_json  # Return original on failure
 
@@ -364,22 +367,28 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
         }
 
     class TextResponse(TypedDict):
+        """Response with text content."""
+
         type: Literal["text"]
         content: str
 
     class StatusResponse(TypedDict):
+        """Response with status update."""
+
         type: Literal["status"]
         message: str
         tool: str
 
     class ResultResponse(TypedDict):
+        """Response with final result."""
+
         type: Literal["result"]
         response: str
         tool_calls: list[ToolCall]
         iterations: int
         model: str
 
-    def respond_stream(
+    def respond_stream(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
         self, query: str, conversation_history: Optional[list[ChatCompletionMessageParam]] = None
     ) -> Generator[TextResponse | StatusResponse | ResultResponse, None, None]:
         """
@@ -437,7 +446,7 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                 logger.debug("Calling model with %d tools available", len(tools))
                 logger.debug("Tool names: %s", [t['function']['name'] for t in tools])
 
-                # Determine tool_choice: require tools only on first iteration if no tools called yet
+                # Require tools on first iteration if no tools called yet
                 tool_choice: Literal["auto", "required"]
                 if self.config.agent.force_tool_use and tools_called_count == 0:
                     tool_choice = "required"
@@ -541,8 +550,8 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                             yield {
                                 "type": "status",
                                 "message": (
-                                    "Rewriting feedback in author's style (%d samples)..."
-                                    % len(retrieved_samples)
+                                    f"Rewriting feedback in author's style "
+                                    f"({len(retrieved_samples)} samples)..."
                                 ),
                                 "tool": "style_rewrite",
                             }
@@ -596,9 +605,12 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                         # Yield thought fragment showing tool args
                         if tool_use.name == "search_corpus":
                             query_preview = tool_use.input.get("query", "")[:40]
+                            k_val = tool_use.input.get("k", "default")
                             yield {
                                 "type": "status",
-                                "message": f'query="{query_preview}...", k={tool_use.input.get("k", "default")}',
+                                "message": (
+                                    f'query="{query_preview}...", k={k_val}'
+                                ),
                                 "tool": tool_use.name,
                             }
                         elif tool_use.name == "check_incremental_reasoning":
@@ -621,9 +633,15 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                         if tool_use.name == "search_corpus":
                             query = tool_use.input.get("query", "")
                             k = tool_use.input.get("k", "default")
+                            result_count = (
+                                len(result) if isinstance(result, list) else 0
+                            )
                             logger.info(
                                 "[OpenAI SEARCH #%d] query=\"%s\" k=%s -> %d results",
-                                tools_called_count, query[:80], k, len(result) if isinstance(result, list) else 0
+                                tools_called_count,
+                                query[:80],
+                                k,
+                                result_count,
                             )
                             # Collect retrieved samples for style rewrite phase
                             if isinstance(result, list):
@@ -687,7 +705,7 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
                     # Continue to next iteration for final response
                     continue
 
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Error in streaming iteration %d: %s", iteration + 1, e)
                 raise
 
@@ -701,7 +719,10 @@ Return ONLY the rewritten JSON array. No explanation, no markdown fences. Start 
         if collected_content and collected_content.strip().startswith("["):
             yield {
                 "type": "status",
-                "message": f"Rewriting feedback in author's style ({len(retrieved_samples)} samples)...",
+                "message": (
+                    f"Rewriting feedback in author's style "
+                    f"({len(retrieved_samples)} samples)..."
+                ),
                 "tool": "style_rewrite",
             }
             final_response = self._rewrite_in_style(

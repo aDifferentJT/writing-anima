@@ -33,7 +33,7 @@ async def create_project() -> Project:
             purpose=Purpose(topic="", context=""),
             content="",
             feedback=[],
-            writingCriteria=WritingCriteria(),
+            writing_criteria=WritingCriteria(),
             settings=ProjectSettings(),
             created_at=now,
             updated_at=now,
@@ -63,7 +63,7 @@ async def get_projects() -> list[Project]:
         with Session(general_db) as session:
             return list(session.exec(
                 select(Project)
-                    .where(not Project.is_archived)
+                    .where(~Project.is_archived)  # type: ignore[arg-type]
                     .order_by(desc(Project.last_accessed_at))
             ))
 

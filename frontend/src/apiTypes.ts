@@ -64,6 +64,15 @@ export interface EnrichedFeedbackItem extends ReceivedFeedbackItem {
 
 // ── Projects ──────────────────────────────────────────────────────────────────
 
+/** backend: ProjectSettings (JSON blob stored on Project.settings) */
+export interface ProjectSettings {
+  auto_save_interval: number;
+  enable_real_time_sync: boolean;
+  favourite_animas: string[];
+  default_anima_id: string | null;
+  default_model_id: string | null;
+}
+
 /** backend: Purpose (JSON blob stored on Project) */
 export interface Purpose {
   topic: string;
@@ -82,8 +91,8 @@ export interface Project {
   purpose: Purpose;
   content: string;
   feedback: EnrichedFeedbackItem[];
-  writingCriteria: WritingCriteria;
-  settings?: Record<string, unknown>;
+  writing_criteria: WritingCriteria;
+  settings: ProjectSettings;
   is_archived: boolean;
   created_at: string;
   last_accessed_at: string;
@@ -151,7 +160,12 @@ export interface CorpusCompleteMessage {
   message: string;
 }
 
-export type CorpusUploadMessage = CorpusStatusMessage | CorpusCompleteMessage;
+export interface CorpusErrorMessage {
+  type: 'error';
+  message: string;
+}
+
+export type CorpusUploadMessage = CorpusStatusMessage | CorpusCompleteMessage | CorpusErrorMessage;
 
 // ── Streaming / WebSocket messages ────────────────────────────────────────────
 

@@ -26,7 +26,7 @@ interface WritingInterfaceProps {
   onBackToPurpose: () => void;
   project: Project;
   setProject: (project: Project) => void;
-  writingCriteria: WritingCriteria;
+  writing_criteria: WritingCriteria;
   onFeedbackGenerated: (insights: EnrichedFeedbackItem[]) => void;
 }
 
@@ -35,7 +35,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   setFeedback,
   project,
   setProject,
-  writingCriteria,
+  writing_criteria,
   onFeedbackGenerated,
 }) => {
   const [resolvedFeedback, setResolvedFeedback] = useState<EnrichedFeedbackItem[]>([]); // Separate storage for resolved feedback
@@ -43,14 +43,12 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   const [showAgentCustomization, setShowAgentCustomization] = useState<boolean>(false);
   const [isExecutingFlow, setIsExecutingFlow] = useState<boolean>(false);
   const [availableAnimas, setAvailableAnimas] = useState<Anima[]>([]);
-  const [selectedAnimaId, setSelectedAnimaId] = useState<string | null>(() => {
-    // Load persisted anima selection from localStorage
-    return localStorage.getItem("selectedAnimaId") || null;
-  });
-  const [selectedModel, setSelectedModel] = useState<string>(() => {
-    // Load persisted model selection from localStorage
-    return localStorage.getItem("selectedModel") || "gpt-5";
-  });
+  const [selectedAnimaId, setSelectedAnimaId] = useState<string | null>(
+    () => project.settings.default_anima_id
+  );
+  const [selectedModel, setSelectedModel] = useState<string | null>(
+    () => project.settings.default_model_id
+  );
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [, setAnalysisStatus] = useState<string | null>(null); // Status updates passed to ThoughtProcess via thoughtSteps
   const [thoughtSteps, setThoughtSteps] = useState<ThoughtStep[]>([]);
@@ -59,13 +57,13 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   const isExecutingRef = useRef<boolean>(false);
   const writingAreaRef = useRef<WritingAreaHandle>(null);
 
-  const favouriteAnimas: string[] = (project.settings?.favouriteAnimas as string[]) ?? [];
+  const favouriteAnimas: string[] = project.settings.favourite_animas;
 
   const handleToggleFavourite = useCallback((animaId: string) => {
     const next = favouriteAnimas.includes(animaId)
       ? favouriteAnimas.filter((id) => id !== animaId)
       : [...favouriteAnimas, animaId];
-    const updated = { ...project, settings: { ...project.settings, favouriteAnimas: next } };
+    const updated = { ...project, settings: { ...project.settings, favourite_animas: next } };
     setProject(updated);
     projectService.updateProject(project.id, { settings: updated.settings });
   }, [project, favouriteAnimas, setProject]);
@@ -92,19 +90,22 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   };
 
 
-  // Persist selected anima to localStorage
-  useEffect(() => {
-    if (selectedAnimaId) {
-      localStorage.setItem("selectedAnimaId", selectedAnimaId);
-    }
-  }, [selectedAnimaId]);
+  // Persist selected anima to project settings
+  const handleAnimaChange = useCallback((animaId: string) => {
+    setSelectedAnimaId(animaId);
+    const updated = { ...project, settings: { ...project.settings, default_anima_id: animaId } };
+    setProject(updated);
+    projectService.updateProject(project.id, { settings: updated.settings });
+  }, [project, setProject]);
 
-  // Persist selected model to localStorage
-  useEffect(() => {
-    if (selectedModel) {
-      localStorage.setItem("selectedModel", selectedModel);
-    }
-  }, [selectedModel]);
+  // Persist selected model to project settings
+  const handleModelChange = useCallback((modelId: string) => {
+    setSelectedModel(modelId);
+    const updated = { ...project, settings: { ...project.settings, default_model_id: modelId } };
+    setProject(updated);
+    projectService.updateProject(project.id, { settings: updated.settings });
+  }, [project, setProject]);
+
 
   // Load available models
   useEffect(() => {
@@ -118,32 +119,24 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
       });
   }, []);
 
-  // Load available animas
+  // Subscribe to live anima updates
   useEffect(() => {
-    animaService
-      .getAnimas()
-      .then((animas: Anima[]) => {
-        setAvailableAnimas(animas);
-
-        // Check if persisted anima exists in available animas
-        const persistedId = localStorage.getItem("selectedAnimaId");
-        const persistedAnimaExists =
-          persistedId && animas.some((a) => a.id === persistedId);
-
-        // Only auto-select if no valid persisted selection
-        // Using setSelectedAnimaId callback to avoid dependency on selectedAnimaId
-        setSelectedAnimaId((currentId) => {
-          if (!persistedAnimaExists && !currentId) {
-            // Find an anima with corpus that is also available
-            const animaWithCorpus = animas.find(
-              (a) => (a.chunk_count ?? 0) > 0 && a.corpus_available !== false,
-            );
-            return animaWithCorpus ? animaWithCorpus.id : currentId;
-          }
-          return currentId;
-        });
-      })
-      .catch((error: unknown) => console.error("Error loading animas:", error));
+    const gen = animaService.watchAnimas();
+    let active = true;
+    (async () => {
+      try {
+        for await (const animas of gen) {
+          if (!active) break;
+          setAvailableAnimas(animas);
+        }
+      } catch (error) {
+        console.error("Anima subscription error:", error);
+      }
+    })();
+    return () => {
+      active = false;
+      gen.return(undefined);
+    };
   }, []);
 
   // Handle Anima analysis with streaming
@@ -206,9 +199,9 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
         selectedAnimaId,
         {
           purpose: purposeText,
-          criteria: writingCriteria.criteria,
+          criteria: writing_criteria.criteria,
           feedbackHistory: feedback.slice(-3), // Last 3 feedback items
-          model: selectedModel, // Pass selected model
+          model: selectedModel!, // Pass selected model (guarded by button disabled)
         },
         {
           onStatus: (status) => {
@@ -370,7 +363,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     selectedAnimaId,
     selectedModel,
     project,
-    writingCriteria,
+    writing_criteria,
     feedback,
     availableAnimas,
     onFeedbackGenerated,
@@ -414,7 +407,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           {availableAnimas.length > 0 ? (
             <DropdownSelect
               value={selectedAnimaId || ""}
-              onChange={(v) => setSelectedAnimaId(v)}
+              onChange={handleAnimaChange}
               disabled={isExecutingFlow}
               placeholder="Select anima..."
               options={(() => {
@@ -481,9 +474,10 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           )}
           {/* Model Selector */}
           <DropdownSelect
-            value={selectedModel}
-            onChange={(v) => setSelectedModel(v)}
+            value={selectedModel || ""}
+            onChange={handleModelChange}
             disabled={isExecutingFlow}
+            placeholder="Select model..."
             options={
               availableModels.length > 0
                 ? availableModels.map((m) => ({ value: m.id, label: m.name }))
@@ -492,7 +486,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           />
           <button
             onClick={handleExecuteFlowClick}
-            disabled={isExecutingFlow || !project.content || !selectedAnimaId}
+            disabled={isExecutingFlow || !project.content || !selectedAnimaId || !selectedModel}
             className={`btn btn-sm whitespace-nowrap flex-shrink-0 ml-auto ${
               isExecutingFlow || !project.content || !selectedAnimaId
                 ? "btn-disabled"
@@ -530,7 +524,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           <ThoughtProcess
             steps={thoughtSteps}
             isAnalyzing={isExecutingFlow}
-            model={selectedModel}
+            model={selectedModel ?? ""}
           />
         )}
 

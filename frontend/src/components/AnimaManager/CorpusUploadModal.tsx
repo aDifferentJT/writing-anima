@@ -199,14 +199,14 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
                       <span className="truncate">{uploadStatus.current_step}</span>
                     </div>
                     {uploadStatus.step_progress !== null ? (
-                      <div className="ml-6 w-full bg-base-300 h-1 rounded">
+                      <div className="ml-6 bg-base-300 h-1 rounded">
                         <div
                           className="bg-primary h-1 transition-all duration-300 rounded"
                           style={{ width: `${uploadStatus.step_progress * 100}%` }}
                         />
                       </div>
                     ) : (
-                      <div className="ml-6 w-full bg-base-300 h-1 overflow-hidden rounded">
+                      <div className="ml-6 bg-base-300 h-1 overflow-hidden rounded">
                         <div className="bg-primary h-1 w-1/3 animate-slide" />
                       </div>
                     )}

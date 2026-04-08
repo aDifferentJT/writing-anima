@@ -150,7 +150,7 @@ function AppContent({
   }, [setCurrentProject]);
 
   return (
-    <div className="min-h-screen bg-base-200">
+    <div className="h-screen bg-base-200">
       <Navigation
         currentMode={currentMode}
         currentProject={currentProject}
@@ -172,7 +172,7 @@ function AppContent({
             onBackToPurpose={handleBackToHome}
             project={currentProject}
             setProject={setCurrentProject}
-            writingCriteria={currentProject.writingCriteria}
+            writing_criteria={currentProject.writing_criteria}
             onFeedbackGenerated={handleFeedbackGenerated}
           />
         ) : null}
@@ -199,7 +199,7 @@ function App(): React.ReactElement {
 
   if (currentProject == null) {
      return (
-       <div className="min-h-screen bg-base-200">
+       <div className="h-screen bg-base-200">
          <div className='h-screen'>
            <ProjectDashboard
              onSelectProject={handleSelectProject}

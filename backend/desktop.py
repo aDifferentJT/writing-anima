@@ -117,11 +117,13 @@ def main() -> None:
                         height=800,
                         min_size=(800, 600),
                     )
-                    def _on_closed() -> None:
-                        self._anima_window = None
-                    win.events.closed += _on_closed
-                    self._anima_window = win
-                self._anima_window.show()
+                    if win is not None:
+                        def _on_closed() -> None:
+                            self._anima_window = None
+                        win.events.closed += _on_closed
+                        self._anima_window = win
+                if self._anima_window is not None:
+                    self._anima_window.show()
 
         js_api = JsApi()
 

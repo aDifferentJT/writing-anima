@@ -12,7 +12,7 @@ dependencies = [
     "pypdf>=4.0.0",
     "py2app>=0.28.10",
     "setuptools>=82",
-    "pywebview>=6.1",
+    "pywebview@git+https://github.com/r0x0r/pywebview.git",
     "python-dotenv>=1.0.0",
     "python-multipart>=0.0.6",
     "pyyaml>=6.0",
@@ -20,6 +20,7 @@ dependencies = [
     "sqlmodel>=0.0.37",
     "tqdm>=4.66.0",
     "uvicorn[standard]>=0.42.0",
+    "types-tqdm>=4.67.3.20260408",
 ]
 
 [dependency-groups]
@@ -27,6 +28,7 @@ dev = [
     "mypy>=1.19.1",
     "pylint>=4.0.5",
     "types-pyyaml>=6.0",
+    "types-setuptools>=82.0.0.20260408",
 ]
 
 [tool.mypy]
@@ -36,3 +38,8 @@ strict = true
 [[tool.mypy.overrides]]
 module = ["mlx_embeddings.*"]
 follow_untyped_imports = true
+
+[tool.pylint.messages_control]
+disable = [
+    "no-else-return",  # R1705 — else after return is fine for readability
+]

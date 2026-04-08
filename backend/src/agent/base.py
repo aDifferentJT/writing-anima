@@ -44,7 +44,7 @@ class Response(NamedTuple):
     error: Optional[str] = None
 
 
-class BaseAgent(ABC):
+class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-public-methods
     """Abstract base class for all model agents"""
 
     def __init__(
@@ -69,12 +69,20 @@ class BaseAgent(ABC):
 
         self.user_name = self.anima.name
         self.max_iterations = 20
-        self.search_tool = CorpusSearchTool(self.anima.collection_name, config, self.anima.embedding_provider)
+        self.search_tool = CorpusSearchTool(
+            self.anima.collection_name,
+            config,
+            self.anima.embedding_provider,
+        )
         self.reasoning_tool = IncrementalReasoningTool(
-            self.anima.collection_name, self.anima.name, config, self.anima.embedding_provider
+            self.anima.collection_name,
+            self.anima.name,
+            config,
+            self.anima.embedding_provider,
         )
 
         self.prompt_file: Optional[str] = None
+        self._current_tool_calls_count = 0
 
     @abstractmethod
     def _call_model(self, system: str, messages: list[ChatCompletionMessageParam]) -> Any:
@@ -162,8 +170,7 @@ class BaseAgent(ABC):
         prompt = base_prompt.format(user_name=self.user_name)
 
         # Add model-specific additions
-        model_specific = self._get_model_specific_prompt()
-        if model_specific:
+        if model_specific := self._get_model_specific_prompt():
             prompt += "\n\n" + model_specific.format(user_name=self.user_name)
 
         # Add style pack for grounding (diverse writing samples)
@@ -200,9 +207,9 @@ class BaseAgent(ABC):
                     "in the SAME VOICE, TONE, and STYLE as the examples above. "
                 )
                 prompt += (
-                    "Emulate how %s writes - their sentence structure, vocabulary "
-                    "choices, rhetorical patterns, and communication style. "
-                ) % self.user_name
+                    f"Emulate how {self.user_name} writes - their sentence structure, "
+                    f"vocabulary choices, rhetorical patterns, and communication style. "
+                )
                 prompt += (
                     "Do not write generic feedback. Write feedback AS IF you are "
                     "this author critiquing the work.\n"
@@ -250,7 +257,7 @@ class BaseAgent(ABC):
                 result = self.search_tool.search(**tool_use.input)
                 logger.debug("Tool search returned %d results", len(result))
                 return result
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Error executing search_corpus: %s", e)
                 return {"error": str(e)}
         elif tool_use.name == "check_incremental_reasoning":
@@ -261,15 +268,15 @@ class BaseAgent(ABC):
                     result.get('is_ood', False)
                 )
                 return result
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Error executing check_incremental_reasoning: %s", e)
                 return {"error": str(e)}
         else:
-            e2 = "Unknown tool: %s" % tool_use.name
+            error_msg = f"Unknown tool: {tool_use.name}"
             logger.error("Unknown tool: %s", tool_use.name)
-            return {"error": e2}
+            return {"error": error_msg}
 
-    def respond(
+    def respond(  # pylint: disable=too-many-locals
         self, query: str, conversation_history: Optional[list[ChatCompletionMessageParam]] = None
     ) -> Response:
         """
@@ -357,10 +364,10 @@ class BaseAgent(ABC):
                             model=self.__class__.__name__,
                         )
 
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Error in iteration %d: %s", iteration + 1, e)
                 return Response(
-                    response="Error: %s" % str(e),
+                    response=f"Error: {e}",
                     tool_calls=tool_calls_log,
                     iterations=iteration + 1,
                     model=self.__class__.__name__,

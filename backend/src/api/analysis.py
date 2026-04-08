@@ -4,6 +4,7 @@ Writing analysis API endpoints using Anima
 
 import json
 import logging
+import re
 import time
 import uuid
 from typing import Optional
@@ -15,12 +16,11 @@ from sqlmodel import Session, select
 from ..agent.base import Response
 from ..agent.factory import create_agent
 from ..config import get_config
-from ..database.general import (
-    general_db
-)
+from ..database.general import general_db
 from .models import (
     AnalysisRequest,
     ChatRequest,
+    CorpusSource,
     FeedbackItem,
     FeedbackSeverity,
     FeedbackType,
@@ -28,6 +28,7 @@ from .models import (
     StreamComplete,
     StreamFeedback,
     StreamStatus,
+    TextPosition,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ def get_anima(anima_id: str) -> Optional[Anima]:
         return anima
 
 
-def parse_json_feedback(
+def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
     response_text: str,
     anima_name: str,
     model: str,
@@ -188,8 +189,6 @@ def parse_json_feedback(
                             and "end" in pos
                             and "text" in pos
                         ):
-                            from .models import TextPosition
-
                             positions.append(
                                 TextPosition(
                                     start=pos["start"], end=pos["end"], text=pos["text"]
@@ -202,8 +201,6 @@ def parse_json_feedback(
                 if isinstance(raw_corpus_sources, list):
                     for src in raw_corpus_sources:
                         if isinstance(src, dict) and "text" in src:
-                            from .models import CorpusSource
-
                             corpus_sources.append(
                                 CorpusSource(
                                     text=src.get("text", ""),
@@ -214,7 +211,6 @@ def parse_json_feedback(
 
                 # Handle Kimi's flat format where source_file/relevance are directly on item
                 if not corpus_sources and item.get("source_file"):
-                    from .models import CorpusSource
 
                     corpus_sources.append(
                         CorpusSource(
@@ -271,7 +267,7 @@ def parse_json_feedback(
                         model=model,
                     )
                 )
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Error parsing feedback item: %s, item: %s", e, item)
                 continue
 
@@ -283,8 +279,6 @@ def parse_json_feedback(
         logger.error("Response text: %s", response_text[:500])
 
         # Fallback: try to extract any JSON array from the text
-        import re
-
         json_match = re.search(r"\[.*\]", response_text, re.DOTALL)
         if json_match:
             try:
@@ -292,17 +286,17 @@ def parse_json_feedback(
                 return parse_json_feedback(
                     json.dumps(feedback_data), anima_name, model
                 )
-            except: # pylint: disable=bare-except
+            except Exception:  # pylint: disable=bare-except,broad-exception-caught
                 pass
 
         return []
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Unexpected error parsing feedback: %s", e)
         return []
 
 
 @router.websocket("/analyze")
-async def analyze_writing_stream(websocket: WebSocket) -> None:
+async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
     """
     Analyze writing with streaming updates via WebSocket
     """
@@ -314,7 +308,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
 
         try:
             request = AnalysisRequest(**request_dict)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             await websocket.send_json(
                 {"type": "error", "message": f"Invalid request: {str(e)}"}
             )
@@ -461,7 +455,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
                 response_text, anima.name, request.model
             )
             logger.info("Parsed %d feedback items", len(feedback_items))
-        except Exception as parse_error:
+        except Exception as parse_error:  # pylint: disable=broad-exception-caught
             logger.error("Failed to parse feedback: %s", parse_error)
             await websocket.send_json(
                 {
@@ -485,7 +479,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
                 )
                 await websocket.send_text(StreamFeedback(item=feedback_item).model_dump_json())
                 logger.debug("Successfully sent item %d", i + 1)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error(
                     "Error sending feedback item %d: %s, stopping stream",
                     i + 1, e
@@ -503,12 +497,12 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
             )
             await websocket.close()
             logger.info("Stream completed successfully")
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error sending completion: %s", e)
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected by client")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Error in streaming analysis: %s", e)
         try:
             await websocket.send_json(
@@ -520,7 +514,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:
 
 
 @router.websocket("/chat")
-async def chat_with_anima_stream(websocket: WebSocket) -> None:
+async def chat_with_anima_stream(websocket: WebSocket) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """
     Chat with an anima via WebSocket with streaming text tokens.
     Client sends: { message, anima_id, conversation_history, model? }
@@ -538,7 +532,7 @@ async def chat_with_anima_stream(websocket: WebSocket) -> None:
 
         try:
             request = ChatRequest(**request_dict)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             await websocket.send_json(
                 {"type": "error", "message": f"Invalid request: {str(e)}"}
             )
@@ -610,7 +604,7 @@ async def chat_with_anima_stream(websocket: WebSocket) -> None:
 
     except WebSocketDisconnect:
         logger.info("Chat WebSocket disconnected by client")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Error in chat stream: %s", e)
         try:
             await websocket.send_json(

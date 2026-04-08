@@ -143,7 +143,7 @@ class ClaudeConversationParser:
         except json.JSONDecodeError as e:
             logger.error("Invalid JSON in %s: %s", json_file.filename, e)
             return []
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error parsing %s: %s", json_file.filename, e)
             return []
 

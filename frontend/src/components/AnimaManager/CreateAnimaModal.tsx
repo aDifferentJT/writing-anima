@@ -125,9 +125,6 @@ const CreateAnimaModal: React.FC<CreateAnimaModalProps> = ({ isOpen, onClose, on
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-base-content/40">
-              Must match the provider used when uploading corpus
-            </p>
           </div>
 
           {/* Footer */}

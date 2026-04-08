@@ -12,22 +12,18 @@ The frontend must be built first:
 Output: backend/dist/Writing Anima.app
 """
 
+import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from py2app.build_app import py2app
+from py2app.build_app import py2app  # type: ignore[import-untyped]
 from setuptools import setup  # py2app still requires setuptools at build time
 
 HERE = Path(__file__).parent
 FRONTEND_DIST = HERE.parent / "frontend" / "dist"
 
-if not FRONTEND_DIST.exists():
-    print(
-        "WARNING: frontend/dist not found — run `npm run build` in the frontend "
-        "directory before building the .app.",
-        file=sys.stderr,
-    )
 
-OPTIONS = {
+OPTIONS: dict[str, object] = {
     # Packages that py2app's static analysis tends to miss
     "packages": [
         "src",
@@ -79,14 +75,40 @@ OPTIONS = {
 
 # Fix taken from glyph/Encrust@5891220
 # workaround for ronaldoussoren/py2app#560
-class Py2AppIgnoringDependencies(py2app):
+class Py2AppIgnoringDependencies(py2app):  # type: ignore[misc]
     def finalize_options(self) -> None:
         self.distribution.install_requires = []
         super().finalize_options()
 
+    def run(self) -> None:
+        """Build the frontend before building the app."""
+        frontend_dir = HERE.parent / "frontend"
+
+        print("Installing frontend dependencies...")
+        result = subprocess.run(
+            ["npm", "install"],
+            cwd=frontend_dir,
+            capture_output=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"npm install failed with return code {result.returncode}")
+
+        print("Building frontend...")
+        result = subprocess.run(
+            ["npm", "run", "build"],
+            cwd=frontend_dir,
+            capture_output=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Frontend build failed with return code {result.returncode}")
+        if not FRONTEND_DIST.exists():
+            raise RuntimeError(f"Frontend build succeeded but dist not found at {FRONTEND_DIST}")
+        print("Frontend built successfully")
+        super().run()
+
 setup(
     name="Writing Anima",
     app=["desktop.py"],
-    options={"py2app": OPTIONS},
+    options={"py2app": OPTIONS},  # type: ignore[dict-item]
     cmdclass={"py2app": Py2AppIgnoringDependencies},
 )

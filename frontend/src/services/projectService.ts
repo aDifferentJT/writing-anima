@@ -1,4 +1,5 @@
 import type { Project, EnrichedFeedbackItem, Purpose } from '../types';
+import type { ProjectSettings } from '../apiTypes';
 
 const API_URL: string = import.meta.env.VITE_API_URL || window.location.origin;
 
@@ -7,8 +8,8 @@ interface ProjectUpdates {
   purpose?: Purpose | null;
   content?: string;
   feedback?: EnrichedFeedbackItem[];
-  writingCriteria?: { criteria: string[] } | null;
-  settings?: Record<string, unknown>;
+  writing_criteria?: { criteria: string[] } | null;
+  settings?: ProjectSettings;
   is_archived?: boolean;
 }
 
@@ -139,8 +140,8 @@ class ProjectService {
   /**
    * Update writing criteria for a project
    */
-  async updateWritingCriteria(projectId: string, writingCriteria: { criteria: string[] }): Promise<Project> {
-    return this.updateProject(projectId, { writingCriteria });
+  async updateWritingCriteria(projectId: string, writing_criteria: { criteria: string[] }): Promise<Project> {
+    return this.updateProject(projectId, { writing_criteria });
   }
 
   /**

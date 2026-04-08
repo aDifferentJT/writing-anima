@@ -152,7 +152,7 @@ class CorpusIngester:
         else:
             return SourceType.DOCUMENT
 
-    async def process_file(
+    async def process_file(  # pylint: disable=too-many-return-statements
         self, file: UploadFile, source_type: Optional[SourceType] = None
     ) -> list[CorpusDocument]:
         """
@@ -239,7 +239,7 @@ class CorpusIngester:
 
             return documents
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error processing file %s: %s", filename, e)
             return []
 
@@ -272,13 +272,21 @@ class CorpusIngester:
         _notify("Generating embeddings", 0)
         batch_size = self.embedder.batch_size
         total_batches = (len(documents) + batch_size - 1) // batch_size
-        logger.info("Generating embeddings: %d chunks in %d batches (batch_size=%d)", len(documents), total_batches, batch_size)
+        logger.info(
+            "Generating embeddings: %d chunks in %d batches (batch_size=%d)",
+            len(documents), total_batches, batch_size,
+        )
         for batch_num, i in enumerate(range(0, len(documents), batch_size), 1):
             batch = documents[i : i + batch_size]
             texts = [d.text for d in batch]
-            logger.info("Embedding batch %d/%d (%d texts)...", batch_num, total_batches, len(texts))
+            logger.info(
+                "Embedding batch %d/%d (%d texts)...", batch_num, total_batches, len(texts)
+            )
             embeddings = await asyncio.to_thread(self.embedder.generate_batch, texts, batch_num)
-            logger.info("Batch %d/%d done (%d embeddings returned)", batch_num, total_batches, len(embeddings))
+            logger.info(
+                "Batch %d/%d done (%d embeddings returned)",
+                batch_num, total_batches, len(embeddings),
+            )
             for doc, embedding in zip(batch, embeddings):
                 doc.embedding = embedding
             _notify("Generating embeddings", batch_num / total_batches)

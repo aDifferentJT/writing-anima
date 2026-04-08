@@ -3,10 +3,13 @@
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
 
 from mlx_embeddings.models.base import BaseModelOutput
 from mlx_embeddings.utils import load
+
+import huggingface_hub as hf
+from tqdm.auto import tqdm
 
 from .base import BaseEmbeddingGenerator
 from ...config import EmbeddingConfig
@@ -14,16 +17,19 @@ from ...config import EmbeddingConfig
 logger = logging.getLogger(__name__)
 
 
-def _download_with_progress(model_id: str, callback: Callable[[float], None]) -> None:
+def _download_with_progress(
+    model_id: str, callback: Callable[[float], None]
+) -> None:
     """Pre-download all model files from HuggingFace, reporting byte-level progress."""
-    from huggingface_hub import HfApi, hf_hub_download, try_to_load_from_cache
-    from huggingface_hub.utils import tqdm  # type: ignore[attr-defined]
-
-    api = HfApi()
+    api = hf.HfApi()
     siblings = api.model_info(model_id, files_metadata=True).siblings or []
     files_to_download = [
-        s for s in siblings
-        if not (cached := try_to_load_from_cache(model_id, s.rfilename)) or not Path(str(cached)).exists()
+        s
+        for s in siblings
+        if not (
+            cached := hf.try_to_load_from_cache(model_id, s.rfilename)
+        )
+        or not Path(str(cached)).exists()
     ]
     total_bytes = sum(s.size or 0 for s in files_to_download)
     if total_bytes == 0:
@@ -32,8 +38,11 @@ def _download_with_progress(model_id: str, callback: Callable[[float], None]) ->
 
     bytes_done = 0
 
-    class CustomTqdm(tqdm):
-        def update(self, n: int = 1) -> None:
+    _T = TypeVar("_T")
+    class CustomTqdm(tqdm[_T]):  # pylint: disable=unsubscriptable-object,too-few-public-methods
+        """Custom tqdm class that reports progress via callback."""
+        def update(self, n: float | None = 1) -> None:
+            """Update progress and call callback with normalized progress."""
             super().update(n)
             if self.unit == "B":
                 callback((bytes_done + self.n) / total_bytes)
@@ -41,25 +50,34 @@ def _download_with_progress(model_id: str, callback: Callable[[float], None]) ->
     callback(0)
     for sibling in files_to_download:
         logger.info("Downloading %s from %s...", sibling.rfilename, model_id)
-        hf_hub_download(repo_id=model_id, filename=sibling.rfilename, tqdm_class=CustomTqdm)
+        hf.hf_hub_download(repo_id=model_id, filename=sibling.rfilename, tqdm_class=CustomTqdm)
         bytes_done += sibling.size or 0
         callback(bytes_done / total_bytes)
 
 
 class MlxEmbeddingGenerator(BaseEmbeddingGenerator):
-    """Generate embeddings for text using MLX"""
+    """Generate embeddings for text using MLX."""
 
-    def __init__(self, embedding_config: EmbeddingConfig, progress_callback: Callable[[float], None] | None = None):
-        """Initialize embedding generator"""
+    def __init__(
+        self,
+        embedding_config: EmbeddingConfig,
+        progress_callback: Callable[[float], None] | None = None,
+    ):
+        """Initialize embedding generator."""
         super().__init__(embedding_config)
         model_name = self.embedding_config.model
         if progress_callback:
             try:
                 _download_with_progress(model_name, progress_callback)
-            except Exception as e:
-                logger.warning("Model download progress tracking failed (%s), loading anyway", e)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.warning(
+                    "Model download progress tracking failed (%s), loading anyway",
+                    e,
+                )
         self.model, self.tokenizer = load(model_name)
-        logger.info("Initialized embedding generator with model: %s", self.model)
+        logger.info(
+            "Initialized embedding generator with model: %s", self.model
+        )
 
     def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""

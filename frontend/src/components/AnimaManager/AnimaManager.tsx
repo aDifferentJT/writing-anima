@@ -157,8 +157,8 @@ const AnimaManager: React.FC = () => {
   }
 
   return (
-    <div className="h-full bg-base-200 overflow-auto">
-      <div className="mx-auto px-2 py-6">
+    <div className="h-full w-full bg-base-200">
+      <div className="px-6 py-6">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">

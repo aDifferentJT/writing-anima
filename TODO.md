@@ -1,5 +1,8 @@
-- Look at vector/schema, some redundency here
+claude --resume 7fa5947d-8402-437b-8208-3802af55a1f7
+
 - It seems that clicking editor when purpose is blank does nothing
+- AnimaUpdate is dead code?
+- Progress in CorpusUploadModal has no right margin
 - Bundle Qdrant
 - The jump to referenced thing is misaligned for some reason
 - Thinking progress would be nice

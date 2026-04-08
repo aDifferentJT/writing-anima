@@ -1,5 +1,6 @@
 """Tool definitions and implementations"""
 
+import json
 import logging
 import os
 from typing import Any, NamedTuple, Optional
@@ -235,7 +236,13 @@ class CorpusSearchTool:
 class IncrementalReasoningTool:
     """Tool for detecting OOD queries and providing reasoning guidance"""
 
-    def __init__(self, collection_name: str, anima_name: str, config: Config, embedding_provider: str):
+    def __init__(
+        self,
+        collection_name: str,
+        anima_name: str,
+        config: Config,
+        embedding_provider: str,
+    ):
         """
         Initialize incremental reasoning tool.
 
@@ -299,7 +306,7 @@ class IncrementalReasoningTool:
             }
 
         # Step 3: Generate reasoning guidance
-        guidance = self._generate_guidance(query, corpus_concepts, ood_result)
+        guidance = self._generate_guidance(corpus_concepts)
 
         logger.info("OOD detected (confidence: %.2f)", ood_result.confidence)
 
@@ -339,7 +346,7 @@ class IncrementalReasoningTool:
 
             return concepts
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error finding related concepts: %s", e)
             return []
 
@@ -360,7 +367,8 @@ class IncrementalReasoningTool:
             else "No closely related content found."
         )
 
-        prompt = f"""You are analyzing whether a query can be directly answered from a person's writing corpus.
+        prompt = f"""
+You are analyzing whether a query can be directly answered from a person's writing corpus.
 
 ANIMA: {self.anima_name}
 
@@ -399,8 +407,6 @@ Respond in JSON format:
                 max_tokens=300,
             )
 
-            import json
-
             content = response.choices[0].message.content
             assert content
             result = OodResult(**json.loads(content))
@@ -408,7 +414,7 @@ Respond in JSON format:
             logger.debug("OOD check result: %s", result)
             return result
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error in OOD check: %s", e)
             return OodResult(
                 is_ood=False,
@@ -418,17 +424,13 @@ Respond in JSON format:
 
     def _generate_guidance(
         self,
-        query: str,
         corpus_concepts: list[str],
-        ood_result: OodResult,
     ) -> str:
         """
         Generate natural language reasoning guidance for OOD query.
 
         Args:
-            query: The user's query
             corpus_concepts: Related concepts from corpus
-            ood_result: Result from OOD check
 
         Returns:
             Natural language guidance string
@@ -439,13 +441,17 @@ Respond in JSON format:
             else "No directly related content found."
         )
 
-        guidance = f"""This query extends beyond your direct corpus content. To address it thoughtfully while maintaining your authentic voice:
+        guidance = f"""
+This query extends beyond your direct corpus content.
+To address it thoughtfully while maintaining your authentic voice:
 
 **Foundation Phase:**
-First, ground yourself in what you have actually written about related concepts. Search your corpus for:
+First, ground yourself in what you have actually written about related concepts.
+Search your corpus for:
 {concepts_list}
 
-Let these genuine thoughts form your foundation. Review them thoroughly to immerse yourself in your actual views and reasoning patterns.
+Let these genuine thoughts form your foundation.
+Review them thoroughly to immerse yourself in your actual views and reasoning patterns.
 
 **Bridging Phase:**
 Once grounded, build incrementally from that foundation. Consider:
@@ -460,17 +466,24 @@ Address the query while:
 - Not claiming to have written about things you haven't
 - Showing how you would think about this based on your established patterns
 
-The goal is thoughtful extrapolation that feels authentic to your intellectual style, not invention of views you've never held. Your thinking approach should remain consistent even when addressing new territory."""
+The goal is thoughtful extrapolation that feels authentic to your intellectual style, not invention of views you've never held.
+Your thinking approach should remain consistent even when addressing new territory."""
 
         return guidance
 
     def get_tool_definition_openai(self) -> ChatCompletionFunctionToolParam:
-        """Get tool definition for OpenAI/DeepSeek API format"""
+        """Get tool definition for OpenAI/DeepSeek API format."""
         return {
             "type": "function",
             "function": {
                 "name": "check_incremental_reasoning",
-                "description": "Check if a query is outside your corpus distribution and get guidance for incremental reasoning. Use this when a query seems to ask about topics you may not have directly written about. Returns whether the query is out-of-distribution along with a reasoning approach.",
+                "description": (
+                    "Check if a query is outside your corpus distribution and get "
+                    "guidance for incremental reasoning. Use this when a query seems "
+                    "to ask about topics you may not have directly written about. "
+                    "Returns whether the query is out-of-distribution along with a "
+                    "reasoning approach."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {

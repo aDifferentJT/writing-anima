@@ -1,6 +1,7 @@
 """Configuration management for Anima"""
 
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -120,6 +121,7 @@ class Config(BaseModel):
         return cls(**config_data)
 
     def get_embedding(self, embedding_id: str) -> EmbeddingConfig:
+        """Get embedding configuration by ID."""
         if embedding_id not in self.embeddings:
             available = ", ".join(self.embeddings.keys())
             raise ValueError(f"Embedding '{embedding_id}' not found. Available: {available}")
@@ -149,9 +151,8 @@ class Config(BaseModel):
 
 # Global config instance — resolve relative to the bundle Resources dir when
 # frozen (py2app), otherwise relative to this file's parent (backend/).
-import sys as _sys, os as _os
-if getattr(_sys, "frozen", False):
-    _config_path = Path(_os.environ["RESOURCEPATH"]) / "config.yaml"
+if getattr(sys, "frozen", False):
+    _config_path = Path(os.environ["RESOURCEPATH"]) / "config.yaml"
 else:
     _config_path = Path(__file__).parent.parent / "config.yaml"
 

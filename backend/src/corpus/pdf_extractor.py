@@ -18,7 +18,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class PDFExtractor:
+class PDFExtractor:  # pylint: disable=too-few-public-methods
     """Extract text from PDF files using pypdf"""
 
     def __init__(self) -> None:
@@ -55,7 +55,7 @@ class PDFExtractor:
                         text_parts.append(page_text)
                     else:
                         logger.debug("No text on page %d of %s", page_num, file.filename)
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     logger.warning(
                         "Error extracting page %d from %s: %s",
                         page_num, file.filename, e
@@ -76,7 +76,7 @@ class PDFExtractor:
 
             return full_text
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error reading PDF %s: %s", file.filename, e)
             return None
 

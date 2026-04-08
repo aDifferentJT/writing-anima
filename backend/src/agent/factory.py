@@ -16,6 +16,7 @@ def create_agent(
     use_json_mode: bool,
     prompt_file: str,
 ) -> BaseAgent:
+    """Create an agent based on the model provider."""
     if model.provider in ("openai", "deepseek"):
         logger.info("Creating OpenAIAgent for anima: %s", anima_id)
         return OpenAIAgent(

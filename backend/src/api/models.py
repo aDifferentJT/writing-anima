@@ -9,7 +9,7 @@ import uuid
 from uuid import UUID
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, TypeAdapter
 from sqlalchemy import Column, JSON, String
@@ -17,7 +17,7 @@ from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field as SQLField, SQLModel
 
 
-class UUIDString(TypeDecorator[UUID]):
+class UUIDString(TypeDecorator[UUID]):  # pylint: disable=abstract-method,too-many-ancestors
     """SQLAlchemy column type that stores UUID as string (for SQLite compatibility)."""
     impl = String
     cache_ok = True
@@ -33,7 +33,7 @@ class UUIDString(TypeDecorator[UUID]):
         return UUID(value)
 
 
-class PydanticJSON(TypeDecorator[Any]):
+class PydanticJSON(TypeDecorator[Any]):  # pylint: disable=abstract-method,too-many-ancestors
     """SQLAlchemy column type that serializes any Pydantic type to/from JSON."""
     impl = JSON
     cache_ok = True
@@ -324,6 +324,32 @@ class CorpusUploadRequest(BaseModel):
     files: list[CorpusUploadFile]
 
 
+class CorpusStatusMessage(BaseModel):
+    """WebSocket message: corpus ingestion progress update"""
+    type: Literal["status"] = "status"
+    steps_completed: list[str]
+    steps_remaining: list[str]
+    current_step: str
+    step_progress: Optional[float]  # 0.0–1.0, or None if unavailable
+
+
+class CorpusCompleteMessage(BaseModel):
+    """WebSocket message: corpus ingestion finished successfully"""
+    type: Literal["complete"] = "complete"
+    files_uploaded: int
+    total_size: int
+    message: str
+
+
+class CorpusErrorMessage(BaseModel):
+    """WebSocket message: corpus ingestion failed"""
+    type: Literal["error"] = "error"
+    message: str
+
+
+CorpusUploadMessage = Union[CorpusStatusMessage, CorpusCompleteMessage, CorpusErrorMessage]
+
+
 class IngestionStatus(BaseModel):
     """Status of corpus ingestion"""
     anima_id: str
@@ -340,6 +366,9 @@ class ProjectSettings(BaseModel):
     """Project settings — stored as JSON on Project"""
     auto_save_interval: int = 30000
     enable_real_time_sync: bool = True
+    favourite_animas: list[str] = Field(default_factory=list)
+    default_anima_id: Optional[str] = None
+    default_model_id: Optional[str] = None
 
 
 class Project(SQLModel, table=True):
@@ -348,23 +377,29 @@ class Project(SQLModel, table=True):
     title: str
     purpose: Purpose = SQLField(sa_column=Column(PydanticJSON(Purpose)))
     content: str
-    feedback: list[FeedbackItem] = SQLField(default_factory=list, sa_column=Column(PydanticJSON(list[FeedbackItem])))
-    writingCriteria: WritingCriteria = SQLField(default_factory=WritingCriteria, sa_column=Column(PydanticJSON(WritingCriteria)))
-    settings: Optional[ProjectSettings] = SQLField(default=None, sa_column=Column(PydanticJSON(Optional[ProjectSettings])))
+    feedback: list[FeedbackItem] = SQLField(
+        default_factory=list, sa_column=Column(PydanticJSON(list[FeedbackItem]))
+    )
+    writing_criteria: WritingCriteria = SQLField(
+        default_factory=WritingCriteria, sa_column=Column(PydanticJSON(WritingCriteria))
+    )
+    settings: ProjectSettings = SQLField(
+        default_factory=ProjectSettings, sa_column=Column(PydanticJSON(ProjectSettings))
+    )
     created_at: datetime
     updated_at: datetime
     last_accessed_at: datetime
     is_archived: bool
 
     @classmethod
-    def new(
+    def new(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         cls,
         title: str,
         purpose: Purpose,
         content: str,
         feedback: list[FeedbackItem],
-        writingCriteria: WritingCriteria,
-        settings: Optional[ProjectSettings],
+        writing_criteria: WritingCriteria,
+        settings: ProjectSettings,
         created_at: datetime,
         updated_at: datetime,
         last_accessed_at: datetime,
@@ -376,7 +411,7 @@ class Project(SQLModel, table=True):
             purpose=purpose,
             content=content,
             feedback=feedback,
-            writingCriteria=writingCriteria,
+            writing_criteria=writing_criteria,
             settings=settings,
             created_at=created_at,
             updated_at=updated_at,
@@ -391,8 +426,8 @@ class ProjectUpdate(BaseModel):
     purpose: Optional[Purpose] = None
     content: Optional[str] = None
     feedback: Optional[list[FeedbackItem]] = None
-    writingCriteria: Optional[WritingCriteria] = None
-    settings: Optional[ProjectSettings] = None
+    writing_criteria: Optional[WritingCriteria] = None
+    settings: Optional[ProjectSettings] = None  # None means "don't update settings"
     is_archived: Optional[bool] = None
 
 

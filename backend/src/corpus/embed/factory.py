@@ -16,6 +16,7 @@ def create_embedding_generator(
     embedding_id: str,
     progress_callback: Callable[[float | None], None] | None = None,
 ) -> BaseEmbeddingGenerator:
+    """Create an embedding generator based on config provider."""
     embedding_config = config.get_embedding(embedding_id)
     if embedding_config.provider == "openai":
         if progress_callback:

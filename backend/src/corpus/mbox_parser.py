@@ -2,6 +2,7 @@
 
 import logging
 import mailbox
+import re
 from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,8 @@ class MboxParser:
     def __init__(self) -> None:
         """Initialize MBOX parser"""
 
-    def extract_text_from_email(self, message: mailbox.mboxMessage) -> str:
+    def extract_text_from_email(  # pylint: disable=too-many-branches,too-many-nested-blocks
+        self, message: mailbox.mboxMessage) -> str:
         """
         Extract text content from an email message.
 
@@ -60,7 +62,7 @@ class MboxParser:
                         if payload:
                             text = payload.decode("utf-8", errors="ignore")
                             text_parts.append(text)
-                    except Exception as e:
+                    except Exception as e:  # pylint: disable=broad-exception-caught
                         logger.debug("Error decoding part: %s", e)
                         continue
 
@@ -71,12 +73,11 @@ class MboxParser:
                         if payload:
                             html = payload.decode("utf-8", errors="ignore")
                             # Basic HTML stripping (remove tags)
-                            import re
                             text = re.sub(r"<[^>]+>", "", html)
                             text = re.sub(r"\s+", " ", text)
                             if text.strip():
                                 text_parts.append(text)
-                    except Exception as e:
+                    except Exception as e:  # pylint: disable=broad-exception-caught
                         logger.debug("Error decoding HTML: %s", e)
                         continue
 
@@ -87,7 +88,7 @@ class MboxParser:
                 if payload:
                     text = payload.decode("utf-8", errors="ignore")
                     text_parts.append(text)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.debug("Error decoding message: %s", e)
 
         return "\n".join(text_parts)
@@ -123,7 +124,7 @@ class MboxParser:
                     # Add to results
                     emails.append(text)
 
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     logger.warning("Error processing email %d: %s", idx, e)
                     continue
 
@@ -131,6 +132,6 @@ class MboxParser:
 
             return ("\n\n" + "="*80 + "\n\n").join(emails)
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error reading MBOX file %s: %s", mbox_path, e)
             return ""
