@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from ..api.models import Anima
 from ..config import Config
 from ..database.general import general_db
+from ..database.vector import get_vector_database
 from .tools import CorpusSearchTool, IncrementalReasoningTool
 
 logger = logging.getLogger(__name__)
@@ -69,13 +70,18 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
 
         self.user_name = self.anima.name
         self.max_iterations = 20
+
+        # Get shared vector database and collection for this anima
+        vector_db = get_vector_database()
+        collection = vector_db.get_collection(self.anima.collection_name)
+
         self.search_tool = CorpusSearchTool(
-            self.anima.collection_name,
+            collection,
             config,
             self.anima.embedding_provider,
         )
         self.reasoning_tool = IncrementalReasoningTool(
-            self.anima.collection_name,
+            collection,
             self.anima.name,
             config,
             self.anima.embedding_provider,

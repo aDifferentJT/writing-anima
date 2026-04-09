@@ -1,4 +1,7 @@
-claude --resume 7fa5947d-8402-437b-8208-3802af55a1f7
+- Proactively load qdrant, seems to be hanging and is nasty to be lazy
+- Fix zombie qdrant
+- Deal with failure during global init, particularly config failing to parse
+- Check config is actually how it should be
 
 - It seems that clicking editor when purpose is blank does nothing
 - AnimaUpdate is dead code?

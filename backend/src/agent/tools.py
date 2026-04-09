@@ -10,7 +10,7 @@ from openai.types.chat import ChatCompletionFunctionToolParam
 
 from ..config import Config
 from ..corpus.embed.factory import create_embedding_generator
-from ..database.vector import VectorDatabase
+from ..database.vector import VectorCollection
 from ..database.vector.schema import CorpusDocumentMetadata, SearchFilters, SourceType
 
 logger = logging.getLogger(__name__)
@@ -35,18 +35,17 @@ class OodResult(NamedTuple):
 class CorpusSearchTool:
     """Search tool for corpus retrieval"""
 
-    def __init__(self, collection_name: str, config: Config, embedding_provider: str):
+    def __init__(self, collection: VectorCollection, config: Config, embedding_provider: str):
         """
         Initialize search tool.
 
         Args:
-            collection_name: Name of the collection to search (e.g., "anima_jules")
+            collection: VectorCollection instance to search
             config: Configuration object
             embedding_provider: Embedding provider used to build this corpus
         """
         self.config = config
-        self.collection_name = collection_name
-        self.db = VectorDatabase(collection_name, config)
+        self.collection = collection
         self.embedder = create_embedding_generator(config, embedding_provider)
         self._style_pack_cache: Optional[list[WritingSample]] = None  # Cache diverse style examples
 
@@ -73,7 +72,7 @@ class CorpusSearchTool:
         seed_embedding = self.embedder.generate_one(seed_query)
 
         # Get more results than we need for diversity selection
-        candidates = self.db.search(
+        candidates = self.collection.search(
             query_vector=seed_embedding,
             k=size * 5,  # Get 5x to select diverse subset
         )
@@ -153,7 +152,7 @@ class CorpusSearchTool:
             )
 
         # Execute hybrid search (combines semantic + keyword matching)
-        results = self.db.hybrid_search(
+        results = self.collection.hybrid_search(
             query_text=query,
             query_vector=query_embedding,
             k=k,
@@ -238,7 +237,7 @@ class IncrementalReasoningTool:
 
     def __init__(
         self,
-        collection_name: str,
+        collection: VectorCollection,
         anima_name: str,
         config: Config,
         embedding_provider: str,
@@ -247,15 +246,14 @@ class IncrementalReasoningTool:
         Initialize incremental reasoning tool.
 
         Args:
-            collection_name: Name of the corpus collection
+            collection: VectorCollection instance to query
             anima_name: Name of the anima (for context in prompts)
             config: Configuration object
             embedding_provider: Embedding provider used to build this corpus
         """
         self.config = config
-        self.collection_name = collection_name
+        self.collection = collection
         self.anima_name = anima_name
-        self.db = VectorDatabase(collection_name, config)
         self.embedder = create_embedding_generator(config, embedding_provider)
 
         # Initialize OpenAI client for OOD checks
@@ -334,7 +332,7 @@ class IncrementalReasoningTool:
 
             # Search for related content
             max_concepts = self.config.retrieval.incremental_mode.max_corpus_concepts
-            results = self.db.search(query_vector=query_embedding, k=max_concepts)
+            results = self.collection.search(query_vector=query_embedding, k=max_concepts)
 
             # Extract key concepts/topics from top results
             concepts = []

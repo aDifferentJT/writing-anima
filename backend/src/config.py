@@ -3,7 +3,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Literal, Optional, Union
 
 import yaml
 from dotenv import load_dotenv
@@ -34,24 +34,33 @@ class AgentConfig(BaseModel):
     force_tool_use: bool = True  # Require model to use tools
 
 
-class VectorDBConfig(BaseModel):
-    """Vector database configuration"""
+class LocalQdrantConfig(BaseModel):
+    """Local Qdrant server configuration"""
 
-    provider: str = "qdrant"
-    host: str = "localhost"
-    port: int = 6333
-    api_key: Optional[str] = None
+    type: Literal["local"] = "local"
+
+
+class CloudQdrantConfig(BaseModel):
+    """Qdrant Cloud configuration"""
+
+    type: Literal["cloud"] = "cloud"
+    url: str
+    api_key: str
 
     @model_validator(mode="after")
-    def _apply_env_overrides(self) -> "VectorDBConfig":
+    def _apply_env_overrides(self) -> "CloudQdrantConfig":
         """Override with environment variables if present"""
-        if host_env := os.getenv("QDRANT_HOST"):
-            self.host = host_env
-        if port_env := os.getenv("QDRANT_PORT"):
-            self.port = int(port_env)
+        if url_env := os.getenv("QDRANT_URL"):
+            self.url = url_env
         if api_key_env := os.getenv("QDRANT_API_KEY"):
             self.api_key = api_key_env
         return self
+
+
+VectorDBConfig = Annotated[
+    Union[LocalQdrantConfig, CloudQdrantConfig],
+    Field(discriminator="type"),
+]
 
 
 class EmbeddingConfig(BaseModel):

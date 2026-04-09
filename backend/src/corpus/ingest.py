@@ -13,7 +13,7 @@ from .embed.base import BaseEmbeddingGenerator
 from .pdf_extractor import PDFExtractor, is_pdf_available
 from .mbox_parser import MboxParser
 from .claude_parser import ClaudeConversationParser
-from ..database.vector import VectorDatabase
+from ..database.vector import VectorCollection
 from ..database.vector.schema import CorpusDocument, CorpusDocumentMetadata, SourceType
 from ..config import Config
 
@@ -27,19 +27,23 @@ STAGES: list[Stage] = ["Extracting text", "Generating embeddings", "Storing docu
 class CorpusIngester:
     """Ingest and process user corpus into vector database"""
 
-    def __init__(self, collection_name: str, config: Config, embedder: BaseEmbeddingGenerator):
+    def __init__(
+        self,
+        collection: VectorCollection,
+        config: Config,
+        embedder: BaseEmbeddingGenerator,
+    ):
         """
         Initialize corpus ingester.
 
         Args:
-            collection_name: Name of the collection to ingest into (e.g., "anima_jules")
-            config: Configuration object
+            collection: VectorCollection instance to ingest into
+            config: Configuration object (for chunking parameters)
             embedder: Pre-constructed embedding generator
         """
         self.config = config
-        self.collection_name = collection_name
         self.embedder = embedder
-        self.db = VectorDatabase(collection_name, config)
+        self.collection = collection
 
         # Initialize PDF extractor if available
         self.pdf_extractor = None
@@ -293,7 +297,7 @@ class CorpusIngester:
 
         _notify("Storing documents", 0)
         logger.info("Adding %d documents to vector database...", len(documents))
-        self.db.add_documents(
+        self.collection.add_documents(
             documents,
             progress_callback=lambda p: _notify("Storing documents", p),
         )

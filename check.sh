@@ -1,7 +1,7 @@
 #! /bin/sh
 
 cd backend
-uv run mypy --strict .
+uv run mypy --strict . --exclude-gitignore
 uv run pylint src
 cd ..
 

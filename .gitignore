@@ -1,57 +1,10 @@
+*.swp
+
 # Environment variables
 .env
 .env.local
 .env.*.local
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-ENV/
-env/
-*.egg-info/
-dist/
-build/
-
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# React build
-frontend/build/
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
 # OS
 .DS_Store
 Thumbs.db
-
-# Firebase
-firebase-service-account.json
-*-firebase-adminsdk-*.json
-
-# Logs
-*.log
-
-# Qdrant data
-qdrant_storage/
-
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
-
-# Railway
-.railway/
-backend/firebase-admin-sdk.json

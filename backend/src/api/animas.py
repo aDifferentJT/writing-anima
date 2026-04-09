@@ -11,7 +11,6 @@ from io import BytesIO
 from typing import Callable, Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
-from qdrant_client import QdrantClient
 from sqlmodel import Session, select
 
 from ..config import get_config
@@ -20,7 +19,7 @@ from ..corpus.ingest import CorpusIngester, Stage, STAGES
 from ..database.general import (
     general_db
 )
-from ..database.vector import VectorDatabase
+from ..database.vector import get_vector_database
 from ..database.vector.schema import CorpusDocument as VectorCorpusDocument
 from .models import (
     AvailableModel,
@@ -76,7 +75,8 @@ anima_subscriptions = AnimaSubscriptionManager()
 def _build_anima_list(session: Session) -> AnimaList:
     """Fetch all animas and return an AnimaList (checks Qdrant availability)."""
     animas = list(session.exec(select(Anima)))
-    existing_collections = get_existing_collections()
+    vector_db = get_vector_database()
+    existing_collections = vector_db.get_existing_collections()
     responses = [
         AnimaResponse.from_anima(a, corpus_available=a.collection_name in existing_collections)
         for a in animas
@@ -138,8 +138,9 @@ async def create_anima(anima: AnimaCreate) -> AnimaResponse:
 
         # Initialize Qdrant collection
         config = get_config()
-        vector_db = VectorDatabase(collection_name, config)
-        vector_db.create_collection(config.get_embedding(anima.embedding_provider).dimensions)
+        vector_db = get_vector_database()
+        collection = vector_db.get_collection(collection_name)
+        collection.create_collection(config.get_embedding(anima.embedding_provider).dimensions)
 
         # Store anima
         with Session(general_db) as session:
@@ -163,35 +164,6 @@ def _get_anima_or_404(session: Session, anima_id: uuid.UUID) -> Anima:
     if anima is None:
         raise HTTPException(status_code=404, detail="Anima not found")
     return anima
-
-
-def get_existing_collections() -> set[str]:
-    """Get all existing Qdrant collection names (single connection)"""
-    try:
-        config = get_config()
-        host = config.vector_db.host
-
-        # Check if we're using a cloud URL (has https:// or contains cloud.qdrant.io)
-        is_cloud = host.startswith("https://") or "cloud.qdrant.io" in host
-
-        if is_cloud:
-            # For Qdrant Cloud, use URL parameter
-            if not host.startswith("https://"):
-                url = f"https://{host}:{config.vector_db.port}"
-            else:
-                url = host
-            client = QdrantClient(url=url, api_key=config.vector_db.api_key, https=True)
-        else:
-            # For local Qdrant, use host/port
-            client = QdrantClient(host=host, port=config.vector_db.port)
-
-        collections = client.get_collections().collections
-        return {c.name for c in collections}
-    except Exception as e:
-        logger.warning("Could not get collections from Qdrant: %s", e)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get collections from Qdrant: {str(e)}"
-        ) from e
 
 
 @router.websocket("/subscribe")
@@ -220,7 +192,8 @@ async def list_animas() -> AnimaList:
             animas = session.exec(statement)
 
             # Get all existing collections once (single Qdrant call)
-            existing_collections = get_existing_collections()
+            vector_db = get_vector_database()
+            existing_collections = vector_db.get_existing_collections()
 
             # Check Qdrant collection availability for each anima
             user_animas = []
@@ -245,7 +218,8 @@ async def get_anima(anima_id: uuid.UUID) -> AnimaResponse:
     try:
         with Session(general_db) as session:
             anima = _get_anima_or_404(session, anima_id)
-            existing_collections = get_existing_collections()
+            vector_db = get_vector_database()
+            existing_collections = vector_db.get_existing_collections()
             corpus_available = anima.collection_name in existing_collections
             return AnimaResponse.from_anima(anima, corpus_available=corpus_available)
 
@@ -309,8 +283,9 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
 
             collection_name = anima.collection_name
             cfg = get_config()
-            vector_db = VectorDatabase(collection_name, cfg)
-            vector_db.create_collection(cfg.get_embedding(anima.embedding_provider).dimensions)
+            vector_db = get_vector_database()
+            collection = vector_db.get_collection(collection_name)
+            collection.create_collection(cfg.get_embedding(anima.embedding_provider).dimensions)
 
             completed: list[str] = []
             files_data = request.files
@@ -345,11 +320,11 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
 
             embedder = await asyncio.to_thread(
                 create_embedding_generator,
-                get_config(),
+                cfg,
                 anima.embedding_provider,
                 on_model_progress,
             )
-            ingester = CorpusIngester(collection_name, get_config(), embedder)
+            ingester = CorpusIngester(collection, cfg, embedder)
 
             completed.append("Loading embedding model")
 
@@ -435,8 +410,9 @@ async def get_corpus_documents(anima_id: uuid.UUID) -> CorpusDocumentsResponse: 
             anima = _get_anima_or_404(session, anima_id)
             config = get_config()
             collection_name = anima.collection_name
-            vector_db = VectorDatabase(collection_name, get_config())
-            all_docs = vector_db.get_all_documents()
+            vector_db = get_vector_database()
+            collection = vector_db.get_collection(collection_name)
+            all_docs = collection.get_all_documents()
 
             # Group chunks by filename
             files_map: dict[str, list[VectorCorpusDocument]] = {}

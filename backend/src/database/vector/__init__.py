@@ -1,12 +1,21 @@
 """Vector database interface for Qdrant"""
 
 import logging
+import os
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+import yaml
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 import typing
 from typing import Any, NamedTuple, Optional
 from uuid import UUID, uuid4
 
+import platformdirs
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
@@ -24,73 +33,120 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from ...config import Config
+from ...config import Config, CloudQdrantConfig, LocalQdrantConfig, get_config
 from .schema import CorpusDocument, CorpusDocumentMetadata, SearchFilters, SearchResult, SourceType
 
 logger = logging.getLogger(__name__)
 
 
+class QdrantManager:
+    """Manages the Qdrant server subprocess for local deployments."""
 
-class VectorDatabase:
-    """Vector database interface for corpus storage and retrieval"""
+    process: subprocess.Popen[str]
+    data_dir: Path
+    http_port: int
+    grpc_port: int
 
-    def __init__(self, collection_name: str, config: Config):
+    def __init__(self) -> None:
+        qdrant_bin = self._get_qdrant_bin()
+        if not qdrant_bin.exists():
+            raise RuntimeError(f"Qdrant binary not found at {qdrant_bin}")
+
+        self.http_port = self._find_free_port()
+        self.grpc_port = self._find_free_port()
+        data_base = Path(platformdirs.user_data_dir("Writing Anima", "HaiLab"))
+        self.data_dir = data_base / "qdrant"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate and write config to temporary file
+        config = self._generate_config()
+        config_path = self.data_dir / "qdrant.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(config, f)
+
+        logger.info(f"Starting Qdrant (REST: {self.http_port}, gRPC: {self.grpc_port}) at {self.data_dir}...")
+        self.process = subprocess.Popen(
+            [str(qdrant_bin), "--config-path", str(config_path)],
+            cwd=str(self.data_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            close_fds=True,
+            text=True,
+        )
+
+        # Wait for qdrant to be ready
+        deadline = time.time() + 30.0
+        while time.time() < deadline:
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{self.http_port}", timeout=1)
+                logger.info(f"Qdrant started successfully (REST: {self.http_port}, gRPC: {self.grpc_port})")
+                return
+            except Exception:
+                if self.process.poll() is not None:
+                    output = self.process.stdout.read() if self.process.stdout else ""
+                    raise RuntimeError(f"Qdrant process exited unexpectedly:\n{output}")
+                time.sleep(0.1)
+
+        raise RuntimeError(f"Qdrant did not start within 30s (REST: {self.http_port}, gRPC: {self.grpc_port})")
+
+    @staticmethod
+    def _find_free_port() -> int:
+        """Find a free port on localhost."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            s.listen(1)
+            port = s.getsockname()[1]
+        return int(port)
+
+    def _get_qdrant_bin(self) -> Path:
+        """Get path to qdrant binary, resolving to bundle resources if frozen."""
+        if getattr(sys, "frozen", False):
+            resource_path = Path(os.environ.get("RESOURCEPATH", "."))
+            return resource_path / "qdrant"
+        else:
+            return Path(__file__).parent.parent.parent.parent / "build" / "qdrant"
+
+    def _generate_config(self) -> dict[str, Any]:
+        """Generate qdrant configuration dynamically with separate ports."""
+        return {
+            "logger": {
+                "log_level": "INFO",
+            },
+            "storage": {
+                "storage_path": str(self.data_dir / "storage"),
+                "snapshots_path": str(self.data_dir / "snapshots"),
+            },
+            "service": {
+                "host": "127.0.0.1",
+                "http_port": self.http_port,
+                "grpc_port": self.grpc_port,
+            },
+        }
+
+    def __del__(self) -> None:
+        """Clean up Qdrant process when manager is destroyed."""
+        logger.info(f"Stopping Qdrant (REST: {self.http_port}, gRPC: {self.grpc_port})...")
+        self.process.terminate()
+        try:
+            self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            logger.warning("Qdrant did not terminate gracefully, killing...")
+            self.process.kill()
+
+
+class VectorCollection:
+    """Interface for operations on a single Qdrant collection"""
+
+    def __init__(self, collection_name: str, client: QdrantClient):
         """
-        Initialize vector database connection.
+        Initialize a collection reference.
 
         Args:
-            collection_name: Name of the collection to use (e.g., "anima_jules")
-            config: Optional configuration object
+            collection_name: Name of the collection (e.g., "anima_jules")
+            client: Shared QdrantClient connection (not owned)
         """
-        self.config = config
         self.collection_name = collection_name
-
-        # Initialize Qdrant client
-        try:
-            # Check if we're using a cloud URL (has https:// or contains cloud.qdrant.io)
-            host = config.vector_db.host
-            port = config.vector_db.port
-            is_cloud = host.startswith("https://") or "cloud.qdrant.io" in host
-
-            if is_cloud:
-                # For Qdrant Cloud, use URL parameter with HTTPS
-                # Construct full URL if not already complete
-                if not host.startswith("https://"):
-                    url = f"https://{host}:{port}"
-                else:
-                    url = host
-
-                logger.info(f"Connecting to Qdrant Cloud at {url}")
-                self.client = QdrantClient(
-                    url=url,
-                    api_key=config.vector_db.api_key,
-                    https=True,  # Force HTTPS
-                )
-            else:
-                # For local Qdrant, use host/port
-                self.client = QdrantClient(
-                    host=host,
-                    port=port,
-                    api_key=config.vector_db.api_key,
-                )
-
-            # Test connection by getting collections
-            self.client.get_collections()
-
-            logger.info(
-                f"Connected to Qdrant at {config.vector_db.host}:{config.vector_db.port}, collection: {collection_name}"
-            )
-        except ConnectionRefusedError as e:
-            error_msg = (
-                f"Failed to connect to Qdrant at {config.vector_db.host}:{config.vector_db.port}. "
-                f"Is Qdrant running? If using Docker, start it with: docker compose up -d"
-            )
-            logger.error(error_msg)
-            raise ConnectionError(error_msg) from e
-        except Exception as e:
-            error_msg = f"Error connecting to Qdrant: {e}"
-            logger.error(error_msg)
-            raise
+        self.client = client
 
     def create_collection(self, dimensions: int, force: bool = False) -> None:
         """Create collection if it doesn't exist"""
@@ -462,7 +518,91 @@ class VectorDatabase:
         logger.warning(f"Deleting collection: {self.collection_name}")
         self.client.delete_collection(self.collection_name)
 
-    def close(self) -> None:
-        """Close the database connection"""
-        # Qdrant client doesn't require explicit closing
-        pass
+
+class VectorDatabase:
+    """Manages the Qdrant client connection and provides access to collections"""
+
+    qdrant_manager: Optional[QdrantManager]
+    client: QdrantClient
+
+    def __init__(self, config: Config) -> None:
+        """
+        Initialize vector database connection.
+
+        Args:
+            config: Configuration object
+        """
+        self.config = config
+        self.qdrant_manager = None
+
+        # Initialize Qdrant client
+        try:
+            if isinstance(config.vector_db, CloudQdrantConfig):
+                logger.info(f"Connecting to Qdrant Cloud at {config.vector_db.url}")
+                self.client = QdrantClient(
+                    url=config.vector_db.url,
+                    api_key=config.vector_db.api_key,
+                    https=True,
+                )
+                connection_str = config.vector_db.url
+            else:  # LocalQdrantConfig
+                self.qdrant_manager = QdrantManager()
+                self.client = QdrantClient(
+                    host="127.0.0.1",
+                    grpc_port=self.qdrant_manager.grpc_port,
+                    prefer_grpc=True,
+                )
+                connection_str = f"127.0.0.1:{self.qdrant_manager.grpc_port} (gRPC)"
+
+            # Test connection by getting collections
+            self.client.get_collections()
+
+            logger.info(f"Connected to Qdrant at {connection_str}")
+        except ConnectionRefusedError as e:
+            error_msg = (
+                f"Failed to connect to Qdrant at {config.vector_db}. "
+                f"Is Qdrant running? If using Docker, start it with: docker compose up -d"
+            )
+            logger.error(error_msg)
+            raise ConnectionError(error_msg) from e
+        except Exception as e:
+            error_msg = f"Error connecting to Qdrant: {e}"
+            logger.error(error_msg)
+            raise
+
+    def get_collection(self, collection_name: str) -> VectorCollection:
+        """
+        Get a collection interface for the given collection name.
+
+        Args:
+            collection_name: Name of the collection
+
+        Returns:
+            VectorCollection instance for the given collection
+        """
+        return VectorCollection(collection_name, self.client)
+
+    def get_existing_collections(self) -> set[str]:
+        """
+        Get all existing Qdrant collection names.
+
+        Returns:
+            Set of collection names
+        """
+        try:
+            collections = self.client.get_collections().collections
+            return {c.name for c in collections}
+        except Exception as e:
+            logger.warning("Could not get collections from Qdrant: %s", e)
+            raise
+
+
+_vector_db_instance: Optional[VectorDatabase] = None
+
+
+def get_vector_database() -> VectorDatabase:
+    """Get or create the global VectorDatabase singleton instance."""
+    global _vector_db_instance
+    if _vector_db_instance is None:
+        _vector_db_instance = VectorDatabase(get_config())
+    return _vector_db_instance
