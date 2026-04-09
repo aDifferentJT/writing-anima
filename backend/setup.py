@@ -60,6 +60,7 @@ OPTIONS: dict[str, object] = {
     "plist": {
         "CFBundleName": "Writing Anima",
         "CFBundleDisplayName": "Writing Anima",
+        "CFBundleIconName": "AppIcon",
         "CFBundleIdentifier": "com.hailab.writing-anima",
         "CFBundleVersion": "0.1.0",
         "CFBundleShortVersionString": "0.1.0",
@@ -104,6 +105,37 @@ class Py2AppIgnoringDependencies(py2app):  # type: ignore[misc]
         if not FRONTEND_DIST.exists():
             raise RuntimeError(f"Frontend build succeeded but dist not found at {FRONTEND_DIST}")
         print("Frontend built successfully")
+
+        # Compile assets catalog
+        xcassets = HERE.parent / "icon" / "Media.xcassets"
+        assets_car = HERE / "build" / "Assets.car"
+        if xcassets.exists():
+            assets_car.parent.mkdir(parents=True, exist_ok=True)
+            print("Compiling assets catalog...")
+            result = subprocess.run(
+                [
+                    "xcrun",
+                    "actool",
+                    "--compile",
+                    str(assets_car.parent),
+                    "--platform",
+                    "macosx",
+                    "--minimum-deployment-target",
+                    "13.0",
+                    "--app-icon",
+                    "AppIcon",
+                    "--output-partial-info-plist",
+                    str(HERE / "build" / "partial.plist"),
+                    str(xcassets),
+                ],
+                capture_output=False,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"Asset compilation failed with return code {result.returncode}")
+        if assets_car.exists():
+            OPTIONS["resources"].append(str(assets_car))
+            print("Assets compiled successfully")
+
         super().run()
 
 setup(

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="1024"
+   height="1024"
+   viewBox="-512 -512 1024 1024"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   sodipodi:docname="logo.svg"
+   inkscape:export-batch-name="logo"
+   inkscape:export-batch-path="/Users/jonner/Documents/HaiLab/writing-anima/logo"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="0.44372398"
+     inkscape:cx="359.4577"
+     inkscape:cy="363.965"
+     inkscape:window-width="1680"
+     inkscape:window-height="1022"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer3" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     style="fill:#000000;fill-opacity:1">
+    <rect
+       style="fill:#808080;fill-opacity:1;stroke-width:4"
+       id="rect1"
+       width="1024"
+       height="1024"
+       x="-512"
+       y="-512"
+       inkscape:label="bg" />
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="Layer 2">
+    <rect
+       style="fill:#808080;fill-opacity:0;stroke-width:4"
+       id="rect2"
+       width="1024"
+       height="1024"
+       x="-512"
+       y="-512"
+       inkscape:label="box" />
+    <path
+       style="fill:#000000;fill-opacity:1;stroke-width:4"
+       d="m 64,-256 c 0,256 32,384 128,512 48,64 80,64 128,0 96,-128 128,-256 128,-512 0,-64 -64,0 -192,0 -128,0 -192,-64 -192,0 z"
+       id="path3"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="tragedy" />
+    <path
+       style="fill:#000000;fill-opacity:1;stroke-width:4"
+       d="m -64,-256 c 0,256 -32,384 -128,512 -48,64 -80,64 -128,0 -96,-128 -128,-256 -128,-512 0,-64 64,0 192,0 128,0 192,-64 192,0 z"
+       id="path4"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="comedy" />
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer3"
+     inkscape:label="Layer 3">
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:4"
+       d="m -64,-256 c 0,256 -32,384 -128,512 l 176,192 l 0,-192 a 32,64 0 1 1 32,0 l 0,192 l 176,-192 c -96,-128 -128,-256 -128,-512 l 0,-256 l -128,0 z"
+       id="path5"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="pen" />
+    <rect
+       style="fill:#808080;fill-opacity:0;stroke-width:4"
+       id="rect3"
+       width="1024"
+       height="1024"
+       x="-512"
+       y="-512"
+       inkscape:label="box" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:4"
+       d="m 126,-160 a 128,256 0 0 0 96,0 a 80,256 0 0 1 -96,0 z"
+       id="path6"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="tragedy eye r" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:4"
+       d="m 288,-160 a 128,256 0 0 0 96,0 a 80,256 0 0 1 -96,0 z"
+       id="path7"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="tragedy eye l" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:4"
+       d="m -288,-96 a 128,256 0 0 0 -96,0 a 80,256 0 0 1 96,0 z"
+       id="path8"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="comedy eye r" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:4"
+       d="m -128,-96 a 128,256 0 0 0 -96,0 a 80,256 0 0 1 96,0 z"
+       id="path9"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="comedy eye l" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:4"
+       d="m 128,128 a 512,1024 0 0 1 256,0 a 256,1024 0 0 0 -256,0 z"
+       id="path10"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="tragedy mouth" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke-width:4"
+       d="m -128,0 a 512,1024 0 0 1 -256,0 a 256,1024 0 0 0 256,0 z"
+       id="path11"
+       sodipodi:nodetypes="ssssss"
+       inkscape:label="comedy mouth" />
+  </g>
+</svg>
