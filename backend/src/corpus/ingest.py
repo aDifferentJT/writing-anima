@@ -1,6 +1,5 @@
 """Corpus ingestion pipeline"""
 
-import asyncio
 import logging
 from collections.abc import Callable
 from tempfile import NamedTemporaryFile
@@ -286,7 +285,7 @@ class CorpusIngester:
             logger.info(
                 "Embedding batch %d/%d (%d texts)...", batch_num, total_batches, len(texts)
             )
-            embeddings = await asyncio.to_thread(self.embedder.generate_batch, texts, batch_num)
+            embeddings = await self.embedder.generate_batch(texts, batch_num)
             logger.info(
                 "Batch %d/%d done (%d embeddings returned)",
                 batch_num, total_batches, len(embeddings),
@@ -297,7 +296,7 @@ class CorpusIngester:
 
         _notify("Storing documents", 0)
         logger.info("Adding %d documents to vector database...", len(documents))
-        self.collection.add_documents(
+        await self.collection.add_documents(
             documents,
             progress_callback=lambda p: _notify("Storing documents", p),
         )

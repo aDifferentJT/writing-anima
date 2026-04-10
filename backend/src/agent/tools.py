@@ -5,7 +5,7 @@ import logging
 import os
 from typing import Any, NamedTuple, Optional
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionFunctionToolParam
 
 from ..config import Config
@@ -49,7 +49,7 @@ class CorpusSearchTool:
         self.embedder = create_embedding_generator(config, embedding_provider)
         self._style_pack_cache: Optional[list[WritingSample]] = None  # Cache diverse style examples
 
-    def get_style_pack(self) -> list[WritingSample]:
+    async def get_style_pack(self) -> list[WritingSample]:
         """
         Get diverse representative writing samples for style grounding.
         Uses caching to avoid recomputing.
@@ -69,10 +69,10 @@ class CorpusSearchTool:
         # Get a random sample by searching for common words
         # This gives us a diverse starting set
         seed_query = "the"  # Very common word
-        seed_embedding = self.embedder.generate_one(seed_query)
+        seed_embedding = await self.embedder.generate_one(seed_query)
 
         # Get more results than we need for diversity selection
-        candidates = self.collection.search(
+        candidates = await self.collection.search(
             query_vector=seed_embedding,
             k=size * 5,  # Get 5x to select diverse subset
         )
@@ -112,7 +112,7 @@ class CorpusSearchTool:
         self._style_pack_cache = diverse_samples
         return diverse_samples
 
-    def search(
+    async def search(
         self,
         query: str,
         k: Optional[int] = None,
@@ -139,7 +139,7 @@ class CorpusSearchTool:
         logger.debug("Searching corpus for: '%s' (k=%d)", query, k)
 
         # Generate query embedding
-        query_embedding = self.embedder.generate_one(query)
+        query_embedding = await self.embedder.generate_one(query)
 
         # Build filters
         filters = None
@@ -152,7 +152,7 @@ class CorpusSearchTool:
             )
 
         # Execute hybrid search (combines semantic + keyword matching)
-        results = self.collection.hybrid_search(
+        results = await self.collection.hybrid_search(
             query_text=query,
             query_vector=query_embedding,
             k=k,
@@ -264,9 +264,9 @@ class IncrementalReasoningTool:
             )
             self.client = None
         else:
-            self.client = OpenAI(api_key=api_key)
+            self.client = AsyncOpenAI(api_key=api_key)
 
-    def check_and_guide(self, query: str) -> dict[str, Any]:
+    async def check_and_guide(self, query: str) -> dict[str, Any]:
         """
         Check if query is out-of-distribution and provide reasoning guidance.
 
@@ -288,10 +288,10 @@ class IncrementalReasoningTool:
         logger.info("Checking if query is OOD: '%s...'", query[:100])
 
         # Step 1: Find related corpus concepts
-        corpus_concepts = self._find_related_concepts(query)
+        corpus_concepts = await self._find_related_concepts(query)
 
         # Step 2: Use LLM to check if query is OOD
-        ood_result = self._check_ood(query, corpus_concepts)
+        ood_result = await self._check_ood(query, corpus_concepts)
 
         if not ood_result.is_ood:
             return {
@@ -316,7 +316,7 @@ class IncrementalReasoningTool:
             "reasoning": ood_result.reasoning,
         }
 
-    def _find_related_concepts(self, query: str) -> list[str]:
+    async def _find_related_concepts(self, query: str) -> list[str]:
         """
         Find related concepts in corpus using semantic search.
 
@@ -328,11 +328,11 @@ class IncrementalReasoningTool:
         """
         try:
             # Generate embedding for query
-            query_embedding = self.embedder.generate_one(query)
+            query_embedding = await self.embedder.generate_one(query)
 
             # Search for related content
             max_concepts = self.config.retrieval.incremental_mode.max_corpus_concepts
-            results = self.collection.search(query_vector=query_embedding, k=max_concepts)
+            results = await self.collection.search(query_vector=query_embedding, k=max_concepts)
 
             # Extract key concepts/topics from top results
             concepts = []
@@ -348,7 +348,7 @@ class IncrementalReasoningTool:
             logger.error("Error finding related concepts: %s", e)
             return []
 
-    def _check_ood(self, query: str, corpus_concepts: list[str]) -> OodResult:
+    async def _check_ood(self, query: str, corpus_concepts: list[str]) -> OodResult:
         """
         Use LLM to determine if query is out-of-distribution.
 
@@ -397,7 +397,7 @@ Respond in JSON format:
         try:
             assert self.client
 
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.config.retrieval.incremental_mode.ood_check_model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},

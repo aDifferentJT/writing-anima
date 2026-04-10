@@ -17,10 +17,10 @@ class BaseEmbeddingGenerator(ABC):
         self.batch_size = embedding_config.batch_size
 
     @abstractmethod
-    def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
+    async def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
 
-    def generate_one(self, text: str) -> list[float]:
+    async def generate_one(self, text: str) -> list[float]:
         """Generate embedding for a single text"""
-        result = self.generate_batch([text], 1)
+        result = await self.generate_batch([text], 1)
         return result[0] if result else []

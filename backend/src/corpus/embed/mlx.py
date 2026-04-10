@@ -79,7 +79,8 @@ class MlxEmbeddingGenerator(BaseEmbeddingGenerator):
             "Initialized embedding generator with model: %s", self.model
         )
 
-    def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
+    # TODO this should use asyncio or something genuinely async
+    async def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
         try:
             logger.debug("Using MLX to embed batch %d (size=%d)...", batch_num, len(batch))

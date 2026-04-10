@@ -70,10 +70,10 @@ class AnimaSubscriptionManager:
 anima_subscriptions = AnimaSubscriptionManager()
 
 
-def _build_anima_list(session: Session) -> AnimaList:
+async def _build_anima_list(session: Session) -> AnimaList:
     """Fetch all animas and return an AnimaList (checks Qdrant availability)."""
     animas = list(session.exec(select(Anima)))
-    existing_collections = get_vector_db().get_existing_collections()
+    existing_collections = await get_vector_db().get_existing_collections()
     responses = [
         AnimaResponse.from_anima(a, corpus_available=a.collection_name in existing_collections)
         for a in animas
@@ -136,14 +136,14 @@ async def create_anima(anima: AnimaCreate) -> AnimaResponse:
         embedding_dim = get_config().get_embedding(
             anima.embedding_provider
         ).dimensions
-        collection.create_collection(embedding_dim)
+        await collection.create_collection(embedding_dim)
 
         # Store anima
         with Session(get_general_db()) as session:
             session.add(anima_data)
             session.commit()
             session.refresh(anima_data)
-            await anima_subscriptions.broadcast(_build_anima_list(session))
+            await anima_subscriptions.broadcast(await _build_anima_list(session))
 
         return AnimaResponse.from_anima(anima_data, corpus_available=True)
 
@@ -169,7 +169,7 @@ async def subscribe_animas(websocket: WebSocket) -> None:
     anima_subscriptions.add(websocket)
     try:
         with Session(get_general_db()) as session:
-            await websocket.send_json(_build_anima_list(session).model_dump(mode="json"))
+            await websocket.send_json((await _build_anima_list(session)).model_dump(mode="json"))
         # Keep connection alive until the client disconnects
         while True:
             await websocket.receive_text()
@@ -188,7 +188,7 @@ async def list_animas() -> AnimaList:
             animas = session.exec(statement)
 
             # Get all existing collections once (single Qdrant call)
-            existing_collections = get_vector_db().get_existing_collections()
+            existing_collections = await get_vector_db().get_existing_collections()
 
             # Check Qdrant collection availability for each anima
             user_animas = []
@@ -213,7 +213,7 @@ async def get_anima(anima_id: uuid.UUID) -> AnimaResponse:
     try:
         with Session(get_general_db()) as session:
             anima = _get_anima_or_404(session, anima_id)
-            existing_collections = get_vector_db().get_existing_collections()
+            existing_collections = await get_vector_db().get_existing_collections()
             corpus_available = anima.collection_name in existing_collections
             return AnimaResponse.from_anima(anima, corpus_available=corpus_available)
 
@@ -236,7 +236,7 @@ async def delete_anima(anima_id: uuid.UUID) -> None:
             session.delete(anima)
             session.commit()
             logger.info("Deleted anima %s", anima_id)
-            await anima_subscriptions.broadcast(_build_anima_list(session))
+            await anima_subscriptions.broadcast(await _build_anima_list(session))
 
     except HTTPException:
         raise
@@ -280,7 +280,7 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
             embedding_dim = get_config().get_embedding(
                 anima.embedding_provider
             ).dimensions
-            collection.create_collection(embedding_dim)
+            await collection.create_collection(embedding_dim)
 
             completed: list[str] = []
             files_data = request.files
@@ -364,7 +364,7 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
             # Get total chunk count from Qdrant
             total_chunks: int = anima.chunk_count + total_chunks_added
             try:
-                collection_info = get_vector_db().client.get_collection(collection_name)
+                collection_info = await get_vector_db().client.get_collection(collection_name)
                 if collection_info.points_count is not None:
                     total_chunks = collection_info.points_count
             except:  # pylint: disable=bare-except
@@ -375,7 +375,7 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
             anima.updated_at = datetime.utcnow()
             session.add(anima)
             session.commit()
-            await anima_subscriptions.broadcast(_build_anima_list(session))
+            await anima_subscriptions.broadcast(await _build_anima_list(session))
 
             logger.info("Uploaded %d files via WebSocket to anima %s", len(files_data), anima_id)
 
@@ -405,7 +405,7 @@ async def get_corpus_documents(anima_id: uuid.UUID) -> CorpusDocumentsResponse: 
             anima = _get_anima_or_404(session, anima_id)
             collection_name = anima.collection_name
             collection = get_vector_db().get_collection(collection_name)
-            all_docs = collection.get_all_documents()
+            all_docs = await collection.get_all_documents()
 
             # Group chunks by filename
             files_map: dict[str, list[VectorCorpusDocument]] = {}
