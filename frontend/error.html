@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Error" />
+    <link rel="apple-touch-icon" href="/logo192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>~ERROR_TYPE~</title>
+    <link rel="stylesheet" href="/src/index.css">
+  </head>
+  <body data-theme="obsidian" class="bg-base-100 text-base-content min-h-screen flex items-center justify-center px-4 py-8">
+    <!-- Main Content -->
+    <div class="w-full max-w-2xl">
+        <!-- Error Icon -->
+        <div class="flex justify-center mb-6">
+          <div class="flex items-center justify-center w-16 h-16 rounded-full bg-error/10">
+            <svg class="w-8 h-8 text-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 6v2M9 3h6m-6 0a2 2 0 00-2 2v14a2 2 0 002 2h6a2 2 0 002-2V5a2 2 0 00-2-2z" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Error Type -->
+        <h1 class="text-3xl font-bold text-center text-base-content mb-6">
+          ~ERROR_TYPE~
+        </h1>
+
+        <!-- Error Message -->
+        <p class="text-center text-base-content/70 mb-8 whitespace-pre-line">
+          ~ERROR_MESSAGE~
+        </p>
+
+        <!-- Traceback (Collapsible) -->
+        <details class="mt-6">
+          <summary class="cursor-pointer text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+            Show traceback
+          </summary>
+          <div class="bg-base-200 rounded-lg p-4 mt-4 max-h-60 overflow-y-auto">
+            <p class="text-xs font-mono text-base-content/50 whitespace-pre-wrap">
+              ~TRACEBACK~
+            </p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </body>
+</html>

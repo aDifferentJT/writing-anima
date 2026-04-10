@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 from ..agent.base import Response
 from ..agent.factory import create_agent
 from ..config import get_config
-from ..database.general import general_db
+from ..database.general import get_general_db
 from .models import (
     AnalysisRequest,
     ChatRequest,
@@ -37,7 +37,7 @@ router = APIRouter(prefix="/api", tags=["analysis"])
 
 def get_anima(anima_id: str) -> Optional[Anima]:
     """Get anima from general database"""
-    with Session(general_db) as session:
+    with Session(get_general_db()) as session:
         statement = select(Anima).where(Anima.id == anima_id)
         anima = session.exec(statement).one()
 
@@ -337,19 +337,17 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
         )
 
         # Get configuration and create agent with JSON mode
-        config = get_config()
-
         logger.info(
             "Using model: %s for anima: %s",
             request.model, anima.name
         )
 
         # Create agent using factory with selected model
-        model = config.get_model(request.model)
+        model = get_config().get_model(request.model)
         agent = create_agent(
             model=model,
             anima_id=request.anima_id,
-            config=config,
+            config=get_config(),
             # Note: DeepSeek doesn't support strict JSON schema, so skip for those agents
             use_json_mode = model.provider != "deepseek",
             prompt_file="writing_critic.txt",
@@ -556,14 +554,11 @@ async def chat_with_anima_stream(websocket: WebSocket) -> None:  # pylint: disab
             await websocket.close()
             return
 
-        config = get_config()
-
-
-        model = config.get_model(request.model)
+        model = get_config().get_model(request.model)
         agent = create_agent(
             model=model,
             anima_id=anima_id,
-            config=config,
+            config=get_config(),
             use_json_mode = False,
             prompt_file="base.txt",
         )

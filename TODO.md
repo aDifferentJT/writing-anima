@@ -1,11 +1,11 @@
-- Proactively load qdrant, seems to be hanging and is nasty to be lazy
+- move general database to application support
 - Fix zombie qdrant
-- Deal with failure during global init, particularly config failing to parse
+- Deal with failure during global init, particularly config failing to parse, now catch errors in global_init.run and present an error window
 - Check config is actually how it should be
+- Check all the many prompts
 
 - It seems that clicking editor when purpose is blank does nothing
 - AnimaUpdate is dead code?
-- Progress in CorpusUploadModal has no right margin
 - Bundle Qdrant
 - The jump to referenced thing is misaligned for some reason
 - Thinking progress would be nice

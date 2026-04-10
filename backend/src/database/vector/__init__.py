@@ -1,10 +1,8 @@
 """Vector database interface for Qdrant"""
 
 import logging
-import os
 import socket
 import subprocess
-import sys
 import time
 import urllib.request
 import yaml
@@ -33,7 +31,8 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from ...config import Config, CloudQdrantConfig, LocalQdrantConfig, get_config
+from ... import global_init, resources
+from ...config import Config, CloudQdrantConfig, LocalQdrantConfig
 from .schema import CorpusDocument, CorpusDocumentMetadata, SearchFilters, SearchResult, SourceType
 
 logger = logging.getLogger(__name__)
@@ -100,11 +99,7 @@ class QdrantManager:
 
     def _get_qdrant_bin(self) -> Path:
         """Get path to qdrant binary, resolving to bundle resources if frozen."""
-        if getattr(sys, "frozen", False):
-            resource_path = Path(os.environ.get("RESOURCEPATH", "."))
-            return resource_path / "qdrant"
-        else:
-            return Path(__file__).parent.parent.parent.parent / "build" / "qdrant"
+        return resources.get_build_path() / "qdrant"
 
     def _generate_config(self) -> dict[str, Any]:
         """Generate qdrant configuration dynamically with separate ports."""
@@ -597,12 +592,19 @@ class VectorDatabase:
             raise
 
 
-_vector_db_instance: Optional[VectorDatabase] = None
+_vector_db = global_init.uninit(VectorDatabase)
 
 
-def get_vector_database() -> VectorDatabase:
-    """Get or create the global VectorDatabase singleton instance."""
-    global _vector_db_instance
-    if _vector_db_instance is None:
-        _vector_db_instance = VectorDatabase(get_config())
-    return _vector_db_instance
+def get_vector_db() -> VectorDatabase:
+    """Get the global VectorDatabase instance (initialized at startup)."""
+    return _vector_db
+
+
+def _init_vector_database() -> None:
+    """Initialize the global VectorDatabase instance."""
+    global _vector_db  # pylint: disable=global-statement
+    from ...config import get_config
+    _vector_db = VectorDatabase(get_config())
+
+
+global_init.add(_init_vector_database)

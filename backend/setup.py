@@ -60,6 +60,8 @@ OPTIONS: dict[str, object] = {
         ("frontend", [str(FRONTEND_DIST)]),
         # config.yaml → Contents/Resources/config.yaml
         str(HERE / "config.yaml"),
+        # prompts → Contents/Resources/agent/prompts
+        ("agent", [str(HERE / "src" / "agent" / "prompts")]),
         # qdrant binary → Contents/Resources/qdrant
         str(HERE / "build" / "qdrant"),
         # assets catalog → Contents/Resources/Assets.car

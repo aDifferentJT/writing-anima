@@ -8,9 +8,11 @@ locale.setlocale(locale.LC_CTYPE, "UTF-8")
 import ipaddress
 import logging
 import ssl
+import sys
 import tempfile
 import threading
 import time
+import traceback
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,6 +25,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from main import setup
+from src import global_init
 
 PORT = 8000
 URL = f"https://127.0.0.1:{PORT}"
@@ -76,74 +79,99 @@ def _wait_for_server(timeout: float = 30.0) -> None:
 
 
 def main() -> None:
-    fastapi_app = setup([URL])
+    try:
+        global_init.run()
 
-    cert_pem, key_pem = _generate_cert()
+    except Exception as e:
+        print(f"Startup error: {e}")
+        traceback.print_exc()
 
-    with (
-        tempfile.NamedTemporaryFile(suffix=".pem") as cert_file,
-        tempfile.NamedTemporaryFile(suffix=".pem") as key_file,
-    ):
-        cert_path = cert_file.name
-        key_path = key_file.name
-        cert_file.write(cert_pem)
-        key_file.write(key_pem)
-        cert_file.flush()
-        key_file.flush()
-
-        config = uvicorn.Config(
-            fastapi_app,
-            host="127.0.0.1",
-            port=PORT,
-            log_level="warning",
-            ssl_certfile=cert_path,
-            ssl_keyfile=key_path,
-        )
-        server = uvicorn.Server(config)
-
-        threading.Thread(target=server.run, daemon=True).start()
-        _wait_for_server()
-
-        class JsApi:
-            def __init__(self) -> None:
-                self._anima_window: webview.Window | None = None
-
-            def open_anima_manager(self) -> None:
-                if self._anima_window is None:
-                    win = webview.create_window(
-                        "Anima Manager",
-                        f"{URL}/animas",
-                        width=1200,
-                        height=800,
-                        min_size=(800, 600),
-                    )
-                    if win is not None:
-                        def _on_closed() -> None:
-                            self._anima_window = None
-                        win.events.closed += _on_closed
-                        self._anima_window = win
-                if self._anima_window is not None:
-                    self._anima_window.show()
-
-        js_api = JsApi()
+        # Load error page and replace placeholders
+        dist_dir = Path(__file__).parent.parent / "frontend" / "dist"
+        html_content = (dist_dir / "error.html").read_text()
+        html_content = html_content.replace("~ERROR_TYPE~", type(e).__name__)
+        html_content = html_content.replace("~ERROR_MESSAGE~", str(e))
+        html_content = html_content.replace("~TRACEBACK~", traceback.format_exc())
 
         window = webview.create_window(
-            "Writing Anima",
-            URL,
+            "Writing Anima - Error",
+            html=html_content,
             width=1400,
             height=900,
             min_size=(800, 600),
-            js_api=js_api,
         )
 
-        menu = [
-            webview.menu.Menu(
-                "__app__",
-                [webview.menu.MenuAction("Open Anima Manager", js_api.open_anima_manager)],
-            )
-        ]
+        webview.start()
 
-        webview.start(ssl=True, menu=menu)
+    else:
+        fastapi_app = setup([URL])
+    
+        cert_pem, key_pem = _generate_cert()
+    
+        with (
+            tempfile.NamedTemporaryFile(suffix=".pem") as cert_file,
+            tempfile.NamedTemporaryFile(suffix=".pem") as key_file,
+        ):
+            cert_path = cert_file.name
+            key_path = key_file.name
+            cert_file.write(cert_pem)
+            key_file.write(key_pem)
+            cert_file.flush()
+            key_file.flush()
+    
+            config = uvicorn.Config(
+                fastapi_app,
+                host="127.0.0.1",
+                port=PORT,
+                log_level="warning",
+                ssl_certfile=cert_path,
+                ssl_keyfile=key_path,
+            )
+            server = uvicorn.Server(config)
+    
+            threading.Thread(target=server.run, daemon=True).start()
+            _wait_for_server()
+    
+            class JsApi:
+                def __init__(self) -> None:
+                    self._anima_window: webview.Window | None = None
+    
+                def open_anima_manager(self) -> None:
+                    if self._anima_window is None:
+                        win = webview.create_window(
+                            "Anima Manager",
+                            f"{URL}/animas",
+                            width=1200,
+                            height=800,
+                            min_size=(800, 600),
+                        )
+                        if win is not None:
+                            def _on_closed() -> None:
+                                self._anima_window = None
+                            win.events.closed += _on_closed
+                            self._anima_window = win
+                    if self._anima_window is not None:
+                        self._anima_window.show()
+    
+            js_api = JsApi()
+    
+            window = webview.create_window(
+                "Writing Anima",
+                URL,
+                width=1400,
+                height=900,
+                min_size=(800, 600),
+                js_api=js_api,
+            )
+    
+            menu = [
+                webview.menu.Menu(
+                    "__app__",
+                    [webview.menu.MenuAction("Open Anima Manager", js_api.open_anima_manager)],
+                )
+            ]
+    
+            webview.start(ssl=True, menu=menu)
 
 
 if __name__ == "__main__":

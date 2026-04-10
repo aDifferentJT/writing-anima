@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, desc, select
 
-from ..database.general import general_db
+from ..database.general import get_general_db
 from .models import (
     Project,
     ProjectUpdate,
@@ -42,7 +42,7 @@ async def create_project() -> Project:
         )
 
         # Store project
-        with Session(general_db) as session:
+        with Session(get_general_db()) as session:
             session.add(project)
             session.commit()
             session.refresh(project)
@@ -60,7 +60,7 @@ async def create_project() -> Project:
 async def get_projects() -> list[Project]:
     """Get all the projects"""
     try:
-        with Session(general_db) as session:
+        with Session(get_general_db()) as session:
             return list(session.exec(
                 select(Project)
                     .where(~Project.is_archived)  # type: ignore[arg-type]
@@ -78,7 +78,7 @@ async def get_projects() -> list[Project]:
 async def get_project(project_id: UUID) -> Project:
     """Get a project by id"""
     try:
-        with Session(general_db) as session:
+        with Session(get_general_db()) as session:
             return session.exec(
                 select(Project).where(Project.id == project_id)
             ).one()
@@ -94,7 +94,7 @@ async def get_project(project_id: UUID) -> Project:
 async def update_project(project_id: UUID, updates: ProjectUpdate) -> Project:
     """Update a project"""
     try:
-        with Session(general_db) as session:
+        with Session(get_general_db()) as session:
             project = session.exec(
                 select(Project).where(Project.id == project_id)
             ).one()
@@ -121,7 +121,7 @@ async def update_project(project_id: UUID, updates: ProjectUpdate) -> Project:
 async def delete_project(project_id: UUID) -> None:
     """Archive a project (soft delete)"""
     try:
-        with Session(general_db) as session:
+        with Session(get_general_db()) as session:
             project = session.exec(
                 select(Project).where(Project.id == project_id)
             ).one()
@@ -143,7 +143,7 @@ async def delete_project(project_id: UUID) -> None:
 async def permanently_delete_project(project_id: UUID) -> None:
     """Permanently delete a project"""
     try:
-        with Session(general_db) as session:
+        with Session(get_general_db()) as session:
             project = session.exec(
                 select(Project).where(Project.id == project_id)
             ).one()

@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Import API routers
 from src.api import analysis_router, animas_router, projects_router
+from src import global_init
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Never]:
@@ -83,6 +84,7 @@ def setup(allowed_origins: list[str]) -> FastAPI:
     return app
 
 if __name__ == "__main__":
+    global_init.run()
     allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
     allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
     app = setup(allowed_origins)

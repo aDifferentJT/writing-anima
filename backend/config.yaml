@@ -39,9 +39,7 @@ agent:
   system_prompt_dir: src/agent/prompts/
   force_tool_use: true
 vector_db:
-  provider: qdrant
-  host: localhost
-  port: 6333
+  type: local
 embeddings:
   openai-small:
     name: OpenAI text-embedding-3-small

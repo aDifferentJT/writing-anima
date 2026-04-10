@@ -2,7 +2,6 @@
 
 import logging
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
 from openai.types.chat import ChatCompletionMessageParam
@@ -11,8 +10,9 @@ from sqlmodel import Session, select
 
 from ..api.models import Anima
 from ..config import Config
-from ..database.general import general_db
-from ..database.vector import get_vector_database
+from ..database.general import get_general_db
+from ..database.vector import get_vector_db
+from .. import resources
 from .tools import CorpusSearchTool, IncrementalReasoningTool
 
 logger = logging.getLogger(__name__)
@@ -65,15 +65,14 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         self.use_json_mode = use_json_mode
         self.anima_id = anima_id
 
-        with Session(general_db) as session:
+        with Session(get_general_db()) as session:
             self.anima = session.exec(select(Anima).where(Anima.id == anima_id)).one()
 
         self.user_name = self.anima.name
         self.max_iterations = 20
 
         # Get shared vector database and collection for this anima
-        vector_db = get_vector_database()
-        collection = vector_db.get_collection(self.anima.collection_name)
+        collection = get_vector_db().get_collection(self.anima.collection_name)
 
         self.search_tool = CorpusSearchTool(
             collection,
@@ -165,9 +164,8 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         Returns:
             System prompt string
         """
-        # Load base prompt
-        prompt_dir = Path(self.config.agent.system_prompt_dir)
-        base_prompt_path = prompt_dir / prompt_file
+        # Load base prompt from prompts directory
+        base_prompt_path = resources.get_prompts_path() / prompt_file
 
         with open(base_prompt_path, "r", encoding="utf-8") as f:
             base_prompt = f.read()

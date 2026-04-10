@@ -1,13 +1,16 @@
 """Configuration management for Anima"""
 
 import os
-import sys
 from pathlib import Path
 from typing import Annotated, Literal, Optional, Union
 
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, model_validator
+
+from . import resources
+
+from . import global_init
 
 # Load environment variables
 load_dotenv()
@@ -159,15 +162,21 @@ class Config(BaseModel):
 
 
 # Global config instance — resolve relative to the bundle Resources dir when
-# frozen (py2app), otherwise relative to this file's parent (backend/).
-if getattr(sys, "frozen", False):
-    _config_path = Path(os.environ["RESOURCEPATH"]) / "config.yaml"
-else:
-    _config_path = Path(__file__).parent.parent / "config.yaml"
+# frozen (py2app), otherwise relative to backend/ directory.
+_config_path = resources.get_resource_path() / "config.yaml"
 
-_config: Config = Config.from_yaml(str(_config_path))
+_config = global_init.uninit(Config)
 
 
 def get_config() -> Config:
-    """Get or create global configuration instance"""
+    """Get the global config instance (initialized at startup)."""
     return _config
+
+
+def _init_config() -> None:
+    """Initialize global config from YAML file at startup."""
+    global _config  # pylint: disable=global-statement
+    _config = Config.from_yaml(str(_config_path))
+
+
+global_init.add(_init_config)
