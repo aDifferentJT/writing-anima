@@ -3,6 +3,7 @@
 import logging
 import socket
 import subprocess
+import tempfile
 import time
 import urllib.request
 import yaml
@@ -13,7 +14,6 @@ import typing
 from typing import Any, NamedTuple, Optional
 from uuid import UUID, uuid4
 
-import platformdirs
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
@@ -45,6 +45,7 @@ class QdrantManager:
     data_dir: Path
     http_port: int
     grpc_port: int
+    config_path: Path
 
     def __init__(self) -> None:
         qdrant_bin = self._get_qdrant_bin()
@@ -53,19 +54,25 @@ class QdrantManager:
 
         self.http_port = self._find_free_port()
         self.grpc_port = self._find_free_port()
-        data_base = Path(platformdirs.user_data_dir("Writing Anima", "HaiLab"))
-        self.data_dir = data_base / "qdrant"
+        self.data_dir = resources.get_data_dir() / "qdrant"
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate and write config to temporary file
         config = self._generate_config()
-        config_path = self.data_dir / "qdrant.yaml"
-        with open(config_path, "w") as f:
-            yaml.dump(config, f)
+        config_file = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".yaml",
+            dir=self.data_dir,
+            delete=False,
+            encoding="utf-8",
+        )
+        yaml.dump(config, config_file)
+        config_file.close()
+        self.config_path = Path(config_file.name)
 
         logger.info(f"Starting Qdrant (REST: {self.http_port}, gRPC: {self.grpc_port}) at {self.data_dir}...")
         self.process = subprocess.Popen(
-            [str(qdrant_bin), "--config-path", str(config_path)],
+            [str(qdrant_bin), "--config-path", str(self.config_path)],
             cwd=str(self.data_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -127,6 +134,10 @@ class QdrantManager:
         except subprocess.TimeoutExpired:
             logger.warning("Qdrant did not terminate gracefully, killing...")
             self.process.kill()
+
+        # Clean up temporary config file
+        if self.config_path.exists():
+            self.config_path.unlink()
 
 
 class VectorCollection:

@@ -1,12 +1,13 @@
-- move general database to application support
+- memory leak
+- thinking is not only no progress but locks up everything
 - Fix zombie qdrant
 - Deal with failure during global init, particularly config failing to parse, now catch errors in global_init.run and present an error window
 - Check config is actually how it should be
 - Check all the many prompts
+- Fix autosave 
 
 - It seems that clicking editor when purpose is blank does nothing
 - AnimaUpdate is dead code?
-- Bundle Qdrant
 - The jump to referenced thing is misaligned for some reason
 - Thinking progress would be nice
 - AnimaChat has a lot of ? and ||, hmm
@@ -14,8 +15,6 @@
 - Look at local storage
 - Eliminate one of response or response_stream
 - Fix corpus_available in persona thingy I messed up
-- Global model selector
-- File metadate no longer contains timestamp, look at the instances of this
 - Sort WritingInterface feedback stuff
 - Look at the .env stuff, pruning and tidying
 - Audit noqa
@@ -71,10 +70,6 @@ AI suggests:
 
   High value                                                                                             
                                                                                                          
-  2. Redundant except HTTPException as e: raise e (personas.py x5)                                       
-  Catching and immediately re-raising an exception does nothing. FastAPI propagates HTTPException        
-  automatically.                                                                                         
-                                                                                                         
   4. Empty auto-save interval (App.tsx:115–117)                                                          
   A setInterval fires every 3 seconds and does nothing — the body is just // TODO auto save. Wastes CPU, 
   should be removed until implemented.                                                                   
@@ -101,10 +96,3 @@ AI suggests:
   It has cascading fallbacks for 8+ alternate field names per attribute because models return
   inconsistent schemas. This is a symptom of not enforcing a structured output schema — fixing that      
   upstream would let this function collapse to ~20 lines.
-                                                                                                         
-  ---                                                                                                    
-  Low value / easy fixes
-                                                                                                         
-  10. Bare except: clauses (personas.py x2, analysis.py x2) — should be except Exception:
-                                                                                                         
-  12. Unused setAnalysisStatus state setter (WritingInterface.tsx:55) — declared but never read          

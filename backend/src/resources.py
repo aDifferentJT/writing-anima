@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+import platformdirs
+
 
 def get_resource_path() -> Path:
     """
@@ -51,3 +53,16 @@ def get_prompts_path() -> Path:
         return Path(os.environ["RESOURCEPATH"]) / "agent" / "prompts"
     else:
         return Path(__file__).parent / "agent" / "prompts"
+
+
+def get_data_dir() -> Path:
+    """
+    Get the application data directory path.
+
+    Uses the system's user data directory (Application Support on macOS, etc.)
+    to store persistent application data.
+
+    Returns:
+        Path to the application data directory
+    """
+    return Path(platformdirs.user_data_dir("Writing Anima", "HaiLab"))
