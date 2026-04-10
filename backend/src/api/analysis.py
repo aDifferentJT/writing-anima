@@ -395,7 +395,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
         result = None
         if hasattr(agent, "respond_stream"):
             # Stream from agent
-            for chunk in agent.respond_stream(
+            async for chunk in agent.respond_stream(
                 query, conversation_history=conversation_history
             ):
                 if chunk.get("type") == "status":
@@ -425,7 +425,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
                     message="Analyzing with corpus retrieval...", progress=0.5
                 ).model_dump_json()
             )
-            result = agent.respond(query, conversation_history=conversation_history)
+            result = await agent.respond(query, conversation_history=conversation_history)
 
         # Parse JSON feedback
         await websocket.send_text(
@@ -573,7 +573,7 @@ async def chat_with_anima_stream(websocket: WebSocket) -> None:  # pylint: disab
         # Stream if agent supports it, otherwise fall back to non-streaming
         if hasattr(agent, "respond_stream"):
             full_response = ""
-            for chunk in agent.respond_stream(
+            async for chunk in agent.respond_stream(
                 message, conversation_history=conversation_history
             ):
                 if chunk.get("type") == "text":
@@ -590,7 +590,7 @@ async def chat_with_anima_stream(websocket: WebSocket) -> None:  # pylint: disab
 
             await websocket.send_json({"type": "complete", "response": full_response})
         else:
-            result = agent.respond(message, conversation_history=conversation_history)
+            result = await agent.respond(message, conversation_history=conversation_history)
             response_text = result.response
             await websocket.send_json({"type": "token", "content": response_text})
             await websocket.send_json({"type": "complete", "response": response_text})

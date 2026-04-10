@@ -4,9 +4,10 @@ import json
 import logging
 import os
 import time
-from typing import Any, Generator, Literal, Optional, TypedDict
+from collections.abc import AsyncGenerator
+from typing import Any, Literal, Optional, TypedDict
 
-from openai import Omit, omit, OpenAI
+from openai import Omit, omit, AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionFunctionToolParam,
     ChatCompletionMessageParam,
@@ -55,7 +56,7 @@ class OpenAIAgent(BaseAgent):
         else:
             api_key = None
 
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
             api_key=api_key,
             base_url=model.base_url,
         )
@@ -63,7 +64,7 @@ class OpenAIAgent(BaseAgent):
         self.model = model
         self.prompt_file = prompt_file
 
-    def _call_model(self, system: str, messages: list[ChatCompletionMessageParam]) -> Any:
+    async def _call_model(self, system: str, messages: list[ChatCompletionMessageParam]) -> Any:
         """Call OpenAI API"""
         # Add system message to messages (OpenAI-style)
         system_message: ChatCompletionMessageParam = {"role": "system", "content": system}
@@ -82,7 +83,7 @@ class OpenAIAgent(BaseAgent):
             else "auto"
         )
 
-        return self.client.chat.completions.create(
+        return await self.client.chat.completions.create(
             model=self.model.model,
             messages=full_messages,
             tools=tools,
@@ -158,7 +159,7 @@ class OpenAIAgent(BaseAgent):
 
         return messages
 
-    def _rewrite_in_style(
+    async def _rewrite_in_style(
         self, feedback_json: str, retrieved_samples: Optional[list[WritingSample]] = None
     ) -> str:
         """
@@ -180,7 +181,7 @@ class OpenAIAgent(BaseAgent):
         samples = (
             retrieved_samples
             if retrieved_samples
-            else self.search_tool.get_style_pack()
+            else await self.search_tool.get_style_pack()
         )
 
         if not samples:
@@ -239,7 +240,7 @@ Start with [ and end with ].
 
             start_time = time.time()
 
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model.model,
                 messages=[{"role": "user", "content": rewrite_prompt}],
                 temperature=0.7,  # Slightly creative for style
@@ -388,9 +389,9 @@ Start with [ and end with ].
         iterations: int
         model: str
 
-    def respond_stream(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
+    async def respond_stream(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
         self, query: str, conversation_history: Optional[list[ChatCompletionMessageParam]] = None
-    ) -> Generator[TextResponse | StatusResponse | ResultResponse, None, None]:
+    ) -> AsyncGenerator[TextResponse | StatusResponse | ResultResponse, None]:
         """
         Stream response from the agent.
 
@@ -407,9 +408,9 @@ Start with [ and end with ].
             Final result dict with metadata
         """
         if self.prompt_file:
-            system_prompt = self._build_system_prompt(self.prompt_file)
+            system_prompt = await self._build_system_prompt(self.prompt_file)
         else:
-            system_prompt = self._build_system_prompt()
+            system_prompt = await self._build_system_prompt()
 
         # Start with conversation history if provided
         if conversation_history:
@@ -470,7 +471,7 @@ Start with [ and end with ].
                     )
 
                 # Call with streaming
-                stream = self.client.chat.completions.create(
+                stream = await self.client.chat.completions.create(
                     model=self.model.model,
                     messages=full_messages,
                     tools=tools,
@@ -484,7 +485,7 @@ Start with [ and end with ].
                 collected_content = ""
                 collected_tool_calls: list[ChatCompletionMessageFunctionToolCallParam] = []
 
-                for chunk in stream:
+                async for chunk in stream:
                     delta = chunk.choices[0].delta
 
                     # Handle content
@@ -555,7 +556,7 @@ Start with [ and end with ].
                                 ),
                                 "tool": "style_rewrite",
                             }
-                            final_response = self._rewrite_in_style(
+                            final_response = await self._rewrite_in_style(
                                 collected_content, retrieved_samples
                             )
                             logger.info(
@@ -620,7 +621,7 @@ Start with [ and end with ].
                                 "tool": tool_use.name,
                             }
 
-                        result = self._execute_tool(tool_use)
+                        result = await self._execute_tool(tool_use)
                         tool_results.append(result)
                         tools_called_count += 1
                         tool_calls_log.append(ToolCall(
@@ -725,7 +726,7 @@ Start with [ and end with ].
                 ),
                 "tool": "style_rewrite",
             }
-            final_response = self._rewrite_in_style(
+            final_response = await self._rewrite_in_style(
                 collected_content, retrieved_samples
             )
 

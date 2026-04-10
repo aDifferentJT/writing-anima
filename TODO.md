@@ -1,3 +1,6 @@
+- Thinking with outstanding criticism is buggy
+- Thinking progress has funky icons
+- it's not giving the referenced results for some reaso 
 - memory leak
 - thinking is not only no progress but locks up everything
 - Fix zombie qdrant

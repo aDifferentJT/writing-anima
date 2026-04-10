@@ -90,7 +90,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         self._current_tool_calls_count = 0
 
     @abstractmethod
-    def _call_model(self, system: str, messages: list[ChatCompletionMessageParam]) -> Any:
+    async def _call_model(self, system: str, messages: list[ChatCompletionMessageParam]) -> Any:
         """
         Call the underlying model API.
 
@@ -154,7 +154,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
             Updated message list
         """
 
-    def _build_system_prompt(self, prompt_file: str = "base.txt") -> str:
+    async def _build_system_prompt(self, prompt_file: str = "base.txt") -> str:
         """
         Build system prompt from template.
 
@@ -180,7 +180,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         # Add style pack for grounding (diverse writing samples)
         logger.info("Style pack enabled: %s", self.config.retrieval.style_pack_enabled)
         if self.config.retrieval.style_pack_enabled:
-            style_pack = self.search_tool.get_style_pack()
+            style_pack = await self.search_tool.get_style_pack()
             logger.info(
                 "Style pack retrieved: %d samples",
                 len(style_pack) if style_pack else 0
@@ -245,7 +245,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         """
         return self.config.agent.force_tool_use and self._current_tool_calls_count == 0
 
-    def _execute_tool(self, tool_use: ToolUse) -> Any:
+    async def _execute_tool(self, tool_use: ToolUse) -> Any:
         """
         Execute a tool call.
 
@@ -258,7 +258,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         result: Any
         if tool_use.name == "search_corpus":
             try:
-                result = self.search_tool.search(**tool_use.input)
+                result = await self.search_tool.search(**tool_use.input)
                 logger.debug("Tool search returned %d results", len(result))
                 return result
             except Exception as e:  # pylint: disable=broad-exception-caught
@@ -266,7 +266,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
                 return {"error": str(e)}
         elif tool_use.name == "check_incremental_reasoning":
             try:
-                result = self.reasoning_tool.check_and_guide(**tool_use.input)
+                result = await self.reasoning_tool.check_and_guide(**tool_use.input)
                 logger.debug(
                     "Incremental reasoning check: OOD=%s",
                     result.get('is_ood', False)
@@ -280,7 +280,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
             logger.error("Unknown tool: %s", tool_use.name)
             return {"error": error_msg}
 
-    def respond(  # pylint: disable=too-many-locals
+    async def respond(  # pylint: disable=too-many-locals
         self, query: str, conversation_history: Optional[list[ChatCompletionMessageParam]] = None
     ) -> Response:
         """
@@ -295,7 +295,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         """
         # Use custom prompt file if agent has one
         prompt_file = self.prompt_file or "base.txt"
-        system_prompt = self._build_system_prompt(prompt_file)
+        system_prompt = await self._build_system_prompt(prompt_file)
 
         # Start with conversation history if provided
         if conversation_history:
@@ -315,7 +315,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
 
             try:
                 # Call model
-                response = self._call_model(system_prompt, messages)
+                response = await self._call_model(system_prompt, messages)
 
                 # Check if model is done
                 if self._is_complete(response):
@@ -336,7 +336,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
                 if tool_uses:
                     tool_results = []
                     for tool_use in tool_uses:
-                        result = self._execute_tool(tool_use)
+                        result = await self._execute_tool(tool_use)
                         tool_results.append(result)
                         tool_calls_log.append(
                             ToolCall(

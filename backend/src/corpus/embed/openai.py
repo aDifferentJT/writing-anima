@@ -2,7 +2,7 @@
 
 import os
 import logging
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from .base import BaseEmbeddingGenerator
 from ...config import EmbeddingConfig
@@ -18,16 +18,16 @@ class OpenAIEmbeddingGenerator(BaseEmbeddingGenerator):
         super().__init__(embedding_config)
 
         api_key = os.getenv(embedding_config.api_key_env) if embedding_config.api_key_env else None
-        self.client = OpenAI(api_key=api_key)
+        self.client = AsyncOpenAI(api_key=api_key)
         self.model = embedding_config.model
 
         logger.info("Initialized embedding generator with model: %s", self.model)
 
-    def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
+    async def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:
         """Generate embeddings for a single batch of a list of texts"""
         try:
             logger.debug("Calling OpenAI API for batch %d...", batch_num)
-            response = self.client.embeddings.create(
+            response = await self.client.embeddings.create(
                 model=self.model,
                 input=batch,
             )

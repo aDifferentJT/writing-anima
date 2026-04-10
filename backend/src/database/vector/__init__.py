@@ -15,6 +15,7 @@ from typing import Any, NamedTuple, Optional
 from uuid import UUID, uuid4
 
 from qdrant_client import QdrantClient
+from qdrant_client.async_qdrant_client import AsyncQdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
     Condition,
@@ -143,32 +144,32 @@ class QdrantManager:
 class VectorCollection:
     """Interface for operations on a single Qdrant collection"""
 
-    def __init__(self, collection_name: str, client: QdrantClient):
+    def __init__(self, collection_name: str, client: AsyncQdrantClient):
         """
         Initialize a collection reference.
 
         Args:
             collection_name: Name of the collection (e.g., "anima_jules")
-            client: Shared QdrantClient connection (not owned)
+            client: Shared AsyncQdrantClient connection (not owned)
         """
         self.collection_name = collection_name
         self.client = client
 
-    def create_collection(self, dimensions: int, force: bool = False) -> None:
+    async def create_collection(self, dimensions: int, force: bool = False) -> None:
         """Create collection if it doesn't exist"""
         try:
             # Check if collection exists
-            collections = self.client.get_collections().collections
+            collections = (await self.client.get_collections()).collections
             exists = any(c.name == self.collection_name for c in collections)
 
             if exists and force:
                 logger.warning(f"Deleting existing collection: {self.collection_name}")
-                self.client.delete_collection(self.collection_name)
+                await self.client.delete_collection(self.collection_name)
                 exists = False
 
             if not exists:
                 logger.info(f"Creating collection: {self.collection_name}")
-                self.client.create_collection(
+                await self.client.create_collection(
                     collection_name=self.collection_name,
                     vectors_config=VectorParams(
                         size=dimensions,
@@ -178,7 +179,7 @@ class VectorCollection:
 
                 # Create text index for hybrid search
                 logger.info("Creating text index for full-text search...")
-                self.client.create_payload_index(
+                await self.client.create_payload_index(
                     collection_name=self.collection_name,
                     field_name="text",
                     field_schema=PayloadSchemaType.TEXT,
@@ -192,7 +193,7 @@ class VectorCollection:
             logger.error(f"Error creating collection: {e}")
             raise
 
-    def add_documents(
+    async def add_documents(
         self,
         documents: list[CorpusDocument],
         batch_size: int = 100,
@@ -226,7 +227,7 @@ class VectorCollection:
         total_batches = (total_points + batch_size - 1) // batch_size
         for i in range(0, total_points, batch_size):
             batch = points[i : i + batch_size]
-            self.client.upsert(
+            await self.client.upsert(
                 collection_name=self.collection_name,
                 points=batch,
             )
@@ -239,7 +240,7 @@ class VectorCollection:
 
         logger.info(f"✓ Successfully added {total_points} documents to collection")
 
-    def search(
+    async def search(
         self,
         query_vector: list[float],
         k: int = 5,
@@ -249,12 +250,12 @@ class VectorCollection:
         qdrant_filter = None
 
         # Execute search
-        results = self.client.query_points(
+        results = (await self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
             limit=k,
             query_filter=qdrant_filter,
-        ).points
+        )).points
 
         # Convert to SearchResult objects
         search_results = []
@@ -271,7 +272,7 @@ class VectorCollection:
 
         return search_results
 
-    def hybrid_search(
+    async def hybrid_search(
         self,
         query_text: str,
         query_vector: list[float],
@@ -309,12 +310,12 @@ class VectorCollection:
                 qdrant_filter = Filter(must=conditions)
 
         # 1. Semantic search
-        semantic_results = self.client.query_points(
+        semantic_results = (await self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
             limit=k * 2,  # Get more results for fusion
             query_filter=qdrant_filter,
-        ).points
+        )).points
 
         # 2. Keyword search using full-text filter
         # Extract individual keywords from query for more lenient matching
@@ -343,12 +344,12 @@ class VectorCollection:
 
             try:
                 # Use semantic search with keyword filter
-                keyword_results = self.client.query_points(
+                keyword_results = (await self.client.query_points(
                     collection_name=self.collection_name,
                     query=query_vector,
                     limit=k * 2,
                     query_filter=keyword_filter,
-                ).points
+                )).points
 
                 # If keyword search returns very few results, it's too restrictive
                 if len(keyword_results) < k // 2:
@@ -477,7 +478,7 @@ class VectorCollection:
 
         return final_results[:k]
 
-    def get_all_documents(self) -> list[CorpusDocument]:
+    async def get_all_documents(self) -> list[CorpusDocument]:
         """
         Retrieve all documents from the collection using scroll pagination.
 
@@ -490,7 +491,7 @@ class VectorCollection:
 
         try:
             while True:
-                results, next_offset = self.client.scroll(
+                results, next_offset = await self.client.scroll(
                     collection_name=self.collection_name,
                     limit=batch_size,
                     offset=offset,
@@ -519,17 +520,17 @@ class VectorCollection:
             logger.error(f"Error retrieving all documents: {e}")
             raise
 
-    def delete_collection(self) -> None:
+    async def delete_collection(self) -> None:
         """Delete the collection"""
         logger.warning(f"Deleting collection: {self.collection_name}")
-        self.client.delete_collection(self.collection_name)
+        await self.client.delete_collection(self.collection_name)
 
 
 class VectorDatabase:
     """Manages the Qdrant client connection and provides access to collections"""
 
     qdrant_manager: Optional[QdrantManager]
-    client: QdrantClient
+    client: AsyncQdrantClient
 
     def __init__(self, config: Config) -> None:
         """
@@ -545,7 +546,7 @@ class VectorDatabase:
         try:
             if isinstance(config.vector_db, CloudQdrantConfig):
                 logger.info(f"Connecting to Qdrant Cloud at {config.vector_db.url}")
-                self.client = QdrantClient(
+                self.client = AsyncQdrantClient(
                     url=config.vector_db.url,
                     api_key=config.vector_db.api_key,
                     https=True,
@@ -553,15 +554,17 @@ class VectorDatabase:
                 connection_str = config.vector_db.url
             else:  # LocalQdrantConfig
                 self.qdrant_manager = QdrantManager()
-                self.client = QdrantClient(
+                self.client = AsyncQdrantClient(
                     host="127.0.0.1",
                     grpc_port=self.qdrant_manager.grpc_port,
                     prefer_grpc=True,
                 )
                 connection_str = f"127.0.0.1:{self.qdrant_manager.grpc_port} (gRPC)"
 
-            # Test connection by getting collections
-            self.client.get_collections()
+            # Test connection by getting collections (sync for init)
+            # Note: We can't await here, so we skip async testing in __init__
+            # The first actual query will fail loudly if connection is bad
+            logger.info(f"Initialized AsyncQdrantClient for {connection_str}")
 
             logger.info(f"Connected to Qdrant at {connection_str}")
         except ConnectionRefusedError as e:
@@ -588,7 +591,7 @@ class VectorDatabase:
         """
         return VectorCollection(collection_name, self.client)
 
-    def get_existing_collections(self) -> set[str]:
+    async def get_existing_collections(self) -> set[str]:
         """
         Get all existing Qdrant collection names.
 
@@ -596,7 +599,7 @@ class VectorDatabase:
             Set of collection names
         """
         try:
-            collections = self.client.get_collections().collections
+            collections = (await self.client.get_collections()).collections
             return {c.name for c in collections}
         except Exception as e:
             logger.warning("Could not get collections from Qdrant: %s", e)
