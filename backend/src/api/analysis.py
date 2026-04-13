@@ -468,26 +468,11 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
             "in your instructions."
         )
 
-        # Prepare conversation history
-        conversation_history: list[ChatCompletionMessageParam] = []
-        if request.context and request.context.feedback_history:
-            for item in request.context.feedback_history[-3:]:
-                if item.role == "user":
-                    conversation_history.append(
-                        {"role": "user", "content": item.content}
-                    )
-                elif item.role == "assistant":
-                    conversation_history.append(
-                        {"role": "assistant", "content": item.content}
-                    )
-
         # Use streaming if available
         result = None
         if hasattr(agent, "respond_stream"):
             # Stream from agent
-            async for chunk in agent.respond_stream(
-                query, conversation_history=conversation_history
-            ):
+            async for chunk in agent.respond_stream(query):
                 if chunk.get("type") == "status":
                     # Send status updates
                     await websocket.send_text(
@@ -515,7 +500,7 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
                     message="Analyzing with corpus retrieval...", progress=0.5
                 ).model_dump_json()
             )
-            result = await agent.respond(query, conversation_history=conversation_history)
+            result = await agent.respond(query)
 
         # Parse JSON feedback
         await websocket.send_text(

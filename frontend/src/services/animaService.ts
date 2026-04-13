@@ -9,7 +9,6 @@ import type {
   ChatMessage,
   CompleteMessage,
   CorpusFile,
-  EnrichedFeedbackItem,
   ReceivedFeedbackItem,
   StatusMessage,
 } from '../types';
@@ -34,7 +33,6 @@ interface HealthCheckResponse {
 interface StreamAnalysisContext {
   purpose: string;
   criteria: string[];
-  feedbackHistory: EnrichedFeedbackItem[];
   model: string;
 }
 
@@ -85,7 +83,6 @@ class AnimaService {
             context: {
               purpose: context.purpose || null,
               criteria: context.criteria || [],
-              feedback_history: context.feedbackHistory || [],
             },
           }),
         );

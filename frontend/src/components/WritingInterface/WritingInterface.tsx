@@ -3,7 +3,6 @@ import WritingArea, { WritingAreaHandle } from "../WritingArea";
 import FeedbackPanel from "../FeedbackPanel";
 import ThoughtProcess from "../ThoughtProcess/ThoughtProcess";
 import UnifiedAgentCustomizationPanel from "../AgentCustomization/UnifiedAgentCustomizationPanel";
-import feedbackHistoryService from "../../services/feedbackHistoryService";
 import animaService from "../../services/animaService";
 import CorpusGroundsViewer from "../CorpusGroundsViewer/CorpusGroundsViewer";
 import {
@@ -70,17 +69,12 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
 
   // Multi-agent feedback management functions
   const handleMultiAgentDismiss = (feedbackId: string): void => {
-    const feedbackItem = feedback.find((item) => item.id === feedbackId);
-    if (feedbackItem) {
-      feedbackHistoryService.recordRejected(feedbackItem);
-    }
     setFeedback(feedback.filter((item) => item.id !== feedbackId));
   };
 
   const handleMultiAgentResolve = (feedbackId: string): void => {
     const feedbackItem = feedback.find((item) => item.id === feedbackId);
     if (feedbackItem) {
-      feedbackHistoryService.recordAccepted(feedbackItem);
       setResolvedFeedback((prev) => [
         ...prev,
         { ...feedbackItem, status: "resolved", resolvedAt: new Date().toISOString() },
@@ -200,7 +194,6 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
         {
           purpose: purposeText,
           criteria: writing_criteria.criteria,
-          feedbackHistory: [],
           model: selectedModel!, // Pass selected model (guarded by button disabled)
         },
         {

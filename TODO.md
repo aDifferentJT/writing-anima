@@ -1,12 +1,11 @@
 - Thinking with outstanding criticism is buggy
-- What's going on with feedback history
 - Thinking progress has funky icons
 - memory leak
-- Fix zombie qdrant
 - Check config is actually how it should be
 - Check all the many prompts
 - Fix autosave 
 - Only load embedding model when actually needed
+- Feedback card bg colour in dark mode
 
 - It seems that clicking editor when purpose is blank does nothing
 - AnimaUpdate is dead code?

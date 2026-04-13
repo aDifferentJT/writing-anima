@@ -162,7 +162,6 @@ class AnalysisContext(BaseModel):
     """Context sent alongside an analysis request"""
     purpose: Optional[str] = None
     criteria: list[str] = []
-    feedback_history: list[ChatMessage] = []
 
 
 class AnalysisRequest(BaseModel):
