@@ -357,7 +357,6 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     selectedModel,
     project,
     writing_criteria,
-    feedback,
     availableAnimas,
     onFeedbackGenerated,
   ]);

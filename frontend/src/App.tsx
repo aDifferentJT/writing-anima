@@ -96,7 +96,9 @@ function AppContent({
   const [currentMode, setCurrentMode] = useState<AppMode>(currentProject.purpose.topic == '' ? 'purpose' : 'writing');
   const lastSavedContentRef = useRef<string>(currentProject.content ?? '');
   const currentProjectRef = useRef(currentProject);
-  currentProjectRef.current = currentProject;
+  useEffect(() => {
+    currentProjectRef.current = currentProject;
+  }, [currentProject]);
 
   // Auto-save project content
   useEffect(() => {

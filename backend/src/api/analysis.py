@@ -71,6 +71,21 @@ def _norm_with_map(text: str) -> tuple[str, list[int]]:
     return "".join(norm_chars), index_map
 
 
+def _fuzzy_span(norm_orig: str, norm_q: str, threshold: float) -> tuple[int, int] | None:
+    """Sliding-window fuzzy match; returns (start, end) in norm_orig or None."""
+    qlen = len(norm_q)
+    wlen = qlen + qlen // 5  # slightly wider window absorbs small insertions
+    best_ratio = 0.0
+    best_span = (0, wlen)
+    for start in range(0, max(1, len(norm_orig) - qlen // 2 + 1), max(1, qlen // 10)):
+        window = norm_orig[start : start + wlen]
+        ratio = SequenceMatcher(None, norm_q, window, autojunk=False).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_span = (start, start + wlen)
+    return best_span if best_ratio >= threshold else None
+
+
 def _find_text_position(
     original: str, quoted: str, threshold: float = 0.82
 ) -> tuple[int, int] | None:
@@ -109,25 +124,10 @@ def _find_text_position(
         return _to_orig(idx, idx + len(norm_q))
 
     # 3. Fuzzy sliding window (skip very short quotes — too many false positives)
-    qlen = len(norm_q)
-    if qlen < 20:
+    if len(norm_q) < 20:
         return None
-
-    best_ratio = 0.0
-    best_norm_span = (0, qlen)
-    step = max(1, qlen // 10)
-    wlen = qlen + qlen // 5  # slightly wider window absorbs small insertions
-
-    for start in range(0, max(1, len(norm_orig) - qlen // 2 + 1), step):
-        window = norm_orig[start : start + wlen]
-        ratio = SequenceMatcher(None, norm_q, window, autojunk=False).ratio()
-        if ratio > best_ratio:
-            best_ratio = ratio
-            best_norm_span = (start, start + wlen)
-
-    if best_ratio >= threshold:
-        return _to_orig(*best_norm_span)
-    return None
+    span = _fuzzy_span(norm_orig, norm_q, threshold)
+    return _to_orig(*span) if span else None
 
 
 def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
