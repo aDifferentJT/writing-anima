@@ -2,27 +2,40 @@
 
 import logging
 from collections.abc import Callable
+from weakref import WeakValueDictionary
 
-from ...config import Config
+from ...config import EmbeddingConfig
 from .base import BaseEmbeddingGenerator
 from .mlx import MlxEmbeddingGenerator
 from .openai import OpenAIEmbeddingGenerator
 
 logger = logging.getLogger(__name__)
 
+_cache: WeakValueDictionary[tuple[str, str], BaseEmbeddingGenerator] = WeakValueDictionary()
+
 
 def create_embedding_generator(
-    config: Config,
-    embedding_id: str,
+    embedding_config: EmbeddingConfig,
     progress_callback: Callable[[float | None], None] | None = None,
 ) -> BaseEmbeddingGenerator:
-    """Create an embedding generator based on config provider."""
-    embedding_config = config.get_embedding(embedding_id)
+    """Create an embedding generator based on config provider.
+
+    Generators are cached by (provider, model) — the cache holds weak references,
+    so an entry is evicted automatically once nothing else holds the generator.
+    """
+    key = (embedding_config.provider, embedding_config.model)
+    cached = _cache.get(key)
+    if cached is not None:
+        return cached
+
     if embedding_config.provider == "openai":
         if progress_callback:
             progress_callback(None)
-        return OpenAIEmbeddingGenerator(embedding_config)
+        generator: BaseEmbeddingGenerator = OpenAIEmbeddingGenerator(embedding_config)
     elif embedding_config.provider == "mlx":
-        return MlxEmbeddingGenerator(embedding_config, progress_callback)
+        generator = MlxEmbeddingGenerator(embedding_config, progress_callback)
     else:
         raise ValueError(f"Unsupported embedding provider: {embedding_config.provider}.")
+
+    _cache[key] = generator
+    return generator

@@ -46,7 +46,7 @@ class CorpusSearchTool:
         """
         self.config = config
         self.collection = collection
-        self.embedder = create_embedding_generator(config, embedding_provider)
+        self.embedder = create_embedding_generator(config.get_embedding(embedding_provider))
         self._style_pack_cache: Optional[list[WritingSample]] = None  # Cache diverse style examples
 
     async def get_style_pack(self) -> list[WritingSample]:
@@ -254,7 +254,7 @@ class IncrementalReasoningTool:
         self.config = config
         self.collection = collection
         self.anima_name = anima_name
-        self.embedder = create_embedding_generator(config, embedding_provider)
+        self.embedder = create_embedding_generator(config.get_embedding(embedding_provider))
 
         # Initialize OpenAI client for OOD checks
         api_key = os.getenv("OPENAI_API_KEY")

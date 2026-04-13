@@ -315,8 +315,7 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
 
             embedder = await asyncio.to_thread(
                 create_embedding_generator,
-                get_config(),
-                anima.embedding_provider,
+                get_config().get_embedding(anima.embedding_provider),
                 on_model_progress,
             )
             ingester = CorpusIngester(collection, get_config(), embedder)
