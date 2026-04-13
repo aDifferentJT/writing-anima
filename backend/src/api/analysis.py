@@ -7,6 +7,7 @@ import logging
 import re
 import time
 import uuid
+from difflib import SequenceMatcher
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
@@ -47,16 +48,101 @@ def get_anima(anima_id: str) -> Optional[Anima]:
         return anima
 
 
+def _norm_with_map(text: str) -> tuple[str, list[int]]:
+    """
+    Collapse whitespace runs to a single space.
+    Returns (normalised_string, index_map) where index_map[i] is the position
+    in *text* of the i-th character in the normalised string.
+    """
+    norm_chars: list[str] = []
+    index_map: list[int] = []
+    i = 0
+    while i < len(text):
+        if text[i].isspace():
+            norm_chars.append(" ")
+            index_map.append(i)
+            i += 1
+            while i < len(text) and text[i].isspace():
+                i += 1
+        else:
+            norm_chars.append(text[i])
+            index_map.append(i)
+            i += 1
+    return "".join(norm_chars), index_map
+
+
+def _find_text_position(
+    original: str, quoted: str, threshold: float = 0.82
+) -> tuple[int, int] | None:
+    """
+    Find quoted text in original with fuzzy matching.
+
+    Tries in order:
+    1. Exact substring match
+    2. Whitespace-normalised match (handles newline/space differences)
+    3. Sliding-window fuzzy match via SequenceMatcher (for quotes >= 20 chars)
+
+    Always returns offsets into *original* (not the normalised string).
+    """
+    if not quoted or not original:
+        return None
+
+    # 1. Exact
+    idx = original.find(quoted)
+    if idx != -1:
+        return idx, idx + len(quoted)
+
+    # Build a whitespace-normalised version of original plus a map back to
+    # original indices — index_map[i] = position in original of norm_orig[i].
+    norm_orig, index_map = _norm_with_map(original)
+    norm_q = re.sub(r"\s+", " ", quoted).strip()
+
+    def _to_orig(norm_start: int, norm_end: int) -> tuple[int, int]:
+        orig_start = index_map[norm_start]
+        last = min(norm_end - 1, len(index_map) - 1)
+        orig_end = index_map[last] + 1
+        return orig_start, orig_end
+
+    # 2. Normalised exact match
+    idx = norm_orig.find(norm_q)
+    if idx != -1:
+        return _to_orig(idx, idx + len(norm_q))
+
+    # 3. Fuzzy sliding window (skip very short quotes — too many false positives)
+    qlen = len(norm_q)
+    if qlen < 20:
+        return None
+
+    best_ratio = 0.0
+    best_norm_span = (0, qlen)
+    step = max(1, qlen // 10)
+    wlen = qlen + qlen // 5  # slightly wider window absorbs small insertions
+
+    for start in range(0, max(1, len(norm_orig) - qlen // 2 + 1), step):
+        window = norm_orig[start : start + wlen]
+        ratio = SequenceMatcher(None, norm_q, window, autojunk=False).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_norm_span = (start, start + wlen)
+
+    if best_ratio >= threshold:
+        return _to_orig(*best_norm_span)
+    return None
+
+
 def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
     response_text: str,
     anima_name: str,
     model: str,
+    original_content: str,
 ) -> list[FeedbackItem]:
     """
     Parse JSON feedback from Anima's structured output.
 
     Args:
         response_text: JSON string from Anima
+        original_content: The original text that was analyzed (used to compute
+                          accurate start/end offsets from quoted text snippets)
         anima_name: Name of the anima for logging
         model: Model identifier that generated the feedback (e.g., "gpt-5", "kimi-k2")
 
@@ -183,17 +269,20 @@ def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,to
                 positions = []
                 if isinstance(raw_positions, list):
                     for pos in raw_positions:
-                        if (
-                            isinstance(pos, dict)
-                            and "start" in pos
-                            and "end" in pos
-                            and "text" in pos
-                        ):
-                            positions.append(
-                                TextPosition(
-                                    start=pos["start"], end=pos["end"], text=pos["text"]
+                        if isinstance(pos, dict) and pos.get("text"):
+                            quoted_text = pos["text"]
+                            span = _find_text_position(original_content, quoted_text)
+                            if span:
+                                start, end = span
+                                # Use the actual slice from the original so the
+                                # displayed text always has correct whitespace,
+                                # even when the model stripped newlines/spaces.
+                                display_text = original_content[start:end]
+                                positions.append(
+                                    TextPosition(
+                                        start=start, end=end, text=display_text
+                                    )
                                 )
-                            )
 
                 # For corpus_sources field - actual quoted passages from corpus
                 raw_corpus_sources = item.get("corpus_sources") or []
@@ -284,7 +373,8 @@ def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,to
             try:
                 feedback_data = json.loads(json_match.group(0))
                 return parse_json_feedback(
-                    json.dumps(feedback_data), anima_name, model
+                    json.dumps(feedback_data), anima_name, model,
+                    original_content=original_content,
                 )
             except Exception:  # pylint: disable=bare-except,broad-exception-caught
                 pass
@@ -450,7 +540,8 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
 
         try:
             feedback_items = parse_json_feedback(
-                response_text, anima.name, request.model
+                response_text, anima.name, request.model,
+                original_content=request.content,
             )
             logger.info("Parsed %d feedback items", len(feedback_items))
         except Exception as parse_error:  # pylint: disable=broad-exception-caught

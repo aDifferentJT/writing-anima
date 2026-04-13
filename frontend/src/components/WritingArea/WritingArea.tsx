@@ -32,13 +32,55 @@ const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, ref
       const textarea = textareaRef.current
         ?? (editorRef.current?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null);
       if (!textarea) return;
-      const start = textarea.value.indexOf(text);
+
+      const value = textarea.value;
+      let start = -1;
+      let end = -1;
+
+      // 1. Exact match
+      const exact = value.indexOf(text);
+      if (exact !== -1) {
+        start = exact;
+        end = exact + text.length;
+      }
+
+      // 2. Whitespace-normalised match — build an index map so we can
+      //    translate the normalised position back to the original string.
+      if (start === -1) {
+        // Build normalised string + map[normIdx] = origIdx
+        const normChars: string[] = [];
+        const normMap: number[] = [];
+        let i = 0;
+        while (i < value.length) {
+          if (/\s/.test(value[i])) {
+            normChars.push(' ');
+            normMap.push(i);
+            i++;
+            while (i < value.length && /\s/.test(value[i])) i++;
+          } else {
+            normChars.push(value[i]);
+            normMap.push(i);
+            i++;
+          }
+        }
+        const normValue = normChars.join('');
+        const normText  = text.replace(/\s+/g, ' ').trim();
+
+        const normIdx = normValue.indexOf(normText);
+        if (normIdx !== -1) {
+          start = normMap[normIdx];
+          const lastNorm = Math.min(normIdx + normText.length - 1, normMap.length - 1);
+          end = normMap[lastNorm] + 1;
+        }
+      }
+
       if (start === -1) return;
+
       textarea.focus();
-      textarea.setSelectionRange(start, start + text.length);
+      textarea.setSelectionRange(start, end);
       // Scroll the selection into view
       const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
-      const lines = textarea.value.substring(0, start).split('\n').length;
+      const lines = value.substring(0, start).split('\n').length;
       textarea.scrollTop = (lines - 3) * lineHeight;
     },
   }));

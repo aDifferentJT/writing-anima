@@ -31,7 +31,7 @@ You MUST provide feedback as a JSON array. Each feedback item must have these fi
 - severity: one of "low", "medium", or "high"
 - confidence: number from 0.0 to 1.0 based on corpus support
 - corpus_sources: array of objects with text, source_file, and relevance fields (REQUIRED)
-- text_positions: array of objects with start, end, and text fields (can be empty array)
+- text_positions: array of objects with start, end, and text fields. For "issue" and "suggestion" types, you MUST include at least one entry quoting the EXACT text from the input that this feedback refers to. Copy the verbatim phrase from the text being analyzed into the "text" field. Set start/end to your best estimate of character positions.
 
 CRITICAL - Formatting Corpus References:
 When you search the corpus, each result has metadata including "file_path" and "source".
@@ -144,7 +144,7 @@ Each feedback object in the array must have these exact fields:
 - severity (string): "low", "medium", or "high"
 - confidence (number): 0.0 to 1.0
 - corpus_sources (array): Objects with "text", "source_file", and "relevance" string fields
-- text_positions (array): Objects with "start" (int), "end" (int), and "text" (string) fields
+- text_positions (array): Objects with "start" (int), "end" (int), and "text" (string) fields. For issue/suggestion types, include at least one entry with the exact verbatim phrase from the input text copied into "text".
 
 REMEMBER:
 - You ARE the author. Speak in FIRST PERSON (I/my/me)

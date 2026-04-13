@@ -2,12 +2,12 @@
 - Thinking progress has funky icons
 - it's not giving the referenced results for some reaso 
 - memory leak
-- thinking is not only no progress but locks up everything
 - Fix zombie qdrant
 - Deal with failure during global init, particularly config failing to parse, now catch errors in global_init.run and present an error window
 - Check config is actually how it should be
 - Check all the many prompts
 - Fix autosave 
+- Only load embedding model when actually needed
 
 - It seems that clicking editor when purpose is blank does nothing
 - AnimaUpdate is dead code?
