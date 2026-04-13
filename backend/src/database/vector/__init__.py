@@ -80,6 +80,7 @@ class QdrantManager:
             close_fds=True,
             text=True,
         )
+        self._start_watchdog()
 
         # Wait for qdrant to be ready
         deadline = time.time() + 30.0
@@ -126,6 +127,17 @@ class QdrantManager:
             },
         }
 
+    def _start_watchdog(self) -> None:
+        """Spawn watchdog.py to kill qdrant if this process dies unexpectedly."""
+        import os
+        import sys
+        watchdog_path = resources.get_resource_path() / "watchdog.py"
+        self.watchdog = subprocess.Popen(
+            [sys.executable, str(watchdog_path), str(os.getpid()), str(self.process.pid)],
+            close_fds=True,
+        )
+        logger.info(f"Watchdog started (pid={self.watchdog.pid}) guarding qdrant (pid={self.process.pid})")
+
     def __del__(self) -> None:
         """Clean up Qdrant process when manager is destroyed."""
         logger.info(f"Stopping Qdrant (REST: {self.http_port}, gRPC: {self.grpc_port})...")
@@ -135,6 +147,8 @@ class QdrantManager:
         except subprocess.TimeoutExpired:
             logger.warning("Qdrant did not terminate gracefully, killing...")
             self.process.kill()
+        if hasattr(self, "watchdog"):
+            self.watchdog.terminate()
 
         # Clean up temporary config file
         if self.config_path.exists():

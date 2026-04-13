@@ -62,6 +62,8 @@ OPTIONS: dict[str, object] = {
         str(HERE / "config.yaml"),
         # prompts → Contents/Resources/agent/prompts
         ("agent", [str(HERE / "src" / "agent" / "prompts")]),
+        # watchdog script → Contents/Resources/watchdog.py
+        str(HERE / "watchdog.py"),
         # qdrant binary → Contents/Resources/qdrant
         str(HERE / "build" / "qdrant"),
         # assets catalog → Contents/Resources/Assets.car
