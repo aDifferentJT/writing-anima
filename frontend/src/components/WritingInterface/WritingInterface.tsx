@@ -200,7 +200,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
         {
           purpose: purposeText,
           criteria: writing_criteria.criteria,
-          feedbackHistory: feedback.slice(-3), // Last 3 feedback items
+          feedbackHistory: [],
           model: selectedModel!, // Pass selected model (guarded by button disabled)
         },
         {

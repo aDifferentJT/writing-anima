@@ -1,4 +1,5 @@
 - Thinking with outstanding criticism is buggy
+- What's going on with feedback history
 - Thinking progress has funky icons
 - memory leak
 - Fix zombie qdrant
