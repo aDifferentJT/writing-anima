@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Pen, Target, Home } from 'lucide-react';
 import ProjectDashboard from './components/Projects/ProjectDashboard';
 import PurposeStep from './components/PurposeStep/PurposeStep';
@@ -94,17 +94,28 @@ function AppContent({
   setIsProjectSwitching,
 }: AppContentProps): React.ReactElement {
   const [currentMode, setCurrentMode] = useState<AppMode>(currentProject.purpose.topic == '' ? 'purpose' : 'writing');
+  const lastSavedContentRef = useRef<string>(currentProject.content ?? '');
+  const currentProjectRef = useRef(currentProject);
+  currentProjectRef.current = currentProject;
 
   // Auto-save project content
   useEffect(() => {
     if (isProjectSwitching) return;
 
     const autoSaveInterval = setInterval(async () => {
-      // TODO auto save
-    }, 3000);
+      const project = currentProjectRef.current;
+      const currentContent = project.content ?? '';
+      if (currentContent === lastSavedContentRef.current) return;
+      lastSavedContentRef.current = currentContent;
+      try {
+        await projectService.updateProject(project.id, { content: currentContent });
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+      }
+    }, 1000);
 
     return () => clearInterval(autoSaveInterval);
-  }, [currentProject, isProjectSwitching]);
+  }, [isProjectSwitching]);
 
   const handleBackToDashboard = useCallback(async (): Promise<void> => {
     setIsProjectSwitching(true);
