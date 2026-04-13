@@ -1,9 +1,7 @@
 - Thinking with outstanding criticism is buggy
 - Thinking progress has funky icons
-- it's not giving the referenced results for some reaso 
 - memory leak
 - Fix zombie qdrant
-- Deal with failure during global init, particularly config failing to parse, now catch errors in global_init.run and present an error window
 - Check config is actually how it should be
 - Check all the many prompts
 - Fix autosave 

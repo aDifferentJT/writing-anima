@@ -116,7 +116,7 @@ const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, ref
         <h2 className="text-xs font-semibold text-base-content/50 uppercase tracking-wide">Editor</h2>
       </div>
 
-      <div className="relative h-[calc(100%-36px)]" data-color-mode="light" ref={editorRef}>
+      <div className="relative h-[calc(100%-36px)]" ref={editorRef}>
         <MDEditor
           value={content}
           onChange={(val) => onContentChange(val ?? '')}
