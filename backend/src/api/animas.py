@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from ..config import get_config
 from ..corpus.embed.factory import create_embedding_generator
 from ..corpus.ingest import CorpusIngester, Stage, STAGES
+from ..corpus.style_pack import generate_style_pack
 from ..database.general import get_general_db
 from ..database.vector import get_vector_db
 from ..database.vector.schema import CorpusDocument as VectorCorpusDocument
@@ -39,6 +40,33 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/animas", tags=["animas"])
+
+
+class UploadProgress:
+    """Tracks top-level upload steps so completed/remaining are always derivable."""
+
+    def __init__(self, steps: list[str]) -> None:
+        self._steps = steps
+        self._idx = 0
+
+    def advance(self) -> None:
+        """Mark the current step as done and move to the next."""
+        self._idx += 1
+
+    @property
+    def current(self) -> str:
+        """The step currently in progress."""
+        return self._steps[self._idx]
+
+    @property
+    def completed(self) -> list[str]:
+        """All steps that have finished."""
+        return self._steps[:self._idx]
+
+    @property
+    def remaining(self) -> list[str]:
+        """All steps not yet started."""
+        return self._steps[self._idx + 1:]
 
 
 class AnimaSubscriptionManager:
@@ -282,34 +310,30 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
             ).dimensions
             await collection.create_collection(embedding_dim)
 
-            completed: list[str] = []
             files_data = request.files
             file_names = [f.name for f in files_data]
 
+            progress = UploadProgress(
+                ["Loading embedding model"] + file_names + ["Generating style pack"]
+            )
+
             async def send_status(
-                remaining: list[str],
-                current_steps_completed: list[str],
-                current_steps_remaining: list[str],
-                current_step: str,
-                step_progress: float | None,
+                sub_completed: list[str] | None = None,
+                sub_remaining: list[str] | None = None,
+                current_step: str | None = None,
+                step_progress: float | None = None,
             ) -> None:
                 await send_msg(CorpusStatusMessage(
-                    steps_completed=completed + current_steps_completed,
-                    steps_remaining=current_steps_remaining + remaining,
-                    current_step=current_step,
+                    steps_completed=progress.completed + (sub_completed or []),
+                    steps_remaining=(sub_remaining or []) + progress.remaining,
+                    current_step=current_step if current_step is not None else progress.current,
                     step_progress=step_progress,
                 ))
 
             loop = asyncio.get_running_loop()
-            def on_model_progress(progress: float | None) -> None:
+            def on_model_progress(prog: float | None) -> None:
                 asyncio.run_coroutine_threadsafe(
-                    send_status(
-                        remaining=file_names,
-                        current_steps_completed=[],
-                        current_steps_remaining=[],
-                        current_step="Loading embedding model",
-                        step_progress=progress,
-                    ),
+                    send_status(step_progress=prog),
                     loop,
                 )
 
@@ -320,14 +344,12 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
             )
             ingester = CorpusIngester(collection, get_config(), embedder)
 
-            completed.append("Loading embedding model")
+            progress.advance()  # "Loading embedding model" done
 
             total_size = 0
             total_chunks_added = 0
 
             for file_data in files_data:
-                remaining = [n for n in file_names if n not in completed and n != file_data.name]
-
                 file_bytes = base64.b64decode(file_data.content)
                 total_size += len(file_bytes)
                 upload_file = UploadFile(
@@ -342,14 +364,12 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
                 def on_ingest_progress(
                     step: Stage,
                     step_progress: float | None,
-                    remaining: list[str] = remaining,
                     stage: Callable[[str], str] = stage,
                 ) -> None:
                     idx = STAGES.index(step)
                     loop.create_task(send_status(
-                        remaining=remaining,
-                        current_steps_completed=[stage(s) for s in STAGES[:idx]],
-                        current_steps_remaining=[stage(s) for s in STAGES[idx + 1:]],
+                        sub_completed=[stage(s) for s in STAGES[:idx]],
+                        sub_remaining=[stage(s) for s in STAGES[idx + 1:]],
                         current_step=stage(step),
                         step_progress=step_progress,
                     ))
@@ -358,7 +378,7 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
                     upload_file, progress_callback=on_ingest_progress
                 )
 
-                completed.append(file_data.name)
+                progress.advance()  # file done
 
             # Get total chunk count from Qdrant
             total_chunks: int = anima.chunk_count + total_chunks_added
@@ -369,8 +389,13 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
             except:  # pylint: disable=bare-except
                 pass
 
+            await send_status()  # "Generating style pack" becomes current
             anima.corpus_file_count += len(files_data)
             anima.chunk_count = total_chunks
+            anima.style_pack = await generate_style_pack(
+                collection_name, get_config().retrieval.style_pack_size, embedder
+            )
+            progress.advance()
             anima.updated_at = datetime.utcnow()
             session.add(anima)
             session.commit()

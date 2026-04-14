@@ -46,71 +46,7 @@ class CorpusSearchTool:
         """
         self.config = config
         self.collection = collection
-        self.embedder = create_embedding_generator(config.get_embedding(embedding_provider))
-        self._style_pack_cache: Optional[list[WritingSample]] = None  # Cache diverse style examples
-
-    async def get_style_pack(self) -> list[WritingSample]:
-        """
-        Get diverse representative writing samples for style grounding.
-        Uses caching to avoid recomputing.
-
-        Returns:
-            List of diverse document samples
-        """
-        if self._style_pack_cache is not None:
-            return self._style_pack_cache
-
-        if not self.config.retrieval.style_pack_enabled:
-            return []
-
-        size = self.config.retrieval.style_pack_size
-        logger.info("Building style pack with %d diverse samples...", size)
-
-        # Get a random sample by searching for common words
-        # This gives us a diverse starting set
-        seed_query = "the"  # Very common word
-        seed_embedding = await self.embedder.generate_one(seed_query)
-
-        # Get more results than we need for diversity selection
-        candidates = await self.collection.search(
-            query_vector=seed_embedding,
-            k=size * 5,  # Get 5x to select diverse subset
-        )
-
-        if not candidates:
-            logger.warning("No documents found for style pack")
-            return []
-
-        # Simple diversity selection: pick documents from different sources/times
-        diverse_samples: list[WritingSample] = []
-        seen_sources = set()
-
-        for result in candidates:
-            filename = result.metadata.filename
-            source = result.metadata.source.value
-
-            # Prioritize diversity in source and file
-            key = f"{source}:{filename}"
-
-            if key not in seen_sources or len(diverse_samples) < size:
-                diverse_samples.append(
-                    WritingSample(
-                        text=result.text,
-                        metadata=result.metadata,
-                        similarity=result.similarity,
-                    )
-                )
-                seen_sources.add(key)
-
-            if len(diverse_samples) >= size:
-                break
-
-        logger.info(
-            "Style pack created with %d samples from %d sources",
-            len(diverse_samples), len(seen_sources)
-        )
-        self._style_pack_cache = diverse_samples
-        return diverse_samples
+        self.embedding_provider = embedding_provider
 
     async def search(
         self,
@@ -139,7 +75,9 @@ class CorpusSearchTool:
         logger.debug("Searching corpus for: '%s' (k=%d)", query, k)
 
         # Generate query embedding
-        query_embedding = await self.embedder.generate_one(query)
+        embedder = create_embedding_generator(self.config.get_embedding(self.embedding_provider))
+        query_embedding = await embedder.generate_one(query)
+        del embedder
 
         # Build filters
         filters = None
@@ -160,7 +98,8 @@ class CorpusSearchTool:
         )
 
         # Note: Hybrid search uses RRF scores (or semantic scores), ranked by relevance
-        logger.info("Hybrid search '%s' (k=%d): Found %d results", query, k, len(results))
+        logger.info("Hybrid search '%s' (k=%d): Found %d results",
+                    query, k, len(results))
 
         if results:
             logger.info(
@@ -254,7 +193,7 @@ class IncrementalReasoningTool:
         self.config = config
         self.collection = collection
         self.anima_name = anima_name
-        self.embedder = create_embedding_generator(config.get_embedding(embedding_provider))
+        self.embedding_provider = embedding_provider
 
         # Initialize OpenAI client for OOD checks
         api_key = os.getenv("OPENAI_API_KEY")
@@ -328,7 +267,9 @@ class IncrementalReasoningTool:
         """
         try:
             # Generate embedding for query
-            query_embedding = await self.embedder.generate_one(query)
+            embedder = create_embedding_generator(self.config.get_embedding(self.embedding_provider))
+            query_embedding = await embedder.generate_one(query)
+            del embedder
 
             # Search for related content
             max_concepts = self.config.retrieval.incremental_mode.max_corpus_concepts

@@ -57,6 +57,12 @@ class PydanticJSON(TypeDecorator[Any]):  # pylint: disable=abstract-method,too-m
 # Defined here so the API surface and DB schema are in one place.
 # database/general/__init__.py re-exports these and owns the engine.
 
+class StylePackItem(BaseModel):
+    """A single style-grounding sample stored on an Anima"""
+    text: str
+    filename: str
+
+
 class Anima(SQLModel, table=True):
     """Anima DB model"""
     id: UUID = SQLField(default_factory=uuid.uuid4, sa_column=Column(UUIDString, primary_key=True))
@@ -66,6 +72,9 @@ class Anima(SQLModel, table=True):
     corpus_file_count: int = 0
     chunk_count: int = 0
     embedding_provider: str
+    style_pack: list[StylePackItem] = SQLField(
+        default_factory=list, sa_column=Column(PydanticJSON(list[StylePackItem]))
+    )
     created_at: datetime
     updated_at: datetime
 

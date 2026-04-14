@@ -5,6 +5,7 @@ import logging
 import os
 import time
 from collections.abc import AsyncGenerator
+from collections.abc import Sequence
 from typing import Any, Literal, Optional, TypedDict
 
 from openai import Omit, omit, AsyncOpenAI
@@ -19,7 +20,6 @@ from openai.types.shared_params import ResponseFormatJSONSchema
 
 from ..config import Config, ModelConfig
 from .base import BaseAgent, ToolCall, ToolUse
-from .tools import WritingSample
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,9 @@ class OpenAIAgent(BaseAgent):
         return messages
 
     async def _rewrite_in_style(
-        self, feedback_json: str, retrieved_samples: Optional[list[WritingSample]] = None
+        self,
+        feedback_json: str,
+        retrieved_samples: Optional[Sequence[str]] = None,
     ) -> str:
         """
         Rewrite feedback content in the author's distinctive style.
@@ -178,10 +180,8 @@ class OpenAIAgent(BaseAgent):
         """
         # Use retrieved samples if available (better - topically relevant)
         # Fall back to style pack if no retrieved samples
-        samples = (
-            retrieved_samples
-            if retrieved_samples
-            else await self.search_tool.get_style_pack()
+        samples: Sequence[str] = (
+            retrieved_samples if retrieved_samples else [s.text for s in self.anima.style_pack]
         )
 
         if not samples:
@@ -190,9 +190,7 @@ class OpenAIAgent(BaseAgent):
 
         # Build style examples from retrieved samples (use top 10 for style)
         style_examples = ""
-        for i, sample in enumerate(samples[:10], 1):
-            # Handle both dict formats (from tool results vs style pack)
-            text = sample.text
+        for i, text in enumerate(samples[:10], 1):
             if len(text) > 800:
                 text = text[:800] + "..."
             style_examples += f"\n--- Example {i} ---\n{text}\n"
@@ -421,7 +419,7 @@ Start with [ and end with ].
 
         tool_calls_log: list[ToolCall] = []
         tools_called_count = 0  # Track for tool_choice logic
-        retrieved_samples: list[WritingSample] = []  # Collect corpus samples for style rewrite
+        retrieved_samples: list[str] = []  # Collect corpus samples for style rewrite
 
         logger.info("Starting streaming agent loop for query: %s...", query[:100])
 
@@ -646,7 +644,7 @@ Start with [ and end with ].
                             )
                             # Collect retrieved samples for style rewrite phase
                             if isinstance(result, list):
-                                retrieved_samples.extend(result)
+                                retrieved_samples.extend(r["text"] for r in result)
 
                         # Yield completion status with fragments
                         if isinstance(result, list) and len(result) > 0:

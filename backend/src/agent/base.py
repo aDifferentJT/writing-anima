@@ -177,51 +177,38 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         if model_specific := self._get_model_specific_prompt():
             prompt += "\n\n" + model_specific.format(user_name=self.user_name)
 
-        # Add style pack for grounding (diverse writing samples)
-        logger.info("Style pack enabled: %s", self.config.retrieval.style_pack_enabled)
-        if self.config.retrieval.style_pack_enabled:
-            style_pack = await self.search_tool.get_style_pack()
-            logger.info(
-                "Style pack retrieved: %d samples",
-                len(style_pack) if style_pack else 0
+        # Add style pack for grounding (diverse writing samples stored on the anima)
+        style_pack = self.anima.style_pack
+        if style_pack:
+            prompt += "\n\n" + "=" * 70
+            prompt += f"\n\nSTYLE GROUNDING - {self.user_name}'s Writing Examples:\n"
+            prompt += (
+                f"The following are representative samples of how {self.user_name} "
+                f"writes. Use these to match their style, tone, and communication "
+                f"patterns.\n\n"
             )
-            if style_pack:
-                prompt += "\n\n" + "=" * 70
-                prompt += (
-                    f"\n\nSTYLE GROUNDING - {self.user_name}'s Writing Examples:\n"
-                )
-                prompt += (
-                    f"The following are representative samples of how {self.user_name} "
-                    f"writes. Use these to match their style, tone, and communication "
-                    f"patterns.\n\n"
-                )
 
-                for i, sample in enumerate(style_pack, 1):
-                    source = sample.metadata.filename
-                    prompt += f"\n--- Example {i} (from {source}) ---\n"
-                    # Use longer samples to capture style better (1000 chars)
-                    text = sample.text
-                    if len(text) > 1000:
-                        text = text[:1000] + "..."
-                    prompt += text + "\n"
+            for i, sample in enumerate(style_pack, 1):
+                prompt += f"\n--- Example {i} (from {sample.filename}) ---\n"
+                text = sample.text
+                if len(text) > 1000:
+                    text = text[:1000] + "..."
+                prompt += text + "\n"
 
-                prompt += "\n" + "=" * 70
-                prompt += (
-                    "\n\nCRITICAL STYLE INSTRUCTION: Your feedback must be written "
-                    "in the SAME VOICE, TONE, and STYLE as the examples above. "
-                )
-                prompt += (
-                    f"Emulate how {self.user_name} writes - their sentence structure, "
-                    f"vocabulary choices, rhetorical patterns, and communication style. "
-                )
-                prompt += (
-                    "Do not write generic feedback. Write feedback AS IF you are "
-                    "this author critiquing the work.\n"
-                )
-                logger.info(
-                    "Style pack added to system prompt (%d examples)",
-                    len(style_pack)
-                )
+            prompt += "\n" + "=" * 70
+            prompt += (
+                "\n\nCRITICAL STYLE INSTRUCTION: Your feedback must be written "
+                "in the SAME VOICE, TONE, and STYLE as the examples above. "
+            )
+            prompt += (
+                f"Emulate how {self.user_name} writes - their sentence structure, "
+                f"vocabulary choices, rhetorical patterns, and communication style. "
+            )
+            prompt += (
+                "Do not write generic feedback. Write feedback AS IF you are "
+                "this author critiquing the work.\n"
+            )
+            logger.info("Style pack added to system prompt (%d examples)", len(style_pack))
 
         return prompt
 

@@ -76,7 +76,6 @@ retrieval:
   default_k: 80
   max_k: 120
   similarity_threshold: 0.5
-  style_pack_enabled: true
   style_pack_size: 15
   incremental_mode:
     enabled: true
