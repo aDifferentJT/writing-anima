@@ -46,7 +46,7 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
             onClick={onToggleResolved}
             className={`ml-auto text-xs px-2 py-0.5 rounded transition-colors ${
               showResolved
-                ? "bg-green-100/50 text-green-700 hover:bg-green-100 border border-green-300"
+                ? "bg-success/10 text-success hover:bg-success/20 border border-success/30"
                 : "bg-base-200 text-base-content/40 hover:bg-base-100 border border-base-300 mono"
             }`}
             title={

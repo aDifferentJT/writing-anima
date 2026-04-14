@@ -287,7 +287,7 @@ export const UserPreferencesPanel: React.FC<UserPreferencesPanelProps> = ({
                         onClick={() => handleAgentToggle(agent.id, 'preferredAgents')}
                         className={`px-2 py-1 text-xs rounded transition-colors ${
                           preferences.preferredAgents.includes(agent.id)
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-success/10 text-success'
                             : 'bg-base-200 text-base-content/70 hover:bg-base-300'
                         }`}
                       >
@@ -297,7 +297,7 @@ export const UserPreferencesPanel: React.FC<UserPreferencesPanelProps> = ({
                         onClick={() => handleAgentToggle(agent.id, 'blockedAgents')}
                         className={`px-2 py-1 text-xs rounded transition-colors ${
                           preferences.blockedAgents.includes(agent.id)
-                            ? 'bg-red-100 text-red-800'
+                            ? 'bg-error/10 text-error'
                             : 'bg-base-200 text-base-content/70 hover:bg-base-300'
                         }`}
                       >

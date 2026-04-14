@@ -258,7 +258,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
                         </button>
                         <button
                           onClick={(e: React.MouseEvent) => handleDeleteProject(project.id, e)}
-                          className="p-1 text-base-content/40 hover:text-red-600 hover:bg-red-50/50 rounded transition-colors"
+                          className="p-1 text-base-content/40 hover:text-error hover:bg-error/10 rounded transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

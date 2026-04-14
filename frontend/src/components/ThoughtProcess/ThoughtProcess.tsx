@@ -52,7 +52,7 @@ const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, mod
     } else if (step.type === "complete") {
       return <CheckCircle className={`${size} text-success`} />;
     } else if (step.type === "error") {
-      return <AlertCircle className={`${size} text-red-500`} />;
+      return <AlertCircle className={`${size} text-error`} />;
     } else if (showSpinner) {
       return (
         <Loader2

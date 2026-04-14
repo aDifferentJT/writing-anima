@@ -345,7 +345,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
                 </div>
               )}
               {error && (
-                <div className="p-4 text-xs text-red-500 text-center">
+                <div className="p-4 text-xs text-error text-center">
                   {error}
                 </div>
               )}

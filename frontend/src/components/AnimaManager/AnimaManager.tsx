@@ -204,7 +204,7 @@ const AnimaManager: React.FC = () => {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 p-2 mt-3 bg-red-50/50 border border-red-300 rounded text-xs text-red-700">
+            <div className="flex items-center gap-2 p-2 mt-3 bg-error/10 border border-error/30 rounded text-xs text-error">
               <AlertCircle className="w-4 h-4" />
               <span>{error}</span>
             </div>
@@ -271,7 +271,7 @@ const AnimaManager: React.FC = () => {
                         </span>
                         {anima.corpus_available === false && (
                           <span title="Corpus unavailable - re-upload required">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                            <AlertTriangle className="w-3.5 h-3.5 text-warning" />
                           </span>
                         )}
                       </div>
@@ -304,7 +304,7 @@ const AnimaManager: React.FC = () => {
                         </button>
                         <button
                           onClick={(e: React.MouseEvent) => handleDeleteAnima(anima.id, e)}
-                          className="p-1 text-base-content/40 hover:text-red-600 hover:bg-red-50/50 rounded transition-colors"
+                          className="p-1 text-base-content/40 hover:text-error hover:bg-error/10 rounded transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

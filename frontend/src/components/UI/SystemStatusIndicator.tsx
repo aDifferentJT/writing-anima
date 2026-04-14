@@ -24,9 +24,9 @@ export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
   onModeChange
 }) => {
   const getStatusColor = (): string => {
-    if (error) return 'text-red-600 bg-red-50';
-    if (!systemReady) return 'text-yellow-600 bg-yellow-50';
-    return 'text-green-600 bg-green-50';
+    if (error) return 'text-error bg-error/10';
+    if (!systemReady) return 'text-warning bg-warning/10';
+    return 'text-success bg-success/10';
   };
 
   const getStatusIcon = (): React.ReactElement => {
@@ -61,11 +61,11 @@ export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
 
   const getModeColor = (mode: string): string => {
     const colors: Record<string, string> = {
-      'quick': 'bg-blue-100 text-blue-800',
-      'progressive': 'bg-green-100 text-green-800',
-      'thorough': 'bg-purple-100 text-purple-800'
+      'quick': 'bg-info/10 text-info',
+      'progressive': 'bg-success/10 text-success',
+      'thorough': 'bg-secondary/10 text-secondary'
     };
-    return colors[mode] || 'bg-gray-100 text-gray-800';
+    return colors[mode] || 'bg-base-200 text-base-content/70';
   };
 
   const getModeDescription = (mode: string): string => {
@@ -126,8 +126,8 @@ export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
           <div className="flex items-center space-x-1">
             <span>Success:</span>
             <span className={`font-medium ${
-              (metrics.orchestrator?.successRate || 0) > 0.8 ? 'text-green-600' :
-              (metrics.orchestrator?.successRate || 0) > 0.6 ? 'text-yellow-600' : 'text-red-600'
+              (metrics.orchestrator?.successRate || 0) > 0.8 ? 'text-success' :
+              (metrics.orchestrator?.successRate || 0) > 0.6 ? 'text-warning' : 'text-error'
             }`}>
               {Math.round((metrics.orchestrator?.successRate || 0) * 100)}%
             </span>
@@ -147,7 +147,7 @@ export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
           {metrics.progressiveEnhancement?.enhancementSuccessRate && (
             <div className="flex items-center space-x-1">
               <span>Enhancement:</span>
-              <span className="font-medium text-blue-600">
+              <span className="font-medium text-info">
                 {Math.round(metrics.progressiveEnhancement.enhancementSuccessRate * 100)}%
               </span>
             </div>
@@ -158,7 +158,7 @@ export const SystemStatusIndicator: React.FC<SystemStatusIndicatorProps> = ({
 
       {/* Error Details */}
       {error && (
-        <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded max-w-xs truncate" title={error.message}>
+        <div className="text-xs text-error bg-error/10 px-2 py-1 rounded max-w-xs truncate" title={error.message}>
           {error.message}
         </div>
       )}

@@ -104,7 +104,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
   onViewCorpusSource,
 }) => {
   if (typeof feedback === "string") {
-    return <div className="text-xs text-red-400 p-2">Malformed feedback item received.</div>;
+    return <div className="text-xs text-error p-2">Malformed feedback item received.</div>;
   }
   const feedbackData: EnrichedFeedbackItem = feedback;
 
@@ -127,25 +127,25 @@ const CriticCard: React.FC<CriticCardProps> = ({
   const getIconAndColor = (type: string, _severity: string): { Icon: React.ComponentType<{ className?: string }>; color: string } => {
     switch (type) {
       case "intellectual":
-        return { Icon: Brain, color: "text-purple-600" };
+        return { Icon: Brain, color: "text-secondary" };
       case "stylistic":
-        return { Icon: Palette, color: "text-blue-600" };
+        return { Icon: Palette, color: "text-info" };
       case "complex_suggestion":
-        return { Icon: Target, color: "text-green-600" };
+        return { Icon: Target, color: "text-success" };
       case "complex_insight":
-        return { Icon: Lightbulb, color: "text-yellow-600" };
+        return { Icon: Lightbulb, color: "text-warning" };
       case "framework_connection":
-        return { Icon: BookOpen, color: "text-indigo-600" };
+        return { Icon: BookOpen, color: "text-primary" };
       case "inquiry_integration":
-        return { Icon: Target, color: "text-green-600" };
+        return { Icon: Target, color: "text-success" };
       default:
-        return { Icon: AlertCircle, color: "text-gray-600" };
+        return { Icon: AlertCircle, color: "text-base-content/50" };
     }
   };
 
   const getSeverityColor = (severity: string, status: string, type: string): string => {
     if (status === "resolved") {
-      return "bg-green-50/50 border-green-300";
+      return "bg-success/10 border-success/30";
     }
     if (status === "retracted" || status === "dismissed") {
       return "bg-base-200 border-base-300 opacity-60";
@@ -153,10 +153,10 @@ const CriticCard: React.FC<CriticCardProps> = ({
 
     // Special styling for inquiry integration types
     if (type === "complex_suggestion" || type === "inquiry_integration") {
-      return "bg-green-50/50 border-green-300";
+      return "bg-success/10 border-success/30";
     }
     if (type === "complex_insight") {
-      return "bg-yellow-50/50 border-yellow-300";
+      return "bg-warning/10 border-warning/30";
     }
     if (type === "framework_connection") {
       return "bg-primary/10 border-primary/30";
@@ -164,11 +164,11 @@ const CriticCard: React.FC<CriticCardProps> = ({
 
     switch (severity) {
       case "high":
-        return "bg-red-50/50 border-red-300";
+        return "bg-error/10 border-error/30";
       case "medium":
-        return "bg-yellow-50/50 border-yellow-300";
+        return "bg-warning/10 border-warning/30";
       case "low":
-        return "bg-blue-50/50 border-blue-300";
+        return "bg-info/10 border-info/30";
       default:
         return "bg-base-100 border-base-300";
     }
@@ -177,11 +177,11 @@ const CriticCard: React.FC<CriticCardProps> = ({
   const getStatusIcon = (status: string): React.ReactNode => {
     switch (status) {
       case "resolved":
-        return <Check className="w-4 h-4 text-green-600" />;
+        return <Check className="w-4 h-4 text-success" />;
       case "retracted":
-        return <Clock className="w-4 h-4 text-gray-500" />;
+        return <Clock className="w-4 h-4 text-base-content/40" />;
       case "dismissed":
-        return <X className="w-4 h-4 text-gray-500" />;
+        return <X className="w-4 h-4 text-base-content/40" />;
       default:
         return null;
     }
@@ -222,17 +222,17 @@ const CriticCard: React.FC<CriticCardProps> = ({
             <>
               <button
                 onClick={() => onMarkResolved(feedbackData.id)}
-                className="p-0.5 hover:bg-green-100 rounded transition-colors"
+                className="p-0.5 hover:bg-success/10 rounded transition-colors"
                 title="Mark as resolved"
               >
-                <Check className="w-3 h-3 text-green-600" />
+                <Check className="w-3 h-3 text-success" />
               </button>
               <button
                 onClick={() => onDismiss(feedbackData.id)}
-                className="p-0.5 hover:bg-red-100 rounded transition-colors"
+                className="p-0.5 hover:bg-error/10 rounded transition-colors"
                 title="Dismiss"
               >
-                <X className="w-3 h-3 text-red-600" />
+                <X className="w-3 h-3 text-error" />
               </button>
             </>
           )}

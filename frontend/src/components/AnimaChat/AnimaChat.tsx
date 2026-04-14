@@ -258,7 +258,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
           {/* Error */}
           {error && (
             <div className="flex justify-center">
-              <div className="text-xs text-red-500 bg-red-50/50 border border-red-200 rounded px-3 py-1.5">
+              <div className="text-xs text-error bg-error/10 border border-error/30 rounded px-3 py-1.5">
                 {error}
               </div>
             </div>
