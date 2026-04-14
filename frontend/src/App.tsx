@@ -4,7 +4,7 @@ import ProjectDashboard from './components/Projects/ProjectDashboard';
 import ProjectSettings from './components/ProjectSettings/ProjectSettings';
 import WritingInterface from './components/WritingInterface';
 import projectService from './services/projectService';
-import type { Project, EnrichedFeedbackItem, WritingCriteria } from './types';
+import type { Project, EnrichedFeedbackItem } from './types';
 
 type AppMode = 'purpose' | 'writing';
 
@@ -133,13 +133,12 @@ function AppContent({
     setTimeout(() => setIsProjectSwitching(false), 100);
   }, [currentProject, setCurrentProject, setIsProjectSwitching]);
 
-  const handleSettingsSubmit = async (description: string, writing_criteria: WritingCriteria): Promise<void> => {
+  const handleSettingsSubmit = async (description: string): Promise<void> => {
     await projectService.updateProject(currentProject.id, {
       description,
-      writing_criteria,
       title: description.substring(0, 50) || 'Untitled Project',
     });
-    setCurrentProject({ ...currentProject, description, writing_criteria });
+    setCurrentProject({ ...currentProject, description });
     setCurrentMode('writing');
   };
 
@@ -182,7 +181,6 @@ function AppContent({
             onBackToPurpose={handleBackToHome}
             project={currentProject}
             setProject={setCurrentProject}
-            writing_criteria={currentProject.writing_criteria}
             onFeedbackGenerated={handleFeedbackGenerated}
           />
         ) : null}

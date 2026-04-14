@@ -100,10 +100,6 @@ class FeedbackSeverity(str, Enum):
 
 # ── Shared sub-types ──────────────────────────────────────────────────────────
 
-class WritingCriteria(BaseModel):
-    """Writing criteria for a project — stored as JSON on Project"""
-    criteria: list[str] = []
-
 
 class TextPosition(BaseModel):
     """Position of a text span for highlighting"""
@@ -164,7 +160,6 @@ class ChatResponse(BaseModel):
 class AnalysisContext(BaseModel):
     """Context sent alongside an analysis request"""
     purpose: Optional[str] = None
-    criteria: list[str] = []
 
 
 class AnalysisRequest(BaseModel):
@@ -380,9 +375,6 @@ class Project(SQLModel, table=True):
     feedback: list[FeedbackItem] = SQLField(
         default_factory=list, sa_column=Column(PydanticJSON(list[FeedbackItem]))
     )
-    writing_criteria: WritingCriteria = SQLField(
-        default_factory=WritingCriteria, sa_column=Column(PydanticJSON(WritingCriteria))
-    )
     settings: ProjectSettings = SQLField(
         default_factory=ProjectSettings, sa_column=Column(PydanticJSON(ProjectSettings))
     )
@@ -398,7 +390,6 @@ class Project(SQLModel, table=True):
         description: str,
         content: str,
         feedback: list[FeedbackItem],
-        writing_criteria: WritingCriteria,
         settings: ProjectSettings,
         created_at: datetime,
         updated_at: datetime,
@@ -411,7 +402,6 @@ class Project(SQLModel, table=True):
             description=description,
             content=content,
             feedback=feedback,
-            writing_criteria=writing_criteria,
             settings=settings,
             created_at=created_at,
             updated_at=updated_at,
@@ -426,7 +416,6 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
     content: Optional[str] = None
     feedback: Optional[list[FeedbackItem]] = None
-    writing_criteria: Optional[WritingCriteria] = None
     settings: Optional[ProjectSettings] = None  # None means "don't update settings"
     is_archived: Optional[bool] = None
 

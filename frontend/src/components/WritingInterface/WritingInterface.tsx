@@ -8,7 +8,6 @@ import CorpusGroundsViewer from "../CorpusGroundsViewer/CorpusGroundsViewer";
 import {
   EnrichedFeedbackItem,
   Project,
-  WritingCriteria,
   Anima,
   ModelInfo,
   ThoughtStep,
@@ -25,7 +24,6 @@ interface WritingInterfaceProps {
   onBackToPurpose: () => void;
   project: Project;
   setProject: (project: Project) => void;
-  writing_criteria: WritingCriteria;
   onFeedbackGenerated: (insights: EnrichedFeedbackItem[]) => void;
 }
 
@@ -34,7 +32,6 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
   setFeedback,
   project,
   setProject,
-  writing_criteria,
   onFeedbackGenerated,
 }) => {
   const [resolvedFeedback, setResolvedFeedback] = useState<EnrichedFeedbackItem[]>([]); // Separate storage for resolved feedback
@@ -189,7 +186,6 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
         selectedAnimaId,
         {
           purpose: project.description,
-          criteria: writing_criteria.criteria,
           model: selectedModel!, // Pass selected model (guarded by button disabled)
         },
         {
@@ -352,7 +348,6 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
     selectedAnimaId,
     selectedModel,
     project,
-    writing_criteria,
     availableAnimas,
     onFeedbackGenerated,
   ]);

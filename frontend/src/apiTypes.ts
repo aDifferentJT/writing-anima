@@ -71,11 +71,6 @@ export interface ProjectSettings {
   default_model_id: string | null;
 }
 
-/** backend: WritingCriteria (JSON blob stored on Project) */
-export interface WritingCriteria {
-  criteria: string[];
-}
-
 /** backend: Project (SQLModel in database/general/__init__.py) */
 export interface Project {
   id: string;
@@ -83,7 +78,6 @@ export interface Project {
   description: string;
   content: string;
   feedback: EnrichedFeedbackItem[];
-  writing_criteria: WritingCriteria;
   settings: ProjectSettings;
   is_archived: boolean;
   created_at: string;

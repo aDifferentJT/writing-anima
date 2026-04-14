@@ -457,10 +457,6 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
         if request.context.purpose:
             query += f" (Purpose: {request.context.purpose})"
 
-        if request.context.criteria:
-            criteria_text = ", ".join(request.context.criteria)
-            query += f"\nEvaluation criteria: {criteria_text}"
-
         query += f"\n\nText to analyze:\n{request.content}"
         query += (
             "\n\nProvide specific, actionable feedback grounded in your corpus. "

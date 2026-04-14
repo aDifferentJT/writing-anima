@@ -32,7 +32,6 @@ interface HealthCheckResponse {
 
 interface StreamAnalysisContext {
   purpose: string;
-  criteria: string[];
   model: string;
 }
 
@@ -82,7 +81,6 @@ class AnimaService {
             model: context.model,
             context: {
               purpose: context.purpose || null,
-              criteria: context.criteria || [],
             },
           }),
         );

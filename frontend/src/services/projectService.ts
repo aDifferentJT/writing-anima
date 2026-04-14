@@ -8,7 +8,6 @@ interface ProjectUpdates {
   description?: string;
   content?: string;
   feedback?: EnrichedFeedbackItem[];
-  writing_criteria?: { criteria: string[] } | null;
   settings?: ProjectSettings;
   is_archived?: boolean;
 }
@@ -135,13 +134,6 @@ class ProjectService {
       console.error('Error permanently deleting project:', error);
       throw error;
     }
-  }
-
-  /**
-   * Update writing criteria for a project
-   */
-  async updateWritingCriteria(projectId: string, writing_criteria: { criteria: string[] }): Promise<Project> {
-    return this.updateProject(projectId, { writing_criteria });
   }
 
   /**

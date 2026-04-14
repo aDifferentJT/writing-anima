@@ -14,7 +14,6 @@ from .models import (
     Project,
     ProjectUpdate,
     ProjectSettings,
-    WritingCriteria,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,7 +31,6 @@ async def create_project() -> Project:
             description="",
             content="",
             feedback=[],
-            writing_criteria=WritingCriteria(),
             settings=ProjectSettings(),
             created_at=now,
             updated_at=now,
