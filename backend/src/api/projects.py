@@ -14,7 +14,6 @@ from .models import (
     Project,
     ProjectUpdate,
     ProjectSettings,
-    Purpose,
     WritingCriteria,
 )
 
@@ -30,7 +29,7 @@ async def create_project() -> Project:
         now = datetime.utcnow()
         project = Project.new(
             title="New Project",
-            purpose=Purpose(topic="", context=""),
+            description="",
             content="",
             feedback=[],
             writing_criteria=WritingCriteria(),

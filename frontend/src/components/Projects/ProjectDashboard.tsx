@@ -7,7 +7,7 @@ import {
   Copy,
 } from 'lucide-react';
 import projectService from '../../services/projectService';
-import type { Project, Purpose } from '../../types';
+import type { Project } from '../../types';
 
 interface ProjectDashboardProps {
   onSelectProject: (project: Project) => void;
@@ -85,27 +85,10 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
     return dateObj.toLocaleDateString();
   };
 
-  const formatPurpose = (purpose: Purpose | null): string => {
-    if (!purpose) return 'No purpose defined';
-
-    if (purpose !== null) {
-      const parts: string[] = [];
-      if (purpose.topic) parts.push(purpose.topic);
-      if (purpose.context) parts.push(`(${purpose.context})`);
-      return parts.join(' ') || 'No purpose defined';
-    }
-
-    return purpose;
-  };
-
-  const getPurposeSearchText = (purpose: Purpose): string => {
-    return `${purpose.topic || ''} ${purpose.context || ''}`.toLowerCase();
-  };
-
   const filteredAndSortedProjects = projects
     .filter(project =>
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getPurposeSearchText(project.purpose).includes(searchTerm.toLowerCase())
+      (project.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
       switch (sortBy) {
@@ -234,7 +217,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="text-xs text-base-content/70 max-w-md truncate">
-                        {formatPurpose(project.purpose) || '\u2014'}
+                        {project.description || '\u2014'}
                       </div>
                     </td>
                     <td className="px-3 py-2.5">

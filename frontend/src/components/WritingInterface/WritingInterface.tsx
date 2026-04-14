@@ -183,16 +183,12 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
         (a) => a.id === selectedAnimaId,
       );
 
-      // Convert purpose to string if it's an object
-      // TODO should we do this?
-      const purposeText = project.purpose.topic || project.purpose.context || ""
-
       // Use streaming analysis
       await animaService.analysis(
         project.content,
         selectedAnimaId,
         {
-          purpose: purposeText,
+          purpose: project.description,
           criteria: writing_criteria.criteria,
           model: selectedModel!, // Pass selected model (guarded by button disabled)
         },

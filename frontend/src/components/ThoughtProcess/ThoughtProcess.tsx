@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import {
   Search,
-  Lightbulb,
-  CheckCircle,
+  Sparkles,
+  CheckCircle2,
   Loader2,
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  Brain,
 } from "lucide-react";
 import { ThoughtStep } from "../../types";
 
@@ -48,11 +49,13 @@ const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, mod
     if (step.type === "search") {
       return <Search className={`${size} text-primary`} />;
     } else if (step.type === "generate") {
-      return <Lightbulb className={`${size} text-warning`} />;
+      return <Sparkles className={`${size} text-warning`} />;
     } else if (step.type === "complete") {
-      return <CheckCircle className={`${size} text-success`} />;
+      return <CheckCircle2 className={`${size} text-success`} />;
     } else if (step.type === "error") {
       return <AlertCircle className={`${size} text-error`} />;
+    } else if (step.type === "status") {
+      return <Brain className={`${size} text-base-content/60`} />;
     } else if (showSpinner) {
       return (
         <Loader2
@@ -60,7 +63,7 @@ const ThoughtProcess: React.FC<ThoughtProcessProps> = ({ steps, isAnalyzing, mod
         />
       );
     } else {
-      return <CheckCircle className={`${size} text-base-content/50`} />;
+      return <CheckCircle2 className={`${size} text-base-content/50`} />;
     }
   };
 

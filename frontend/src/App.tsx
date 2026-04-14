@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Pen, Target, Home } from 'lucide-react';
 import ProjectDashboard from './components/Projects/ProjectDashboard';
-import PurposeStep from './components/PurposeStep/PurposeStep';
+import ProjectSettings from './components/ProjectSettings/ProjectSettings';
 import WritingInterface from './components/WritingInterface';
 import projectService from './services/projectService';
-import type { Project, EnrichedFeedbackItem, Purpose } from './types';
+import type { Project, EnrichedFeedbackItem, WritingCriteria } from './types';
 
 type AppMode = 'purpose' | 'writing';
 
@@ -66,7 +66,6 @@ function Navigation({
                     ? 'bg-primary/10 text-primary font-medium'
                     : 'text-base-content/70 hover:text-base-content hover:bg-base-200'
                 }`}
-                disabled={currentProject.purpose.topic == ''}
               >
                 <Pen className="w-3 h-3" />
                 <span>Editor</span>
@@ -93,7 +92,7 @@ function AppContent({
   isProjectSwitching,
   setIsProjectSwitching,
 }: AppContentProps): React.ReactElement {
-  const [currentMode, setCurrentMode] = useState<AppMode>(currentProject.purpose.topic == '' ? 'purpose' : 'writing');
+  const [currentMode, setCurrentMode] = useState<AppMode>(!currentProject.description ? 'purpose' : 'writing');
   const lastSavedContentRef = useRef<string>(currentProject.content ?? '');
   const currentProjectRef = useRef(currentProject);
   useEffect(() => {
@@ -124,7 +123,7 @@ function AppContent({
 
     try {
       await projectService.updateProject(currentProject.id, {
-        title: currentProject.purpose.topic.substring(0, 50) || currentProject.title,
+        title: currentProject.description.substring(0, 50) || currentProject.title,
       });
     } catch (error) {
       console.error('Failed to save project:', error);
@@ -134,14 +133,13 @@ function AppContent({
     setTimeout(() => setIsProjectSwitching(false), 100);
   }, [currentProject, setCurrentProject, setIsProjectSwitching]);
 
-  const handlePurposeSubmit = async (purpose: Purpose): Promise<void> => {
-    // Update current project with purpose
+  const handleSettingsSubmit = async (description: string, writing_criteria: WritingCriteria): Promise<void> => {
     await projectService.updateProject(currentProject.id, {
-      purpose: purpose,
-      // Generate title from purpose (handle both string and object formats)
-      title: purpose.topic.substring(0, 50) || 'Untitled Project',
+      description,
+      writing_criteria,
+      title: description.substring(0, 50) || 'Untitled Project',
     });
-
+    setCurrentProject({ ...currentProject, description, writing_criteria });
     setCurrentMode('writing');
   };
 
@@ -173,10 +171,9 @@ function AppContent({
 
       <div className={currentProject !== null ? 'h-[calc(100vh-80px)]' : 'h-screen'}>
         {currentMode === 'purpose' ? (
-          <PurposeStep
-            purpose={currentProject.purpose}
-            setPurpose={(purpose) => setCurrentProject({ ...currentProject, purpose })}
-            onSubmit={handlePurposeSubmit}
+          <ProjectSettings
+            project={currentProject}
+            onSubmit={handleSettingsSubmit}
           />
         ) : currentMode === 'writing' ? (
           <WritingInterface

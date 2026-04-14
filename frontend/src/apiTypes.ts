@@ -71,12 +71,6 @@ export interface ProjectSettings {
   default_model_id: string | null;
 }
 
-/** backend: Purpose (JSON blob stored on Project) */
-export interface Purpose {
-  topic: string;
-  context: string;
-}
-
 /** backend: WritingCriteria (JSON blob stored on Project) */
 export interface WritingCriteria {
   criteria: string[];
@@ -86,7 +80,7 @@ export interface WritingCriteria {
 export interface Project {
   id: string;
   title: string;
-  purpose: Purpose;
+  description: string;
   content: string;
   feedback: EnrichedFeedbackItem[];
   writing_criteria: WritingCriteria;

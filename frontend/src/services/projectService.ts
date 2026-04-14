@@ -1,11 +1,11 @@
-import type { Project, EnrichedFeedbackItem, Purpose } from '../types';
+import type { Project, EnrichedFeedbackItem } from '../types';
 import type { ProjectSettings } from '../apiTypes';
 
 const API_URL: string = import.meta.env.VITE_API_URL || window.location.origin;
 
 interface ProjectUpdates {
   title?: string;
-  purpose?: Purpose | null;
+  description?: string;
   content?: string;
   feedback?: EnrichedFeedbackItem[];
   writing_criteria?: { criteria: string[] } | null;
@@ -154,7 +154,7 @@ class ProjectService {
 
       return await this.updateProject(newProject.id, {
         title: `${originalProject.title} (Copy)`,
-        purpose: originalProject.purpose,
+        description: originalProject.description,
         content: originalProject.content,
         feedback: [],
         settings: originalProject.settings,

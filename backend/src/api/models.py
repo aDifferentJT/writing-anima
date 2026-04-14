@@ -100,12 +100,6 @@ class FeedbackSeverity(str, Enum):
 
 # ── Shared sub-types ──────────────────────────────────────────────────────────
 
-class Purpose(BaseModel):
-    """Purpose of a writing project — stored as JSON on Project"""
-    topic: str = ""
-    context: str = ""
-
-
 class WritingCriteria(BaseModel):
     """Writing criteria for a project — stored as JSON on Project"""
     criteria: list[str] = []
@@ -381,7 +375,7 @@ class Project(SQLModel, table=True):
     """Project DB model"""
     id: UUID = SQLField(default_factory=uuid.uuid4, sa_column=Column(UUIDString, primary_key=True))
     title: str
-    purpose: Purpose = SQLField(sa_column=Column(PydanticJSON(Purpose)))
+    description: str = ""
     content: str
     feedback: list[FeedbackItem] = SQLField(
         default_factory=list, sa_column=Column(PydanticJSON(list[FeedbackItem]))
@@ -401,7 +395,7 @@ class Project(SQLModel, table=True):
     def new(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         cls,
         title: str,
-        purpose: Purpose,
+        description: str,
         content: str,
         feedback: list[FeedbackItem],
         writing_criteria: WritingCriteria,
@@ -414,7 +408,7 @@ class Project(SQLModel, table=True):
         """Typed constructor — use instead of Project(...) to get mypy checking."""
         return cls(
             title=title,
-            purpose=purpose,
+            description=description,
             content=content,
             feedback=feedback,
             writing_criteria=writing_criteria,
@@ -429,7 +423,7 @@ class Project(SQLModel, table=True):
 class ProjectUpdate(BaseModel):
     """Request model for updating a project"""
     title: Optional[str] = None
-    purpose: Optional[Purpose] = None
+    description: Optional[str] = None
     content: Optional[str] = None
     feedback: Optional[list[FeedbackItem]] = None
     writing_criteria: Optional[WritingCriteria] = None
