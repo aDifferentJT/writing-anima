@@ -21,7 +21,7 @@ import { openAnimaManager } from "../../services/desktopApi";
 interface WritingInterfaceProps {
   feedback: EnrichedFeedbackItem[];
   setFeedback: (feedback: EnrichedFeedbackItem[]) => void;
-  onBackToPurpose: () => void;
+  onBackToSettings: () => void;
   project: Project;
   setProject: (project: Project) => void;
   onFeedbackGenerated: (insights: EnrichedFeedbackItem[]) => void;
@@ -185,7 +185,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
         project.content,
         selectedAnimaId,
         {
-          purpose: project.description,
+          description: project.description,
           model: selectedModel!, // Pass selected model (guarded by button disabled)
         },
         {

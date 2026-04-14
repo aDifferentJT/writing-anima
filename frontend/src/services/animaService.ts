@@ -31,7 +31,7 @@ interface HealthCheckResponse {
 }
 
 interface StreamAnalysisContext {
-  purpose: string;
+  description: string;
   model: string;
 }
 
@@ -80,7 +80,7 @@ class AnimaService {
             anima_id: animaId,
             model: context.model,
             context: {
-              purpose: context.purpose || null,
+              description: context.description || null,
             },
           }),
         );

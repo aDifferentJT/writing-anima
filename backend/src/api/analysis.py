@@ -454,8 +454,8 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
         # Build query (same as non-streaming)
         query = "Please analyze the following writing"
 
-        if request.context.purpose:
-            query += f" (Purpose: {request.context.purpose})"
+        if request.context.description:
+            query += f" (Description: {request.context.description})"
 
         query += f"\n\nText to analyze:\n{request.content}"
         query += (

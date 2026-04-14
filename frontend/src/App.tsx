@@ -6,7 +6,7 @@ import WritingInterface from './components/WritingInterface';
 import projectService from './services/projectService';
 import type { Project, EnrichedFeedbackItem } from './types';
 
-type AppMode = 'purpose' | 'writing';
+type AppMode = 'settings' | 'writing';
 
 interface NavigationProps {
   currentMode: AppMode;
@@ -48,15 +48,15 @@ function Navigation({
           {currentProject && (
             <>
               <button
-                onClick={() => setCurrentMode('purpose')}
+                onClick={() => setCurrentMode('settings')}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                  currentMode === 'purpose'
+                  currentMode === 'settings'
                     ? 'bg-primary/10 text-primary font-medium'
                     : 'text-base-content/70 hover:text-base-content hover:bg-base-200'
                 }`}
               >
                 <Target className="w-3 h-3" />
-                <span>Purpose</span>
+                <span>Settings</span>
               </button>
 
               <button
@@ -92,7 +92,7 @@ function AppContent({
   isProjectSwitching,
   setIsProjectSwitching,
 }: AppContentProps): React.ReactElement {
-  const [currentMode, setCurrentMode] = useState<AppMode>(!currentProject.description ? 'purpose' : 'writing');
+  const [currentMode, setCurrentMode] = useState<AppMode>(!currentProject.description ? 'settings' : 'writing');
   const lastSavedContentRef = useRef<string>(currentProject.content ?? '');
   const currentProjectRef = useRef(currentProject);
   useEffect(() => {
@@ -118,32 +118,20 @@ function AppContent({
     return () => clearInterval(autoSaveInterval);
   }, [isProjectSwitching]);
 
-  const handleBackToDashboard = useCallback(async (): Promise<void> => {
+  const handleBackToDashboard = useCallback((): void => {
     setIsProjectSwitching(true);
-
-    try {
-      await projectService.updateProject(currentProject.id, {
-        title: currentProject.description.substring(0, 50) || currentProject.title,
-      });
-    } catch (error) {
-      console.error('Failed to save project:', error);
-    }
-
     setCurrentProject(null);
     setTimeout(() => setIsProjectSwitching(false), 100);
-  }, [currentProject, setCurrentProject, setIsProjectSwitching]);
+  }, [setCurrentProject, setIsProjectSwitching]);
 
-  const handleSettingsSubmit = async (description: string): Promise<void> => {
-    await projectService.updateProject(currentProject.id, {
-      description,
-      title: description.substring(0, 50) || 'Untitled Project',
-    });
-    setCurrentProject({ ...currentProject, description });
+  const handleSettingsSubmit = async (name: string, description: string): Promise<void> => {
+    await projectService.updateProject(currentProject.id, { title: name, description });
+    setCurrentProject({ ...currentProject, title: name, description });
     setCurrentMode('writing');
   };
 
-  const handleBackToHome = (): void => {
-    setCurrentMode('purpose');
+  const handleBackToSettings = (): void => {
+    setCurrentMode('settings');
   };
 
   const handleFeedbackGenerated = useCallback((newFeedback: EnrichedFeedbackItem[]): void => {
@@ -169,7 +157,7 @@ function AppContent({
       />
 
       <div className={currentProject !== null ? 'h-[calc(100vh-80px)]' : 'h-screen'}>
-        {currentMode === 'purpose' ? (
+        {currentMode === 'settings' ? (
           <ProjectSettings
             project={currentProject}
             onSubmit={handleSettingsSubmit}
@@ -178,7 +166,7 @@ function AppContent({
           <WritingInterface
             feedback={currentProject.feedback}
             setFeedback={(feedback) => setCurrentProject({ ...currentProject, feedback })}
-            onBackToPurpose={handleBackToHome}
+            onBackToSettings={handleBackToSettings}
             project={currentProject}
             setProject={setCurrentProject}
             onFeedbackGenerated={handleFeedbackGenerated}

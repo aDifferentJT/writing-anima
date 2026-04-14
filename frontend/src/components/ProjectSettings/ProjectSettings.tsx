@@ -4,15 +4,16 @@ import type { Project } from '../../types';
 
 interface ProjectSettingsProps {
   project: Project;
-  onSubmit: (description: string) => void;
+  onSubmit: (name: string, description: string) => void;
 }
 
 const ProjectSettings: React.FC<ProjectSettingsProps> = ({ project, onSubmit }) => {
+  const [name, setName] = useState(project.title === 'New Project' ? '' : project.title);
   const [description, setDescription] = useState(project.description);
 
   const handleSubmit = (): void => {
     if (!description.trim()) return;
-    onSubmit(description);
+    onSubmit(name.trim() || 'Untitled Project', description);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -22,6 +23,21 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ project, onSubmit }) 
   return (
     <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-4">
+
+        {/* Name */}
+        <div className="card bg-base-100 border border-base-300 p-4">
+          <label className="block text-xs font-semibold text-base-content/50 uppercase tracking-wide mb-2">
+            Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Give your project a name..."
+            className="input input-bordered w-full text-sm"
+            autoFocus
+          />
+        </div>
 
         {/* Description */}
         <div className="card bg-base-100 border border-base-300 p-4">
@@ -34,7 +50,6 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ project, onSubmit }) 
             onKeyDown={handleKeyDown}
             placeholder="Describe your writing: what it's about, who it's for, what you're trying to achieve..."
             className="textarea textarea-bordered w-full h-28 resize-none obsidian-scrollbar text-sm"
-            autoFocus
           />
         </div>
 
@@ -52,7 +67,7 @@ const ProjectSettings: React.FC<ProjectSettingsProps> = ({ project, onSubmit }) 
                 : 'text-primary hover:bg-primary/10'
             }`}
           >
-            <span>Continue</span>
+            <span>Continue to Editor</span>
             <Send className="w-3.5 h-3.5" />
           </button>
         </div>

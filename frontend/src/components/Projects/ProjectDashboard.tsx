@@ -190,7 +190,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
                     Project
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-base-content/50 uppercase tracking-wide">
-                    Purpose
+                    Description
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-base-content/50 uppercase tracking-wide">
                     Modified

@@ -159,7 +159,7 @@ class ChatResponse(BaseModel):
 
 class AnalysisContext(BaseModel):
     """Context sent alongside an analysis request"""
-    purpose: Optional[str] = None
+    description: Optional[str] = None
 
 
 class AnalysisRequest(BaseModel):
