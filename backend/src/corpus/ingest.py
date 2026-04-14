@@ -1,7 +1,7 @@
 """Corpus ingestion pipeline"""
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from tempfile import NamedTemporaryFile
 from typing import Literal, Optional
 from uuid import uuid4
@@ -246,24 +246,24 @@ class CorpusIngester:
             logger.error("Error processing file %s: %s", filename, e)
             return []
 
-    async def ingest(
+    async def ingest(  # pylint: disable=too-many-locals
         self,
         file: UploadFile,
         source_type: Optional[SourceType] = None,
-        progress_callback: Callable[[Stage, float | None], None] | None = None,
+        progress_callback: Callable[[Stage, float | None], Awaitable[None]] | None = None,
     ) -> int:
         """
         Ingest a single file into the corpus.
 
         Calls progress_callback(stage, step_progress) at each stage. Returns chunks added.
         """
-        def _notify(stage: Stage, step_progress: float | None = None) -> None:
+        async def _notify(stage: Stage, step_progress: float | None = None) -> None:
             if progress_callback:
-                progress_callback(stage, step_progress)
+                await progress_callback(stage, step_progress)
 
         logger.info("Ingesting file: %s", file.filename)
 
-        _notify("Extracting text")
+        await _notify("Extracting text")
         documents = await self.process_file(file, source_type)
 
         if not documents:
@@ -272,7 +272,7 @@ class CorpusIngester:
 
         logger.info("Created %d document chunks from %s", len(documents), file.filename)
 
-        _notify("Generating embeddings", 0)
+        await _notify("Generating embeddings", 0)
         batch_size = self.embedder.batch_size
         total_batches = (len(documents) + batch_size - 1) // batch_size
         logger.info(
@@ -292,13 +292,16 @@ class CorpusIngester:
             )
             for doc, embedding in zip(batch, embeddings):
                 doc.embedding = embedding
-            _notify("Generating embeddings", batch_num / total_batches)
+            await _notify("Generating embeddings", batch_num / total_batches)
 
-        _notify("Storing documents", 0)
+        await _notify("Storing documents", 0)
         logger.info("Adding %d documents to vector database...", len(documents))
+        async def _notify_storing(p: float | None) -> None:
+            await _notify("Storing documents", p)
+
         await self.collection.add_documents(
             documents,
-            progress_callback=lambda p: _notify("Storing documents", p),
+            progress_callback=_notify_storing,
         )
         logger.info("Vector database insert complete")
 

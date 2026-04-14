@@ -1,9 +1,9 @@
-- Thinking with outstanding criticism is buggy
+- corpus quotes have no spaces, as do feedback titles
+- generating embedding progress bar is stalled
 - Thinking progress has funky icons
 - memory leak
 - Check config is actually how it should be
 - Check all the many prompts
-- Fix autosave 
 - Only load embedding model when actually needed
 - Feedback card bg colour in dark mode
 

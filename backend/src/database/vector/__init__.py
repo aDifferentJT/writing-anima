@@ -7,7 +7,7 @@ import tempfile
 import time
 import urllib.request
 import yaml
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 import typing
@@ -211,7 +211,7 @@ class VectorCollection:
         self,
         documents: list[CorpusDocument],
         batch_size: int = 100,
-        progress_callback: Callable[[float | None], None] | None = None,
+        progress_callback: Callable[[float | None], Awaitable[None]] | None = None,
     ) -> None:
         """Add documents to the collection in batches"""
         if not documents:
@@ -250,7 +250,7 @@ class VectorCollection:
                 f"  Uploaded batch {batch_num}/{total_batches} ({len(batch)} documents)"
             )
             if progress_callback:
-                progress_callback(batch_num / total_batches)
+                await progress_callback(batch_num / total_batches)
 
         logger.info(f"✓ Successfully added {total_points} documents to collection")
 

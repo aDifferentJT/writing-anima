@@ -372,8 +372,6 @@ class IngestionStatus(BaseModel):
 
 class ProjectSettings(BaseModel):
     """Project settings — stored as JSON on Project"""
-    auto_save_interval: int = 30000
-    enable_real_time_sync: bool = True
     favourite_animas: list[str] = Field(default_factory=list)
     default_anima_id: Optional[str] = None
     default_model_id: Optional[str] = None

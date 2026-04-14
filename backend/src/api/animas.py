@@ -2,7 +2,6 @@
 Anima management API endpoints
 """
 
-import asyncio
 import base64
 import logging
 import uuid
@@ -330,15 +329,10 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
                     step_progress=step_progress,
                 ))
 
-            loop = asyncio.get_running_loop()
-            def on_model_progress(prog: float | None) -> None:
-                asyncio.run_coroutine_threadsafe(
-                    send_status(step_progress=prog),
-                    loop,
-                )
+            async def on_model_progress(prog: float | None) -> None:
+                await send_status(step_progress=prog)
 
-            embedder = await asyncio.to_thread(
-                create_embedding_generator,
+            embedder = await create_embedding_generator(
                 get_config().get_embedding(anima.embedding_provider),
                 on_model_progress,
             )
@@ -361,18 +355,18 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
                 def stage(s: str, filename: str = file_data.name) -> str:
                     return f"{filename}: {s}"
 
-                def on_ingest_progress(
+                async def on_ingest_progress(
                     step: Stage,
                     step_progress: float | None,
                     stage: Callable[[str], str] = stage,
                 ) -> None:
                     idx = STAGES.index(step)
-                    loop.create_task(send_status(
+                    await send_status(
                         sub_completed=[stage(s) for s in STAGES[:idx]],
                         sub_remaining=[stage(s) for s in STAGES[idx + 1:]],
                         current_step=stage(step),
                         step_progress=step_progress,
-                    ))
+                    )
 
                 total_chunks_added += await ingester.ingest(
                     upload_file, progress_callback=on_ingest_progress

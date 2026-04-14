@@ -75,7 +75,9 @@ class CorpusSearchTool:
         logger.debug("Searching corpus for: '%s' (k=%d)", query, k)
 
         # Generate query embedding
-        embedder = create_embedding_generator(self.config.get_embedding(self.embedding_provider))
+        embedder = await create_embedding_generator(
+            self.config.get_embedding(self.embedding_provider)
+        )
         query_embedding = await embedder.generate_one(query)
         del embedder
 
@@ -267,7 +269,8 @@ class IncrementalReasoningTool:
         """
         try:
             # Generate embedding for query
-            embedder = create_embedding_generator(self.config.get_embedding(self.embedding_provider))
+            embedding_cfg = self.config.get_embedding(self.embedding_provider)
+            embedder = await create_embedding_generator(embedding_cfg)
             query_embedding = await embedder.generate_one(query)
             del embedder
 

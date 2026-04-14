@@ -1,10 +1,13 @@
 """Embedding generation for text chunks using MLX"""
 
+import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+import gc
 from pathlib import Path
 from typing import TypeVar, cast
 
+import mlx
 from mlx_embeddings.models.base import BaseModelOutput
 from mlx_embeddings.utils import load
 
@@ -17,8 +20,8 @@ from ...config import EmbeddingConfig
 logger = logging.getLogger(__name__)
 
 
-def _download_with_progress(
-    model_id: str, callback: Callable[[float], None]
+async def _download_with_progress(
+    model_id: str, callback: Callable[[float], Awaitable[None]]
 ) -> None:
     """Pre-download all model files from HuggingFace, reporting byte-level progress."""
     api = hf.HfApi()
@@ -33,7 +36,7 @@ def _download_with_progress(
     ]
     total_bytes = sum(s.size or 0 for s in files_to_download)
     if total_bytes == 0:
-        callback(1.0)
+        await callback(1.0)
         return
 
     bytes_done = 0
@@ -45,39 +48,44 @@ def _download_with_progress(
             """Update progress and call callback with normalized progress."""
             super().update(n)
             if self.unit == "B":
-                callback((bytes_done + self.n) / total_bytes)
+                asyncio.ensure_future(callback((bytes_done + self.n) / total_bytes))
 
-    callback(0)
+    await callback(0)
     for sibling in files_to_download:
         logger.info("Downloading %s from %s...", sibling.rfilename, model_id)
         hf.hf_hub_download(repo_id=model_id, filename=sibling.rfilename, tqdm_class=CustomTqdm)
         bytes_done += sibling.size or 0
-        callback(bytes_done / total_bytes)
+        await callback(bytes_done / total_bytes)
 
 
 class MlxEmbeddingGenerator(BaseEmbeddingGenerator):
     """Generate embeddings for text using MLX."""
 
-    def __init__(
-        self,
-        embedding_config: EmbeddingConfig,
-        progress_callback: Callable[[float], None] | None = None,
-    ):
-        """Initialize embedding generator."""
+    def __init__(self, embedding_config: EmbeddingConfig):
+        """Initialize embedding generator. Call create() to also run the async download step."""
         super().__init__(embedding_config)
-        model_name = self.embedding_config.model
+        self.model, self.tokenizer = load(self.embedding_config.model)
+        logger.info("Initialized embedding generator with model: %s", self.model)
+
+    def __del__(self) -> None:
+        del self.model
+        del self.tokenizer
+        gc.collect()
+        mlx.core.clear_cache()
+
+    @classmethod
+    async def create(
+        cls,
+        embedding_config: EmbeddingConfig,
+        progress_callback: Callable[[float | None], Awaitable[None]] | None = None,
+    ) -> "MlxEmbeddingGenerator":
+        """Async factory: download model weights if needed, then load."""
         if progress_callback:
             try:
-                _download_with_progress(model_name, progress_callback)
+                await _download_with_progress(embedding_config.model, progress_callback)
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.warning(
-                    "Model download progress tracking failed (%s), loading anyway",
-                    e,
-                )
-        self.model, self.tokenizer = load(model_name)
-        logger.info(
-            "Initialized embedding generator with model: %s", self.model
-        )
+                logger.warning("Model download progress tracking failed (%s), loading anyway", e)
+        return await asyncio.to_thread(cls, embedding_config)
 
     # TODO this should use asyncio or something genuinely async
     async def generate_batch(self, batch: list[str], batch_num: int) -> list[list[float]]:

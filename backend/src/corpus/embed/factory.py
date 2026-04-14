@@ -1,7 +1,7 @@
 """Embedding generator factory"""
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from weakref import WeakValueDictionary
 
 from ...config import EmbeddingConfig
@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 _cache: WeakValueDictionary[tuple[str, str], BaseEmbeddingGenerator] = WeakValueDictionary()
 
 
-def create_embedding_generator(
+async def create_embedding_generator(
     embedding_config: EmbeddingConfig,
-    progress_callback: Callable[[float | None], None] | None = None,
+    progress_callback: Callable[[float | None], Awaitable[None]] | None = None,
 ) -> BaseEmbeddingGenerator:
     """Create an embedding generator based on config provider.
 
@@ -30,10 +30,10 @@ def create_embedding_generator(
 
     if embedding_config.provider == "openai":
         if progress_callback:
-            progress_callback(None)
+            await progress_callback(None)
         generator: BaseEmbeddingGenerator = OpenAIEmbeddingGenerator(embedding_config)
     elif embedding_config.provider == "mlx":
-        generator = MlxEmbeddingGenerator(embedding_config, progress_callback)
+        generator = await MlxEmbeddingGenerator.create(embedding_config, progress_callback)
     else:
         raise ValueError(f"Unsupported embedding provider: {embedding_config.provider}.")
 

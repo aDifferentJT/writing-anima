@@ -66,8 +66,6 @@ export interface EnrichedFeedbackItem extends ReceivedFeedbackItem {
 
 /** backend: ProjectSettings (JSON blob stored on Project.settings) */
 export interface ProjectSettings {
-  auto_save_interval: number;
-  enable_real_time_sync: boolean;
   favourite_animas: string[];
   default_anima_id: string | null;
   default_model_id: string | null;
