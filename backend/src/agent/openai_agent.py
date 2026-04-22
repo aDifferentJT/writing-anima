@@ -327,9 +327,28 @@ Start with [ and end with ].
                                         "enum": ["low", "medium", "high"],
                                     },
                                     "confidence": {"type": "number"},
-                                    "corpus_references": {
+                                    "corpus_sources": {
                                         "type": "array",
-                                        "items": {"type": "string"}
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "text": {"type": "string"},
+                                                "source_file": {
+                                                    "anyOf": [
+                                                        {"type": "string"},
+                                                        {"type": "null"}
+                                                    ]
+                                                },
+                                                "relevance": {
+                                                    "anyOf": [
+                                                        {"type": "string"},
+                                                        {"type": "null"}
+                                                    ]
+                                                }
+                                            },
+                                            "required": ["text", "source_file", "relevance"],
+                                            "additionalProperties": False
+                                        }
                                     },
                                     "text_positions": {
                                         "type": "array",
@@ -352,7 +371,7 @@ Start with [ and end with ].
                                     "content",
                                     "severity",
                                     "confidence",
-                                    "corpus_references",
+                                    "corpus_sources",
                                     "text_positions",
                                 ],
                                 "additionalProperties": False

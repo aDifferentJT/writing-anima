@@ -1,3 +1,4 @@
+- Is deepseek thinking?
 - generating embedding progress bar is stalled
 - Thinking progress has funky icons
 - Check config is actually how it should be

@@ -278,7 +278,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
       return (
         <>
           <span>{chunkText.substring(0, partialIdx)}</span>
-          <mark className="bg-purple-200/80 rounded px-0.5">
+          <mark className="bg-primary/20 rounded px-0.5">
             {chunkText.substring(partialIdx, partialIdx + sourceText.length)}
           </mark>
           <span>{chunkText.substring(partialIdx + sourceText.length)}</span>
@@ -289,7 +289,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
     return (
       <>
         <span>{chunkText.substring(0, startIdx)}</span>
-        <mark className="bg-purple-200/80 rounded px-0.5">
+        <mark className="bg-primary/20 rounded px-0.5">
           {chunkText.substring(startIdx, startIdx + sourceText.length)}
         </mark>
         <span>{chunkText.substring(startIdx + sourceText.length)}</span>
@@ -415,7 +415,7 @@ const CorpusGroundsViewer: React.FC<CorpusGroundsViewerProps> = ({
                         ref={isHighlighted ? highlightRef : null}
                         className={`py-2 px-3 rounded text-sm leading-relaxed transition-colors text-justify ${
                           isHighlighted
-                            ? "bg-purple-100/60 border-l-2 border-purple-500"
+                            ? "bg-primary/10 border-l-2 border-primary"
                             : "border-l-2 border-transparent"
                         }`}
                       >

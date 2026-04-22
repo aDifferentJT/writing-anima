@@ -254,14 +254,6 @@ def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,to
                     or "Feedback"
                 )
 
-                # For sources field, try: corpus_references, grounding, reference
-                sources = (
-                    item.get("corpus_references")
-                    or item.get("grounding")
-                    or item.get("reference")
-                    or []
-                )
-
                 # For positions field, try: text_positions, positions
                 raw_positions = (
                     item.get("text_positions") or item.get("positions") or []
@@ -350,7 +342,6 @@ def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,to
                         content=content,
                         severity=severity,
                         confidence=float(item.get("confidence", 0.7)),
-                        sources=sources if isinstance(sources, list) else [],
                         corpus_sources=corpus_sources,
                         positions=positions,
                         model=model,

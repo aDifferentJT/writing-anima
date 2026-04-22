@@ -126,7 +126,6 @@ class FeedbackItem(BaseModel):
     content: str
     severity: FeedbackSeverity
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
-    sources: list[str]
     corpus_sources: list[CorpusSource]
     positions: list[TextPosition]
     model: str

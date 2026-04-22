@@ -116,7 +116,6 @@ const CriticCard: React.FC<CriticCardProps> = ({
     feedbackData.title?.substring(0, 30),
   );
   console.log("[CriticCard] model:", feedbackData.model);
-  console.log("[CriticCard] sources:", feedbackData.sources);
   console.log("[CriticCard] corpus_sources:", feedbackData.corpus_sources);
 
   // Use animaName if available (from anima), otherwise fall back to agent
@@ -281,7 +280,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
         )}
 
       {/* Show corpus sources that ground this feedback */}
-      {feedbackData.corpus_sources && feedbackData.corpus_sources.length > 0 ? (
+      {feedbackData.corpus_sources && feedbackData.corpus_sources.length > 0 && (
         <div className="mt-2 space-y-1.5">
           <div className="text-xs text-base-content/40 mono flex items-center gap-1">
             <BookOpen className="w-3 h-3" />
@@ -290,7 +289,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
           {feedbackData.corpus_sources.map((source, idx) => (
             <div
               key={idx}
-              className="p-2 bg-purple-50/50 rounded border border-purple-200 text-xs group/source cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors"
+              className="p-2 bg-primary/10 rounded border border-primary/20 text-xs group/source cursor-pointer hover:border-primary/40 hover:bg-primary/15 transition-colors"
               onClick={() => onViewCorpusSource(source)}
             >
               <div className="text-base-content italic leading-tight mb-1">
@@ -302,7 +301,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
               </div>
               <div className="flex items-center gap-2 text-base-content/40">
                 {source.source_file && (
-                  <span className="mono text-purple-600">
+                  <span className="mono text-primary">
                     {source.source_file}
                   </span>
                 )}
@@ -311,33 +310,11 @@ const CriticCard: React.FC<CriticCardProps> = ({
                     {source.relevance}
                   </span>
                 )}
-                <ExternalLink className="w-3 h-3 text-purple-400 opacity-0 group-hover/source:opacity-100 transition-opacity flex-shrink-0" />
+                <ExternalLink className="w-3 h-3 text-primary/70 opacity-0 group-hover/source:opacity-100 transition-opacity flex-shrink-0" />
               </div>
             </div>
           ))}
         </div>
-      ) : (
-        feedbackData.sources &&
-        feedbackData.sources.length > 0 && (
-          /* Fallback: display old-format sources as simple list */
-          <div className="mt-2 space-y-1">
-            <div className="text-xs text-base-content/40 mono flex items-center gap-1">
-              <BookOpen className="w-3 h-3" />
-              <span>Corpus references:</span>
-            </div>
-            <div className="p-2 bg-purple-50/50 rounded border border-purple-200 text-xs space-y-1">
-              {feedbackData.sources.map((source, idx) => (
-                <div
-                  key={idx}
-                  className="text-base-content leading-tight"
-                >
-                  <span className="text-purple-600 mr-1">{idx + 1}.</span>
-                  {source}
-                </div>
-              ))}
-            </div>
-          </div>
-        )
       )}
 
       {feedbackData.suggestion && (

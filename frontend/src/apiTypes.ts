@@ -46,7 +46,6 @@ export interface ReceivedFeedbackItem {
   content: string;
   confidence: number;
   model: string;
-  sources: string[];
   corpus_sources: CorpusSource[];
   positions: FeedbackPosition[];
 }
