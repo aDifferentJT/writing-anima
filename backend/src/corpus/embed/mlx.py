@@ -15,7 +15,7 @@ import huggingface_hub as hf
 from tqdm.auto import tqdm
 
 from .base import BaseEmbeddingGenerator
-from ...config import EmbeddingConfig
+from ...database.settings import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
 

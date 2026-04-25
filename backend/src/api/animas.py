@@ -13,10 +13,12 @@ from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDi
 from sqlmodel import Session, select
 
 from ..config import get_config
+from ..database import settings as settings_db
 from ..corpus.embed.factory import create_embedding_generator
 from ..corpus.ingest import CorpusIngester, Stage, STAGES
 from ..corpus.style_pack import generate_style_pack
 from ..database.general import get_general_db
+from ..database.settings import Model
 from ..database.vector import get_vector_db
 from ..database.vector.schema import CorpusDocument as VectorCorpusDocument
 from .models import (
@@ -112,8 +114,8 @@ async def _build_anima_list(session: Session) -> AnimaList:
 async def get_embedding_providers() -> EmbeddingProvidersResponse:
     """Get list of available embedding providers"""
     providers = [
-        EmbeddingProviderInfo(id=id, name=emb.name, provider=emb.provider)
-        for id, emb in get_config().embeddings.items()
+        EmbeddingProviderInfo(id=emb.id, name=emb.name, provider=emb.provider)
+        for emb in settings_db.get().embeddings
     ]
     return EmbeddingProvidersResponse(providers=providers)
 
@@ -121,19 +123,13 @@ async def get_embedding_providers() -> EmbeddingProvidersResponse:
 @router.get("/models", response_model=AvailableModelsResponse)
 async def get_available_models() -> AvailableModelsResponse:
     """Get list of available models for anima selection"""
-    try:
-        models = [
-            AvailableModel(
-                id=id, name=m.name, provider=m.provider, description=m.description
-            )
-            for id, m in get_config().models.items()
-        ]
-        return AvailableModelsResponse(models=models)
-    except Exception as e:
-        logger.error("Error getting available models: %s", e)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get available models: {str(e)}"
-        ) from e
+    models = [
+        AvailableModel(
+            id=str(m.id), name=m.name, provider=m.provider, description=m.description
+        )
+        for m in settings_db.get().models
+    ]
+    return AvailableModelsResponse(models=models)
 
 
 @router.post("", response_model=AnimaResponse, status_code=201)
@@ -160,7 +156,7 @@ async def create_anima(anima: AnimaCreate) -> AnimaResponse:
 
         # Initialize Qdrant collection
         collection = get_vector_db().get_collection(collection_name)
-        embedding_dim = get_config().get_embedding(
+        embedding_dim = settings_db.get().get_embedding(
             anima.embedding_provider
         ).dimensions
         await collection.create_collection(embedding_dim)
@@ -304,7 +300,7 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
 
             collection_name = anima.collection_name
             collection = get_vector_db().get_collection(collection_name)
-            embedding_dim = get_config().get_embedding(
+            embedding_dim = settings_db.get().get_embedding(
                 anima.embedding_provider
             ).dimensions
             await collection.create_collection(embedding_dim)
@@ -333,10 +329,10 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
                 await send_status(step_progress=prog)
 
             embedder = await create_embedding_generator(
-                get_config().get_embedding(anima.embedding_provider),
+                settings_db.get().get_embedding(anima.embedding_provider),
                 on_model_progress,
             )
-            ingester = CorpusIngester(collection, get_config(), embedder)
+            ingester = CorpusIngester(collection, request.corpus_config, embedder)
 
             progress.advance()  # "Loading embedding model" done
 
@@ -434,7 +430,6 @@ async def get_corpus_documents(anima_id: uuid.UUID) -> CorpusDocumentsResponse: 
                 files_map[filename].append(doc_item)
 
             # Build response, sorting chunks within each file and deduplicating overlaps
-            overlap_size = get_config().corpus.chunk_overlap
             files = []
             for filename, chunks in sorted(files_map.items()):  # pylint: disable=too-many-nested-blocks
                 sorted_chunks = sorted(chunks, key=lambda c: c.metadata.chunk_index)
@@ -445,6 +440,7 @@ async def get_corpus_documents(anima_id: uuid.UUID) -> CorpusDocumentsResponse: 
 
                 for _, c in enumerate(sorted_chunks):
                     text = c.text
+                    overlap_size = c.metadata.chunk_overlap
 
                     if overlap_size > 0:
                         if last_deduped_text is not None:

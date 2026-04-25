@@ -19,6 +19,7 @@ from sqlmodel import Field as SQLField, SQLModel
 
 class UUIDString(TypeDecorator[UUID]):  # pylint: disable=abstract-method,too-many-ancestors
     """SQLAlchemy column type that stores UUID as string (for SQLite compatibility)."""
+
     impl = String
     cache_ok = True
 
@@ -35,6 +36,7 @@ class UUIDString(TypeDecorator[UUID]):  # pylint: disable=abstract-method,too-ma
 
 class PydanticJSON(TypeDecorator[Any]):  # pylint: disable=abstract-method,too-many-ancestors
     """SQLAlchemy column type that serializes any Pydantic type to/from JSON."""
+
     impl = JSON
     cache_ok = True
 
@@ -45,7 +47,7 @@ class PydanticJSON(TypeDecorator[Any]):  # pylint: disable=abstract-method,too-m
     def process_bind_param(self, value: Any, dialect: Any) -> Any:
         if value is None:
             return None
-        return self._adapter.dump_python(value, mode='json')
+        return self._adapter.dump_python(value, mode="json")
 
     def process_result_value(self, value: Any, dialect: Any) -> Any:
         if value is None:
@@ -119,7 +121,7 @@ class CorpusSource(BaseModel):
 
 class FeedbackItem(BaseModel):
     """Single feedback item — sent by the backend over the analysis WebSocket"""
-    id: str
+    id: UUID
     type: FeedbackType
     category: str
     title: str
@@ -128,7 +130,7 @@ class FeedbackItem(BaseModel):
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
     corpus_sources: list[CorpusSource]
     positions: list[TextPosition]
-    model: str
+    model: UUID
 
 
 # ── Chat ──────────────────────────────────────────────────────────────────────
@@ -144,7 +146,7 @@ class ChatRequest(BaseModel):
     message: Annotated[str, Field(min_length=1)]
     anima_id: str
     conversation_history: list[ChatMessage] = []
-    model: str
+    model: UUID
 
 
 class ChatResponse(BaseModel):
@@ -165,7 +167,7 @@ class AnalysisRequest(BaseModel):
     """Request for writing analysis"""
     content: Annotated[str, Field(min_length=1)]
     anima_id: str
-    model: str
+    model: UUID
     context: AnalysisContext
 
 
@@ -315,9 +317,17 @@ class CorpusUploadFile(BaseModel):
     content: str  # base64-encoded
 
 
+class CorpusConfig(BaseModel):
+    """Chunking parameters supplied per-upload."""
+    chunk_size: int = 800
+    chunk_overlap: int = 100
+    min_chunk_length: int = 100
+
+
 class CorpusUploadRequest(BaseModel):
     """Request payload for corpus upload WebSocket"""
     files: list[CorpusUploadFile]
+    corpus_config: CorpusConfig = Field(default_factory=CorpusConfig)
 
 
 class CorpusStatusMessage(BaseModel):

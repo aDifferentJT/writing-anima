@@ -7,6 +7,7 @@ import logging
 import re
 import time
 import uuid
+from uuid import UUID
 from difflib import SequenceMatcher
 from typing import Optional
 
@@ -17,7 +18,7 @@ from sqlmodel import Session, select
 from ..agent.base import Response
 from ..agent.factory import create_agent
 from ..config import get_config
-from ..database.general import get_general_db
+from ..database.general import get_general_db, get_model
 from .models import (
     AnalysisRequest,
     ChatRequest,
@@ -133,7 +134,7 @@ def _find_text_position(
 def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
     response_text: str,
     anima_name: str,
-    model: str,
+    model: UUID,
     original_content: str,
 ) -> list[FeedbackItem]:
     """
@@ -335,7 +336,7 @@ def parse_json_feedback(  # pylint: disable=too-many-locals,too-many-branches,to
 
                 feedback_items.append(
                     FeedbackItem(
-                        id=str(uuid.uuid4()),
+                        id=uuid.uuid4(),
                         type=feedback_type,
                         category=item.get("category", "general"),
                         title=title[:100],  # Limit title length
@@ -424,20 +425,20 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
         )
 
         # Create agent using factory with selected model
-        model = get_config().get_model(request.model)
+        model = get_model(request.model)
         agent = create_agent(
             model=model,
             anima_id=request.anima_id,
             config=get_config(),
             # Note: DeepSeek doesn't support strict JSON schema, so skip for those agents
-            use_json_mode = model.provider != "deepseek",
+            use_json_mode=model.provider != "deepseek",
             prompt_file="writing_critic.txt",
         )
 
         # Send status
         await websocket.send_text(
             StreamStatus(
-                message=f"Anima ready ({request.model}), starting analysis...",
+                message=f"Anima ready ({model.name}), starting analysis...",
                 progress=0.2,
             ).model_dump_json()
         )
@@ -617,12 +618,12 @@ async def chat_with_anima_stream(websocket: WebSocket) -> None:  # pylint: disab
             await websocket.close()
             return
 
-        model = get_config().get_model(request.model)
+        model = get_model(request.model)
         agent = create_agent(
             model=model,
             anima_id=anima_id,
             config=get_config(),
-            use_json_mode = False,
+            use_json_mode=False,
             prompt_file="base.txt",
         )
 

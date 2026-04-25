@@ -134,8 +134,10 @@ def main() -> None:
     
             class JsApi:
                 def __init__(self) -> None:
+                    self.main_window: webview.Window | None = None
                     self._anima_window: webview.Window | None = None
-    
+                    self._settings_window: webview.Window | None = None
+
                 def open_anima_manager(self) -> None:
                     if self._anima_window is None:
                         win = webview.create_window(
@@ -152,9 +154,34 @@ def main() -> None:
                             self._anima_window = win
                     if self._anima_window is not None:
                         self._anima_window.show()
-    
+
+                def open_settings(self) -> None:
+                    if self._settings_window is None:
+                        win = webview.create_window(
+                            "Settings",
+                            f"{URL}/settings",
+                            width=1000,
+                            height=700,
+                            min_size=(700, 500),
+                        )
+                        if win is not None:
+                            def _on_settings_closed() -> None:
+                                self._settings_window = None
+                            win.events.closed += _on_settings_closed
+                            self._settings_window = win
+                    if self._settings_window is not None:
+                        self._settings_window.show()
+
+                def refresh_all_pages(self) -> None:
+                    if self.main_window is not None:
+                        self.main_window.run_js("location.reload()")
+                    if self._anima_window is not None:
+                        self._anima_window.run_js("location.reload()")
+                    if self._settings_window is not None:
+                        self._settings_window.run_js("location.reload()")
+
             js_api = JsApi()
-    
+
             window = webview.create_window(
                 "Writing Anima",
                 URL,
@@ -163,11 +190,16 @@ def main() -> None:
                 min_size=(800, 600),
                 js_api=js_api,
             )
+            js_api.main_window = window
     
             menu = [
                 webview.menu.Menu(
                     "__app__",
-                    [webview.menu.MenuAction("Open Anima Manager", js_api.open_anima_manager)],
+                    [
+                        webview.menu.MenuAction("Anima Manager", js_api.open_anima_manager),
+                        webview.menu.MenuAction("Settings", js_api.open_settings),
+                        webview.menu.MenuAction("Refresh", js_api.refresh_all_pages),
+                    ],
                 )
             ]
     

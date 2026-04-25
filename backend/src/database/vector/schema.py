@@ -22,6 +22,7 @@ class CorpusDocumentMetadata(BaseModel):
     filename: str
     chunk_index: int
     total_chunks: int
+    chunk_overlap: int = 100
 
 
 class CorpusDocument(BaseModel):

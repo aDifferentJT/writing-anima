@@ -49,6 +49,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         animas: resolve(__dirname, 'animas.html'),
+        settings: resolve(__dirname, 'settings.html'),
         error: resolve(__dirname, 'error.html'),
       },
     },

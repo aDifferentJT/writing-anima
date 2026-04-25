@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Loader,
   Clock,
+  ChevronDown,
 } from "lucide-react";
 import { Anima } from "../../types";
 import animaService from "../../services/animaService";
@@ -30,6 +31,10 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
   const [uploadStatus, setUploadStatus] = useState<CorpusStatusMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [chunkSize, setChunkSize] = useState(800);
+  const [chunkOverlap, setChunkOverlap] = useState(100);
+  const [minChunkLength, setMinChunkLength] = useState(100);
 
   if (!isOpen) return null;
 
@@ -55,7 +60,11 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
     setUploadStatus(null);
 
     try {
-      for await (const msg of animaService.uploadCorpus(anima.id, selectedFiles)) {
+      for await (const msg of animaService.uploadCorpus(anima.id, selectedFiles, {
+        chunk_size: chunkSize,
+        chunk_overlap: chunkOverlap,
+        min_chunk_length: minChunkLength,
+      })) {
         if (msg.type === "status") {
           setUploadStatus(msg);
         } else if (msg.type === "complete") {
@@ -237,6 +246,37 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
               <span>{error}</span>
             </div>
           )}
+
+          {/* Advanced */}
+          <div>
+            <button
+              onClick={() => setShowAdvanced(v => !v)}
+              className="flex items-center gap-1 text-xs text-base-content/40 hover:text-base-content/70"
+              disabled={uploading}
+            >
+              <ChevronDown className={`w-3 h-3 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+              Advanced chunking options
+            </button>
+            {showAdvanced && (
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {[
+                  { label: "Chunk size", value: chunkSize, set: setChunkSize },
+                  { label: "Chunk overlap", value: chunkOverlap, set: setChunkOverlap },
+                  { label: "Min chunk length", value: minChunkLength, set: setMinChunkLength },
+                ].map(({ label, value, set }) => (
+                  <div key={label}>
+                    <label className="block text-xs font-semibold text-base-content/50 uppercase tracking-wide mb-1">{label}</label>
+                    <input
+                      type="number" min={0} value={value}
+                      onChange={e => set(parseInt(e.target.value) || 0)}
+                      className="input input-bordered input-sm w-full"
+                      disabled={uploading}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Info */}
           <div className="p-4 bg-primary/10 border border-primary/20 rounded">

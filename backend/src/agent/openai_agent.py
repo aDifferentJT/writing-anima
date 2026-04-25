@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 import time
 from collections.abc import AsyncGenerator
 from collections.abc import Sequence
@@ -18,7 +17,8 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from openai.types.shared_params import ResponseFormatJSONSchema
 
-from ..config import Config, ModelConfig
+from ..config import Config
+from ..database.settings import Model
 from .base import BaseAgent, ToolCall, ToolUse
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class OpenAIAgent(BaseAgent):
         self,
         anima_id: str,
         config: Config,
-        model: ModelConfig,
+        model: Model,
         use_json_mode: bool,
         prompt_file: str,
     ):
@@ -50,14 +50,8 @@ class OpenAIAgent(BaseAgent):
             use_json_mode=use_json_mode,
         )
 
-        api_key: Optional[str]
-        if model.api_key_env is not None:
-            api_key = os.getenv(model.api_key_env)
-        else:
-            api_key = None
-
         self.client = AsyncOpenAI(
-            api_key=api_key,
+            api_key=model.api_key,
             base_url=model.base_url,
         )
 

@@ -300,7 +300,11 @@ class AnimaService {
    * Yields status messages during processing and a final complete message.
    * Throws on error.
    */
-  async *uploadCorpus(animaId: string, files: File[]): AsyncGenerator<CorpusUploadMessage> {
+  async *uploadCorpus(
+    animaId: string,
+    files: File[],
+    corpusConfig?: { chunk_size?: number; chunk_overlap?: number; min_chunk_length?: number },
+  ): AsyncGenerator<CorpusUploadMessage> {
     const toBase64 = (file: File): Promise<string> =>
       new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -328,7 +332,7 @@ class AnimaService {
             content: await toBase64(file),
           })),
         );
-        send(JSON.stringify({ files: filesData }));
+        send(JSON.stringify({ files: filesData, corpus_config: corpusConfig ?? {} }));
       },
     );
   }

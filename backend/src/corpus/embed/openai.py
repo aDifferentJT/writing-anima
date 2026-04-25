@@ -1,11 +1,10 @@
 """Embedding generation for text chunks using OpenAI API"""
 
-import os
 import logging
 from openai import AsyncOpenAI
 
 from .base import BaseEmbeddingGenerator
-from ...config import EmbeddingConfig
+from ...database.settings import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +16,7 @@ class OpenAIEmbeddingGenerator(BaseEmbeddingGenerator):
         """Initialize embedding generator"""
         super().__init__(embedding_config)
 
-        api_key = os.getenv(embedding_config.api_key_env) if embedding_config.api_key_env else None
-        self.client = AsyncOpenAI(api_key=api_key)
+        self.client = AsyncOpenAI(api_key=embedding_config.api_key)
         self.model = embedding_config.model
 
         logger.info("Initialized embedding generator with model: %s", self.model)

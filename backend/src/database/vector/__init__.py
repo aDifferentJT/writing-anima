@@ -33,7 +33,8 @@ from qdrant_client.models import (
 )
 
 from ... import global_init, resources
-from ...config import Config, CloudQdrantConfig, LocalQdrantConfig
+from ...config import Config
+from ..settings import CloudQdrantConfig, LocalQdrantConfig, VectorDBConfig
 from .schema import CorpusDocument, CorpusDocumentMetadata, SearchFilters, SearchResult, SourceType
 
 logger = logging.getLogger(__name__)
@@ -546,7 +547,7 @@ class VectorDatabase:
     qdrant_manager: Optional[QdrantManager]
     client: AsyncQdrantClient
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, vector_db_config: VectorDBConfig) -> None:
         """
         Initialize vector database connection.
 
@@ -558,14 +559,14 @@ class VectorDatabase:
 
         # Initialize Qdrant client
         try:
-            if isinstance(config.vector_db, CloudQdrantConfig):
-                logger.info(f"Connecting to Qdrant Cloud at {config.vector_db.url}")
+            if isinstance(vector_db_config, CloudQdrantConfig):
+                logger.info(f"Connecting to Qdrant Cloud at {vector_db_config.url}")
                 self.client = AsyncQdrantClient(
-                    url=config.vector_db.url,
-                    api_key=config.vector_db.api_key,
+                    url=vector_db_config.url,
+                    api_key=vector_db_config.api_key,
                     https=True,
                 )
-                connection_str = config.vector_db.url
+                connection_str = vector_db_config.url
             else:  # LocalQdrantConfig
                 self.qdrant_manager = QdrantManager()
                 self.client = AsyncQdrantClient(
@@ -583,7 +584,7 @@ class VectorDatabase:
             logger.info(f"Connected to Qdrant at {connection_str}")
         except ConnectionRefusedError as e:
             error_msg = (
-                f"Failed to connect to Qdrant at {config.vector_db}. "
+                f"Failed to connect to Qdrant at {vector_db_config}. "
                 f"Is Qdrant running? If using Docker, start it with: docker compose up -d"
             )
             logger.error(error_msg)
@@ -632,7 +633,8 @@ def _init_vector_database() -> None:
     """Initialize the global VectorDatabase instance."""
     global _vector_db  # pylint: disable=global-statement
     from ...config import get_config
-    _vector_db = VectorDatabase(get_config())
+    from ..settings import get as get_settings
+    _vector_db = VectorDatabase(get_config(), get_settings().vector_db)
 
 
 global_init.add(_init_vector_database)

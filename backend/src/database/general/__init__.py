@@ -1,14 +1,16 @@
-"""
-General database engine setup.
-Model definitions live in src/api/models.py — imported here for re-export
-so existing code that imports from this module continues to work.
-"""
+"""General database engine setup."""
+
+import logging
+from uuid import UUID
 
 from sqlalchemy.engine import Engine, create_engine
 from sqlmodel import SQLModel
 
 from ... import global_init, resources
 from ...api.models import Anima, Project  # noqa: F401 — re-exported
+from ..settings import Model, get as get_settings
+
+logger = logging.getLogger(__name__)
 
 _general_db = global_init.uninit(Engine)
 
@@ -16,6 +18,14 @@ _general_db = global_init.uninit(Engine)
 def get_general_db() -> Engine:
     """Get the global database engine (initialized at startup)."""
     return _general_db
+
+
+def get_model(model_id: UUID) -> Model:
+    """Look up a Model by UUID from settings, raising ValueError if not found."""
+    for m in get_settings().models:
+        if m.id == model_id:
+            return m
+    raise ValueError(f"Model '{model_id}' not found")
 
 
 def _init_general_db() -> None:

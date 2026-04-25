@@ -4,7 +4,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from weakref import WeakValueDictionary
 
-from ...config import EmbeddingConfig
+from ...database.settings import EmbeddingConfig
 from .base import BaseEmbeddingGenerator
 from .mlx import MlxEmbeddingGenerator
 from .openai import OpenAIEmbeddingGenerator

@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import API routers
-from src.api import analysis_router, animas_router, projects_router
+from src.api import analysis_router, animas_router, projects_router, settings_router
 from src import global_init
 
 @asynccontextmanager
@@ -65,6 +65,7 @@ def setup(allowed_origins: list[str]) -> FastAPI:
     app.include_router(analysis_router)
     app.include_router(animas_router)
     app.include_router(projects_router)
+    app.include_router(settings_router)
 
     # Serve built frontend as static files (production / desktop mode).
     # Must come last — it's a catch-all for any path not matched by API routes.
@@ -78,6 +79,10 @@ def setup(allowed_origins: list[str]) -> FastAPI:
         @app.get("/animas")
         async def animas_page() -> FileResponse:
             return FileResponse(str(frontend_dist / "animas.html"))
+
+        @app.get("/settings")
+        async def settings_page() -> FileResponse:
+            return FileResponse(str(frontend_dist / "settings.html"))
 
         app.mount("/", StaticFiles(directory=str(frontend_dist), html=True, follow_symlink=True), name="frontend")
 

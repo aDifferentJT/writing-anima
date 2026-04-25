@@ -1,0 +1,103 @@
+models:
+  gpt-5:
+    name: GPT-5
+    provider: openai
+    model: gpt-5
+    description: OpenAI's most advanced model with superior reasoning
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    temperature: 1.0
+    max_iterations: 20
+  deepseek-chat:
+    name: DeepSeek V3
+    provider: deepseek
+    model: deepseek-chat
+    description: DeepSeek's V3 model with strong reasoning and tool use
+    base_url: https://api.deepseek.com
+    api_key_env: DEEPSEEK_API_KEY
+    temperature: 1.0
+    max_iterations: 20
+  deepseek-v3.1:
+    name: DeepSeek V3.1 (Local)
+    provider: deepseek
+    model: mlx-community/DeepSeek-V3.1-8bit
+    description: DeepSeek V3.1 running locally via exo-labs cluster
+    base_url: http://localhost:52415/v1
+    temperature: 1.0
+    max_iterations: 25
+  deepseek-v3.2:
+    name: DeepSeek V3.2 (Local)
+    provider: deepseek
+    model: mlx-community/DeepSeek-V3.2-8bit
+    description: DeepSeek V3.2 running locally via exo-labs cluster
+    base_url: http://localhost:52415/v1
+    temperature: 1.0
+    max_iterations: 25
+  deepseek-v3.1-openrouter:
+    name: DeepSeek V3.1 (OpenRouter)
+    provider: deepseek
+    model: deepseek/deepseek-chat-v3.1
+    description: DeepSeek V3.1 via OpenRouter for remote testing
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    temperature: 1.0
+    max_iterations: 25
+agent:
+  max_tool_calls_per_iteration: 3
+  system_prompt_dir: src/agent/prompts/
+  force_tool_use: true
+vector_db:
+  type: local
+embeddings:
+  openai-small:
+    name: OpenAI text-embedding-3-small
+    provider: openai
+    api_key_env: OPENAI_API_KEY
+    model: text-embedding-3-small
+    dimensions: 1536
+    batch_size: 100
+  openai-large:
+    name: OpenAI text-embedding-3-large
+    provider: openai
+    api_key_env: OPENAI_API_KEY
+    model: text-embedding-3-large
+    dimensions: 3072
+    batch_size: 100
+  mlx:
+    name: MLX Qwen3 Embedding 8B (local)
+    provider: mlx
+    model: mlx-community/Qwen3-Embedding-8B-mxfp8
+    dimensions: 4096
+    batch_size: 100
+corpus:
+  chunk_size: 800
+  chunk_overlap: 100
+  min_chunk_length: 100
+  file_types:
+    - .txt
+    - .md
+    - .email
+    - .json
+    - .pdf
+    - .mbox
+retrieval:
+  default_k: 80
+  max_k: 120
+  similarity_threshold: 0.5
+  style_pack_size: 15
+  incremental_mode:
+    enabled: true
+    ood_check_model: gpt-4o-mini
+    max_corpus_concepts: 5
+style:
+  verification_enabled: false
+  similarity_threshold: 0.75
+  verification_method: embedding
+cost_tracking:
+  enabled: true
+  log_path: logs/costs.json
+  budget_alert_threshold: 10.0
+
+# Provider comparison (voice cloning support only):
+# - local (XTTS-v2): High quality, voice cloning, 0.5-2s/sentence with GPU + streaming
+# - elevenlabs: Best quality, voice cloning, 0.5-1s/sentence, requires API key (paid)

@@ -14,7 +14,7 @@ from .mbox_parser import MboxParser
 from .claude_parser import ClaudeConversationParser
 from ..database.vector import VectorCollection
 from ..database.vector.schema import CorpusDocument, CorpusDocumentMetadata, SourceType
-from ..config import Config
+from ..api.models import CorpusConfig
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class CorpusIngester:
     def __init__(
         self,
         collection: VectorCollection,
-        config: Config,
+        corpus_config: CorpusConfig,
         embedder: BaseEmbeddingGenerator,
     ):
         """
@@ -37,10 +37,10 @@ class CorpusIngester:
 
         Args:
             collection: VectorCollection instance to ingest into
-            config: Configuration object (for chunking parameters)
+            corpus_config: Chunking parameters for this upload
             embedder: Pre-constructed embedding generator
         """
-        self.config = config
+        self.corpus_config = corpus_config
         self.embedder = embedder
         self.collection = collection
 
@@ -73,9 +73,9 @@ class CorpusIngester:
         Returns:
             List of text chunks
         """
-        chunk_size = self.config.corpus.chunk_size
-        overlap = self.config.corpus.chunk_overlap
-        min_length = self.config.corpus.min_chunk_length
+        chunk_size = self.corpus_config.chunk_size
+        overlap = self.corpus_config.chunk_overlap
+        min_length = self.corpus_config.min_chunk_length
 
         logger.debug(
             "Chunking text: %d chars, chunk_size=%d, overlap=%d",
@@ -236,6 +236,7 @@ class CorpusIngester:
                         filename=filename,
                         chunk_index=i,
                         total_chunks=len(chunks),
+                        chunk_overlap=self.corpus_config.chunk_overlap,
                     ),
                 )
                 documents.append(doc)

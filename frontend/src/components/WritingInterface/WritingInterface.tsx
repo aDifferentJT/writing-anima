@@ -507,7 +507,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           <ThoughtProcess
             steps={thoughtSteps}
             isAnalyzing={isExecutingFlow}
-            model={selectedModel ?? ""}
+            model={availableModels.find(m => m.id === selectedModel)?.name ?? selectedModel ?? ""}
           />
         )}
 

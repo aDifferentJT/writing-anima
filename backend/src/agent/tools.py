@@ -9,6 +9,7 @@ from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionFunctionToolParam
 
 from ..config import Config
+from ..database import settings as settings_db
 from ..corpus.embed.factory import create_embedding_generator
 from ..database.vector import VectorCollection
 from ..database.vector.schema import CorpusDocumentMetadata, SearchFilters, SourceType
@@ -76,7 +77,7 @@ class CorpusSearchTool:
 
         # Generate query embedding
         embedder = await create_embedding_generator(
-            self.config.get_embedding(self.embedding_provider)
+            settings_db.get().get_embedding(self.embedding_provider)
         )
         query_embedding = await embedder.generate_one(query)
         del embedder
@@ -269,7 +270,7 @@ class IncrementalReasoningTool:
         """
         try:
             # Generate embedding for query
-            embedding_cfg = self.config.get_embedding(self.embedding_provider)
+            embedding_cfg = settings_db.get().get_embedding(self.embedding_provider)
             embedder = await create_embedding_generator(embedding_cfg)
             query_embedding = await embedder.generate_one(query)
             del embedder

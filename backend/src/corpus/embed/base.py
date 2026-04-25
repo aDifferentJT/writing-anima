@@ -3,7 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 
-from ...config import EmbeddingConfig
+from ...database.settings import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
 

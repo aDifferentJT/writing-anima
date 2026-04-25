@@ -1,3 +1,5 @@
+claude --resume 2f76bc91-d6d5-47f9-80ed-6685088db453
+
 - Is deepseek thinking?
 - generating embedding progress bar is stalled
 - Thinking progress has funky icons
