@@ -71,7 +71,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || loading || !anima) return;
+    if (!text || loading || !anima || !selectedModel) return;
 
     const userMessage: ChatMessage = { role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
@@ -120,7 +120,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
             setLoading(false);
           },
         },
-        selectedModel ?? "gpt-5",
+        selectedModel || "",
       );
     } catch (err: unknown) {
       console.error("Chat error:", err);
@@ -171,6 +171,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
             className="select select-bordered select-sm text-xs max-w-[200px]"
             disabled={loading || availableModels.length === 0}
           >
+            <option value="">No Model Selected</option>
             {availableModels.length > 0 ? (
               availableModels.map((model) => (
                 <option key={model.id} value={model.id}>
@@ -288,11 +289,11 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
                 target.style.height =
                   Math.min(target.scrollHeight, 128) + "px";
               }}
-              disabled={loading}
+              disabled={loading || !selectedModel}
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || loading || !selectedModel}
               className="btn btn-primary btn-sm p-2 rounded disabled:opacity-30 flex-shrink-0"
             >
               <Send className="w-4 h-4" />

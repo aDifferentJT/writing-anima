@@ -30,7 +30,7 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
   const displayFeedback = showResolved ? resolvedFeedback : feedback;
 
   return (
-    <div className="card bg-base-100 border border-base-300 h-[calc(100vh-180px)] flex flex-col">
+    <div className="card bg-base-100 border border-base-300 h-full flex flex-col">
       <div className="h-[36px] px-3 border-b border-base-300 flex items-center">
         <h2 className="text-xs font-semibold text-base-content/50 uppercase tracking-wide">
           {showResolved ? "Resolved" : "Criticism"}

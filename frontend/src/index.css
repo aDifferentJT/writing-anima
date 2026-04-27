@@ -131,6 +131,16 @@ html, body, #root {
   color: #000000;
 }
 
+/* daisyUI's `.list` component sets display:flex; flex-direction:column, which
+   collides with the syntax-highlighter token <span class="token list punctuation">
+   inside MDEditor and forces the bullet onto its own line, desyncing the
+   highlight overlay from the textarea. */
+.w-md-editor-content .list {
+  display: inline;
+  flex-direction: unset;
+  font-size: unset;
+}
+
 h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
   letter-spacing: -0.02em;

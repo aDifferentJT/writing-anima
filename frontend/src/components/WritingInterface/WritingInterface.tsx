@@ -366,7 +366,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
 
   return (
     <>
-      <div className="mx-auto px-2 py-3 space-y-3">
+      <div className="h-full flex flex-col mx-auto px-2 py-2 space-y-3">
         {/* Anima Analysis Toolbar - Minimal */}
         <div className="card bg-base-100 border border-base-300 p-3 flex !flex-row items-center gap-4">
           <div className="flex items-center gap-2">
@@ -511,8 +511,8 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
           />
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
-          <div>
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
+          <div className="min-h-0">
             <WritingArea
               ref={writingAreaRef}
               content={project.content}
@@ -520,7 +520,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
             />
           </div>
 
-          <div>
+          <div className="min-h-0">
             <FeedbackPanel
               feedback={feedback}
               resolvedFeedback={resolvedFeedback}

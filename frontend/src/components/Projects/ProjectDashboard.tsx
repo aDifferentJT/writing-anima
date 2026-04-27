@@ -5,7 +5,9 @@ import {
   FileText,
   Trash2,
   Copy,
+  Sparkles,
 } from 'lucide-react';
+import { openAnimaManager } from '../../services/desktopApi';
 import projectService from '../../services/projectService';
 import type { Project } from '../../types';
 
@@ -127,11 +129,12 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
             </div>
 
             <button
-              onClick={handleCreateProject}
+              onClick={openAnimaManager}
               className="btn btn-primary btn-sm flex items-center gap-1.5"
+              title="Open Anima Manager"
             >
-              <Plus className="w-4 h-4" />
-              New
+              <Sparkles className="w-4 h-4" />
+              Animas
             </button>
           </div>
 
@@ -157,6 +160,14 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onSelectProject, on
               <option value="created">Created</option>
               <option value="title">Title</option>
             </select>
+
+            <button
+              onClick={handleCreateProject}
+              className="btn btn-primary btn-sm flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              New
+            </button>
           </div>
         </div>
 

@@ -1,5 +1,3 @@
-- Expanding feedback pushes the app below
-- Conversations
 - Writing area overlay
 - GPT 0 searches / 0 steps
 

@@ -195,7 +195,7 @@ def main() -> None:
                 webview.menu.Menu(
                     "__app__",
                     [
-                        webview.menu.MenuAction("Anima Manager", js_api.open_anima_manager),
+                        webview.menu.MenuAction("Animas", js_api.open_anima_manager),
                         webview.menu.MenuAction("Settings", js_api.open_settings),
                         webview.menu.MenuAction("Refresh", js_api.refresh_all_pages),
                     ],

@@ -140,9 +140,9 @@ function ProjectPage(): React.ReactElement {
   }
 
   return (
-    <div className="h-screen bg-base-200">
+    <div className="h-screen bg-base-200 flex flex-col">
       <Navigation project={project} />
-      <div className="h-[calc(100vh-80px)]">
+      <div className="flex-1 min-h-0">
         <WritingInterface
           feedback={project.feedback}
           setFeedback={(feedback) => setProject({ ...project, feedback })}

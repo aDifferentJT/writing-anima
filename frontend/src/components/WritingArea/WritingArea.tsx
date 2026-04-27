@@ -111,12 +111,12 @@ const WritingArea: React.FC<WritingAreaProps> = ({ content, onContentChange, ref
   }, []); // TODO should this be an effect?
 
   return (
-    <div className="card bg-base-100 border border-base-300 h-[calc(100vh-180px)]">
+    <div className="card bg-base-100 border border-base-300 h-full flex flex-col">
       <div className="h-[36px] px-3 border-b border-base-300 flex items-center">
         <h2 className="text-xs font-semibold text-base-content/50 uppercase tracking-wide">Editor</h2>
       </div>
 
-      <div className="relative h-[calc(100%-36px)]" ref={editorRef}>
+      <div className="relative flex-1 min-h-0" ref={editorRef}>
         <MDEditor
           value={content}
           onChange={(val) => onContentChange(val ?? '')}
