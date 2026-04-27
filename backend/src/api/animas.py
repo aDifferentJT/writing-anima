@@ -12,7 +12,6 @@ from typing import Callable, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from sqlmodel import Session, select
 
-from ..config import get_config
 from ..database import settings as settings_db
 from ..corpus.embed.factory import create_embedding_generator
 from ..corpus.ingest import CorpusIngester, Stage, STAGES
@@ -382,7 +381,7 @@ async def upload_corpus(websocket: WebSocket, anima_id: uuid.UUID) -> None:  # p
             anima.corpus_file_count += len(files_data)
             anima.chunk_count = total_chunks
             anima.style_pack = await generate_style_pack(
-                collection_name, get_config().retrieval.style_pack_size, embedder
+                collection_name, request.corpus_config.style_pack_size, embedder
             )
             progress.advance()
             anima.updated_at = datetime.utcnow()

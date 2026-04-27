@@ -303,7 +303,7 @@ class AnimaService {
   async *uploadCorpus(
     animaId: string,
     files: File[],
-    corpusConfig?: { chunk_size?: number; chunk_overlap?: number; min_chunk_length?: number },
+    corpusConfig?: { chunk_size?: number; chunk_overlap?: number; min_chunk_length?: number; style_pack_size?: number },
   ): AsyncGenerator<CorpusUploadMessage> {
     const toBase64 = (file: File): Promise<string> =>
       new Promise((resolve, reject) => {

@@ -318,10 +318,11 @@ class CorpusUploadFile(BaseModel):
 
 
 class CorpusConfig(BaseModel):
-    """Chunking parameters supplied per-upload."""
+    """Chunking and style pack parameters supplied per-upload."""
     chunk_size: int = 800
     chunk_overlap: int = 100
     min_chunk_length: int = 100
+    style_pack_size: int = 15
 
 
 class CorpusUploadRequest(BaseModel):

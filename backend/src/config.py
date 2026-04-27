@@ -28,8 +28,6 @@ class RetrievalConfig(BaseModel):
 
     default_k: int = 5
     max_k: int = 20
-    similarity_threshold: float = 0.7
-    style_pack_size: int = 10
 
 
 class Config(BaseModel):

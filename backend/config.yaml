@@ -16,12 +16,6 @@ corpus:
 retrieval:
   default_k: 80
   max_k: 120
-  similarity_threshold: 0.5
-  style_pack_size: 15
-  incremental_mode:
-    enabled: true
-    ood_check_model: gpt-4o-mini
-    max_corpus_concepts: 5
 style:
   verification_enabled: false
   similarity_threshold: 0.75

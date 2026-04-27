@@ -35,6 +35,7 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
   const [chunkSize, setChunkSize] = useState(800);
   const [chunkOverlap, setChunkOverlap] = useState(100);
   const [minChunkLength, setMinChunkLength] = useState(100);
+  const [stylePackSize, setStylePackSize] = useState(15);
 
   if (!isOpen) return null;
 
@@ -64,6 +65,7 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
         chunk_size: chunkSize,
         chunk_overlap: chunkOverlap,
         min_chunk_length: minChunkLength,
+        style_pack_size: stylePackSize,
       })) {
         if (msg.type === "status") {
           setUploadStatus(msg);
@@ -263,6 +265,7 @@ const CorpusUploadModal: React.FC<CorpusUploadModalProps> = ({
                   { label: "Chunk size", value: chunkSize, set: setChunkSize },
                   { label: "Chunk overlap", value: chunkOverlap, set: setChunkOverlap },
                   { label: "Min chunk length", value: minChunkLength, set: setMinChunkLength },
+                  { label: "Style pack size", value: stylePackSize, set: setStylePackSize },
                 ].map(({ label, value, set }) => (
                   <div key={label}>
                     <label className="block text-xs font-semibold text-base-content/50 uppercase tracking-wide mb-1">{label}</label>
