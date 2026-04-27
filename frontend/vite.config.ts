@@ -50,6 +50,8 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         animas: resolve(__dirname, 'animas.html'),
         settings: resolve(__dirname, 'settings.html'),
+        project: resolve(__dirname, 'project.html'),
+        project_settings: resolve(__dirname, 'project_settings.html'),
         error: resolve(__dirname, 'error.html'),
       },
     },

@@ -4,6 +4,7 @@ import {
   getSettings, saveSettings,
   type AppSettings, type Model, type EmbeddingConfig, type VectorDBConfig,
 } from "../../services/settingsService";
+import { refreshAllPages } from "../../services/desktopApi";
 
 // ── templates ─────────────────────────────────────────────────────────────────
 
@@ -313,7 +314,7 @@ const Settings: React.FC = () => {
     setError(null);
     try {
       setS(await saveSettings(s));
-      window.pywebview.api.refresh_all_pages();
+      refreshAllPages();
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 2000);
     } catch (e) {

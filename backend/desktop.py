@@ -134,9 +134,16 @@ def main() -> None:
     
             class JsApi:
                 def __init__(self) -> None:
-                    self.main_window: webview.Window | None = None
                     self._anima_window: webview.Window | None = None
                     self._settings_window: webview.Window | None = None
+                    self.main_window = webview.create_window(
+                        "Writing Anima",
+                        URL,
+                        width=1400,
+                        height=900,
+                        min_size=(800, 600),
+                        js_api=self,
+                    )
 
                 def open_anima_manager(self) -> None:
                     if self._anima_window is None:
@@ -146,6 +153,7 @@ def main() -> None:
                             width=1200,
                             height=800,
                             min_size=(800, 600),
+                            js_api=self,
                         )
                         if win is not None:
                             def _on_closed() -> None:
@@ -163,6 +171,7 @@ def main() -> None:
                             width=1000,
                             height=700,
                             min_size=(700, 500),
+                            js_api=self,
                         )
                         if win is not None:
                             def _on_settings_closed() -> None:
@@ -173,8 +182,7 @@ def main() -> None:
                         self._settings_window.show()
 
                 def refresh_all_pages(self) -> None:
-                    if self.main_window is not None:
-                        self.main_window.run_js("location.reload()")
+                    self.main_window.run_js("location.reload()")
                     if self._anima_window is not None:
                         self._anima_window.run_js("location.reload()")
                     if self._settings_window is not None:
@@ -182,16 +190,6 @@ def main() -> None:
 
             js_api = JsApi()
 
-            window = webview.create_window(
-                "Writing Anima",
-                URL,
-                width=1400,
-                height=900,
-                min_size=(800, 600),
-                js_api=js_api,
-            )
-            js_api.main_window = window
-    
             menu = [
                 webview.menu.Menu(
                     "__app__",
@@ -202,7 +200,7 @@ def main() -> None:
                     ],
                 )
             ]
-    
+
             webview.start(ssl=True, menu=menu)
 
 

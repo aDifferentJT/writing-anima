@@ -84,6 +84,14 @@ def setup(allowed_origins: list[str]) -> FastAPI:
         async def settings_page() -> FileResponse:
             return FileResponse(str(frontend_dist / "settings.html"))
 
+        @app.get("/project")
+        async def project_page() -> FileResponse:
+            return FileResponse(str(frontend_dist / "project.html"))
+
+        @app.get("/project/settings")
+        async def project_settings_page() -> FileResponse:
+            return FileResponse(str(frontend_dist / "project_settings.html"))
+
         app.mount("/", StaticFiles(directory=str(frontend_dist), html=True, follow_symlink=True), name="frontend")
 
     return app
