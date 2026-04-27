@@ -66,10 +66,6 @@ class OpenAIAgent(BaseAgent):
 
         tools: list[ChatCompletionToolUnionParam] = [self.search_tool.get_tool_definition_openai()]
 
-        # Add incremental reasoning tool if enabled
-        if self.config.retrieval.incremental_mode.enabled:
-            tools.append(self.reasoning_tool.get_tool_definition_openai())
-
         # Determine tool_choice based on config and iteration state
         tool_choice: Literal["auto", "required"] = (
             "required"
@@ -119,9 +115,6 @@ class OpenAIAgent(BaseAgent):
             query = tool_input.get("query", "")[:60]
             k = tool_input.get("k", "default")
             return f'Searching corpus for: "{query}..." (k={k})'
-        elif tool_name == "check_incremental_reasoning":
-            query = tool_input.get("query", "")[:60]
-            return f'Checking if query is out-of-distribution: "{query}..."'
         else:
             return f"Executing tool: {tool_name}"
 
@@ -451,10 +444,6 @@ Start with [ and end with ].
                     self.search_tool.get_tool_definition_openai()
                 ]
 
-                # Add incremental reasoning tool if enabled
-                if self.config.retrieval.incremental_mode.enabled:
-                    tools.append(self.reasoning_tool.get_tool_definition_openai())
-
                 logger.debug("Calling model with %d tools available", len(tools))
                 logger.debug("Tool names: %s", [t['function']['name'] for t in tools])
 
@@ -625,13 +614,6 @@ Start with [ and end with ].
                                 ),
                                 "tool": tool_use.name,
                             }
-                        elif tool_use.name == "check_incremental_reasoning":
-                            yield {
-                                "type": "status",
-                                "message": "Analyzing query distribution...",
-                                "tool": tool_use.name,
-                            }
-
                         result = await self._execute_tool(tool_use)
                         tool_results.append(result)
                         tools_called_count += 1

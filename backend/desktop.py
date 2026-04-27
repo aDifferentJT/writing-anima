@@ -182,7 +182,8 @@ def main() -> None:
                         self._settings_window.show()
 
                 def refresh_all_pages(self) -> None:
-                    self.main_window.run_js("location.reload()")
+                    if self.main_window is not None:
+                        self.main_window.run_js("location.reload()")
                     if self._anima_window is not None:
                         self._anima_window.run_js("location.reload()")
                     if self._settings_window is not None:

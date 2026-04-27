@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from . import resources
 
@@ -22,15 +22,6 @@ class AgentConfig(BaseModel):
     force_tool_use: bool = True  # Require model to use tools
 
 
-# TODO probably unused
-class IncrementalModeConfig(BaseModel):
-    """Incremental reasoning configuration for OOD queries"""
-
-    enabled: bool = True
-    ood_check_model: str = "gpt-4o-mini"
-    max_corpus_concepts: int = 5
-
-
 # TODO check what this does, if it works, user facing
 class RetrievalConfig(BaseModel):
     """Retrieval configuration"""
@@ -39,9 +30,6 @@ class RetrievalConfig(BaseModel):
     max_k: int = 20
     similarity_threshold: float = 0.7
     style_pack_size: int = 10
-    incremental_mode: IncrementalModeConfig = Field(
-        default_factory=IncrementalModeConfig
-    )
 
 
 class Config(BaseModel):

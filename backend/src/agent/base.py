@@ -13,7 +13,7 @@ from ..config import Config
 from ..database.general import get_general_db
 from ..database.vector import get_vector_db
 from .. import resources
-from .tools import CorpusSearchTool, IncrementalReasoningTool
+from .tools import CorpusSearchTool
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +76,6 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
 
         self.search_tool = CorpusSearchTool(
             collection,
-            config,
-            self.anima.embedding_provider,
-        )
-        self.reasoning_tool = IncrementalReasoningTool(
-            collection,
-            self.anima.name,
             config,
             self.anima.embedding_provider,
         )
@@ -250,17 +244,6 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
                 return result
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Error executing search_corpus: %s", e)
-                return {"error": str(e)}
-        elif tool_use.name == "check_incremental_reasoning":
-            try:
-                result = await self.reasoning_tool.check_and_guide(**tool_use.input)
-                logger.debug(
-                    "Incremental reasoning check: OOD=%s",
-                    result.get('is_ood', False)
-                )
-                return result
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.error("Error executing check_incremental_reasoning: %s", e)
                 return {"error": str(e)}
         else:
             error_msg = f"Unknown tool: {tool_use.name}"

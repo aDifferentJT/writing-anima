@@ -18,7 +18,6 @@ from ..corpus.embed.factory import create_embedding_generator
 from ..corpus.ingest import CorpusIngester, Stage, STAGES
 from ..corpus.style_pack import generate_style_pack
 from ..database.general import get_general_db
-from ..database.settings import Model
 from ..database.vector import get_vector_db
 from ..database.vector.schema import CorpusDocument as VectorCorpusDocument
 from .models import (
