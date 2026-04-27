@@ -11,7 +11,11 @@ import {
   BookOpen,
   ExternalLink,
 } from "lucide-react";
-import { EnrichedFeedbackItem, CorpusSource } from "../../types";
+import { EnrichedFeedbackItem, CorpusSource, ModelInfo } from "../../types";
+
+const getModelName = (modelId: string, availableModels: ModelInfo[]): string => {
+  return availableModels.find(m => m.id === modelId)?.name ?? modelId;
+};
 
 /**
  * Simple markdown renderer for feedback text
@@ -94,6 +98,7 @@ interface CriticCardProps {
   onMarkResolved: (id: string) => void;
   onJumpToReference: (text: string) => void;
   onViewCorpusSource: (source: CorpusSource) => void;
+  availableModels: ModelInfo[];
 }
 
 const CriticCard: React.FC<CriticCardProps> = ({
@@ -102,6 +107,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
   onMarkResolved,
   onJumpToReference,
   onViewCorpusSource,
+  availableModels,
 }) => {
   if (typeof feedback === "string") {
     return <div className="text-xs text-error p-2">Malformed feedback item received.</div>;
@@ -210,7 +216,7 @@ const CriticCard: React.FC<CriticCardProps> = ({
         {/* Model tag */}
         {feedbackData.model && (
           <span className="text-[10px] px-1.5 py-0.5 bg-base-200 rounded border border-base-300 text-base-content/40 font-mono">
-            {feedbackData.model}
+            {getModelName(feedbackData.model, availableModels)}
           </span>
         )}
 

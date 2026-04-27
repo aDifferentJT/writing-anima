@@ -1,3 +1,8 @@
+- Expanding feedback pushes the app below
+- Conversations
+- Writing area overlay
+- GPT 0 searches / 0 steps
+
 claude --resume 2f76bc91-d6d5-47f9-80ed-6685088db453
 
 - Is deepseek thinking?

@@ -2,7 +2,7 @@ import React from "react";
 import { MessageSquare } from "lucide-react";
 import CriticCard from "./CriticCard";
 import "./FeedbackPanel.css";
-import { EnrichedFeedbackItem, CorpusSource } from "../../types";
+import { EnrichedFeedbackItem, CorpusSource, ModelInfo } from "../../types";
 
 interface FeedbackPanelProps {
   feedback: EnrichedFeedbackItem[];
@@ -13,6 +13,7 @@ interface FeedbackPanelProps {
   onMarkSuggestionResolved: (id: string) => void;
   onJumpToReference: (text: string) => void;
   onViewCorpusSource: (source: CorpusSource) => void;
+  availableModels: ModelInfo[];
 }
 
 const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
@@ -24,6 +25,7 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
   onMarkSuggestionResolved,
   onJumpToReference,
   onViewCorpusSource,
+  availableModels,
 }) => {
   const displayFeedback = showResolved ? resolvedFeedback : feedback;
 
@@ -86,6 +88,7 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
                 onMarkResolved={onMarkSuggestionResolved}
                 onViewCorpusSource={onViewCorpusSource}
                 onJumpToReference={onJumpToReference}
+                availableModels={availableModels}
               />
             </div>
           ))

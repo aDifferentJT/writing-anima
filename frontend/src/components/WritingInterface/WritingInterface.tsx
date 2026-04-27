@@ -532,6 +532,7 @@ const WritingInterface: React.FC<WritingInterfaceProps> = ({
               onMarkSuggestionResolved={handleMultiAgentResolve}
               onJumpToReference={handleJumpToReference}
               onViewCorpusSource={handleViewCorpusSource}
+              availableModels={availableModels}
             />
           </div>
         </div>
