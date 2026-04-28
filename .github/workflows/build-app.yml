@@ -1,0 +1,50 @@
+name: Build macOS App
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build macOS app
+        run: uv run python setup.py py2app
+        working-directory: backend
+
+      - name: Create DMG with app and Applications alias
+        run: |
+          cd backend/dist
+
+          # Create a temporary directory for DMG contents
+          mkdir -p dmg_content
+          cp -r "Writing Anima.app" dmg_content/
+          ln -s /Applications dmg_content/Applications
+
+          # Create the DMG
+          hdiutil create -volname "Writing Anima" -srcfolder dmg_content -ov -format UDZO "Writing Anima.dmg"
+
+          # Clean up
+          rm -rf dmg_content
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: backend/dist/Writing Anima.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
