@@ -173,6 +173,86 @@ const VectorDBSection: React.FC<{
   </div>
 );
 
+// ── Advanced section ──────────────────────────────────────────────────────────
+
+const AdvancedSection: React.FC<{
+  settings: AppSettings;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onChange: (key: string, value: any) => void;
+}> = ({ settings, onChange }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="card bg-base-100 border border-base-300 p-5 space-y-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between text-sm font-semibold text-base-content/60 uppercase tracking-wide hover:text-base-content"
+      >
+        <span>Advanced</span>
+        <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="space-y-6 border-t border-base-300 pt-4">
+          {/* Retrieval Settings */}
+          <div>
+            <SectionTitle>Retrieval</SectionTitle>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Default K">
+                <input
+                  className="input input-bordered input-sm w-full"
+                  type="number"
+                  min="1"
+                  value={settings.retrieval?.default_k ?? 80}
+                  onChange={e => {
+                    const val = parseInt(e.target.value);
+                    onChange('retrieval', { ...settings.retrieval, default_k: val });
+                  }}
+                />
+              </Field>
+              <Field label="Max K">
+                <input
+                  className="input input-bordered input-sm w-full"
+                  type="number"
+                  min="1"
+                  value={settings.retrieval?.max_k ?? 120}
+                  onChange={e => {
+                    const val = parseInt(e.target.value);
+                    onChange('retrieval', { ...settings.retrieval, max_k: val });
+                  }}
+                />
+              </Field>
+            </div>
+            <p className="text-xs text-base-content/50 mt-2">
+              Number of retrieval results. Constraint: 1 ≤ default_k ≤ max_k
+            </p>
+          </div>
+
+          {/* Agent Settings */}
+          <div>
+            <SectionTitle>Agent</SectionTitle>
+            <div className="space-y-3">
+              <Field label="Force Tool Use">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={settings.agent?.force_tool_use ?? true}
+                    onChange={e => {
+                      onChange('agent', { ...settings.agent, force_tool_use: e.target.checked });
+                    }}
+                  />
+                  <span className="text-sm">Require the model to use tools when available</span>
+                </label>
+              </Field>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Embedding card ────────────────────────────────────────────────────────────
 
 const EmbeddingCard: React.FC<{
@@ -301,17 +381,40 @@ const ModelCard: React.FC<{
 // ── Main component ────────────────────────────────────────────────────────────
 
 const Settings: React.FC = () => {
-  const [s, setS] = useState<AppSettings>({ models: [], vector_db: { type: "local" }, embeddings: [] });
+  const [s, setS] = useState<AppSettings>({ models: [], vector_db: { type: "local" }, embeddings: [], agent: { force_tool_use: true }, retrieval: { default_k: 80, max_k: 120 } });
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getSettings().then(setS).catch(e => setError(e.message));
+    getSettings().then(s => {
+      // Set defaults if not present
+      if (!s.agent) s.agent = { force_tool_use: true };
+      if (!s.retrieval) s.retrieval = { default_k: 80, max_k: 120 };
+      setS(s);
+    }).catch(e => setError(e.message));
   }, []);
 
   const handleSave = async () => {
     setStatus("saving");
     setError(null);
+
+    // Validate retrieval settings
+    if (s.retrieval && s.retrieval.default_k > s.retrieval.max_k) {
+      setError("default_k must be less than or equal to max_k");
+      setStatus("error");
+      return;
+    }
+    if (s.retrieval && s.retrieval.default_k < 1) {
+      setError("default_k must be at least 1");
+      setStatus("error");
+      return;
+    }
+    if (s.retrieval && s.retrieval.max_k < 1) {
+      setError("max_k must be at least 1");
+      setStatus("error");
+      return;
+    }
+
     try {
       setS(await saveSettings(s));
       refreshAllPages();
@@ -374,6 +477,12 @@ const Settings: React.FC = () => {
 
           {/* Vector DB */}
           <VectorDBSection config={s.vector_db} onChange={cfg => setS(prev => ({ ...prev, vector_db: cfg }))} />
+
+          {/* Advanced Settings */}
+          <AdvancedSection
+            settings={s}
+            onChange={(key, value) => setS(prev => ({ ...prev, [key]: value }))}
+          />
         </div>
       </div>
     </div>

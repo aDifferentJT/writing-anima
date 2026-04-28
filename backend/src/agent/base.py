@@ -9,7 +9,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from sqlmodel import Session, select
 
 from ..api.models import Anima
-from ..config import Config
+from ..database import settings
 from ..database.general import get_general_db
 from ..database.vector import get_vector_db
 from .. import resources
@@ -51,7 +51,6 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
     def __init__(
         self,
         anima_id: str,
-        config: Config,
         use_json_mode: bool,
     ):
         """
@@ -59,9 +58,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
 
         Args:
             anima_id: Anima identifier (e.g., "jules", "heidegger")
-            config: Configuration object
         """
-        self.config = config
         self.use_json_mode = use_json_mode
         self.anima_id = anima_id
 
@@ -76,7 +73,6 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
 
         self.search_tool = CorpusSearchTool(
             collection,
-            config,
             self.anima.embedding_provider,
         )
 
@@ -224,7 +220,7 @@ class BaseAgent(ABC):  # pylint: disable=too-many-instance-attributes,too-few-pu
         Returns:
             True if tools should be required, False otherwise
         """
-        return self.config.agent.force_tool_use and self._current_tool_calls_count == 0
+        return settings.get().agent.force_tool_use and self._current_tool_calls_count == 0
 
     async def _execute_tool(self, tool_use: ToolUse) -> Any:
         """

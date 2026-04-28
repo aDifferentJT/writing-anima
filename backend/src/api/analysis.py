@@ -17,7 +17,6 @@ from sqlmodel import Session, select
 
 from ..agent.base import Response
 from ..agent.factory import create_agent
-from ..config import get_config
 from ..database.general import get_general_db, get_model
 from .models import (
     AnalysisRequest,
@@ -429,7 +428,6 @@ async def analyze_writing_stream(websocket: WebSocket) -> None:  # pylint: disab
         agent = create_agent(
             model=model,
             anima_id=request.anima_id,
-            config=get_config(),
             # Note: DeepSeek doesn't support strict JSON schema, so skip for those agents
             use_json_mode=model.provider != "deepseek",
             prompt_file="writing_critic.txt",
@@ -622,7 +620,6 @@ async def chat_with_anima_stream(websocket: WebSocket) -> None:  # pylint: disab
         agent = create_agent(
             model=model,
             anima_id=anima_id,
-            config=get_config(),
             use_json_mode=False,
             prompt_file="base.txt",
         )

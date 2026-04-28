@@ -24,6 +24,15 @@ export interface CloudQdrantConfig {
 
 export type VectorDBConfig = LocalQdrantConfig | CloudQdrantConfig;
 
+export interface AgentSettings {
+  force_tool_use: boolean;
+}
+
+export interface RetrievalSettings {
+  default_k: number;
+  max_k: number;
+}
+
 export interface EmbeddingConfig {
   id: string;
   name: string;
@@ -40,6 +49,8 @@ export interface AppSettings {
   vector_db: VectorDBConfig;
   embeddings: EmbeddingConfig[];
   preferred_model_id?: string;
+  agent: AgentSettings;
+  retrieval: RetrievalSettings;
 }
 
 export async function getSettings(): Promise<AppSettings> {

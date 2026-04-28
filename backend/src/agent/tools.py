@@ -5,7 +5,6 @@ from typing import Any, NamedTuple, Optional
 
 from openai.types.chat import ChatCompletionFunctionToolParam
 
-from ..config import Config
 from ..database import settings as settings_db
 from ..corpus.embed.factory import create_embedding_generator
 from ..database.vector import VectorCollection
@@ -25,16 +24,14 @@ class WritingSample(NamedTuple):
 class CorpusSearchTool:
     """Search tool for corpus retrieval"""
 
-    def __init__(self, collection: VectorCollection, config: Config, embedding_provider: str):
+    def __init__(self, collection: VectorCollection, embedding_provider: str):
         """
         Initialize search tool.
 
         Args:
             collection: VectorCollection instance to search
-            config: Configuration object
             embedding_provider: Embedding provider used to build this corpus
         """
-        self.config = config
         self.collection = collection
         self.embedding_provider = embedding_provider
 
@@ -49,24 +46,27 @@ class CorpusSearchTool:
 
         Args:
             query: Search query
-            k: Number of results to return (default from config)
+            k: Number of results to return (default from settings)
             source_filter: Optional list of source types to filter by
 
         Returns:
             List of search results with text, metadata, and similarity scores
         """
+        # Cache settings reference to avoid multiple get() calls
+        settings = settings_db.get()
+
         # Use default k if not provided
         if k is None:
-            k = self.config.retrieval.default_k
+            k = settings.retrieval.default_k
 
-        # Validate k
-        k = min(k, self.config.retrieval.max_k)
+        # Validate k - ensure 1 <= k <= max_k
+        k = min(k, settings.retrieval.max_k)
 
         logger.debug("Searching corpus for: '%s' (k=%d)", query, k)
 
         # Generate query embedding
         embedder = await create_embedding_generator(
-            settings_db.get().get_embedding(self.embedding_provider)
+            settings.get_embedding(self.embedding_provider)
         )
         query_embedding = await embedder.generate_one(query)
         del embedder
@@ -144,9 +144,10 @@ class CorpusSearchTool:
                             "type": "integer",
                             "description": (
                                 "Number of results to return. Use k=100 for comprehensive "
-                                f"content and style grounding. Max: {self.config.retrieval.max_k}"
+                                "content and style grounding. "
+                                f"Max: {settings_db.get().retrieval.max_k}"
                             ),
-                            "default": self.config.retrieval.default_k,
+                            "default": settings_db.get().retrieval.default_k,
                         },
                         "source_filter": {
                             "type": "array",

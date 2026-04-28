@@ -102,3 +102,75 @@ def test_post_form_validation_error(client: TestClient) -> None:
     body = resp.json()
     assert body["type"] == "VALIDATION_ERRORS"
     assert isinstance(body["validation_errors"], list)
+
+
+def test_get_retrieval_settings(client: TestClient) -> None:
+    """Test that retrieval settings are returned correctly."""
+    with patch("src.api.settings.settings.get", return_value=MOCK_SETTINGS):
+        response = client.get("/api/settings")
+    assert response.status_code == 200
+    data = response.json()
+    assert "retrieval" in data
+    assert data["retrieval"]["default_k"] == 80
+    assert data["retrieval"]["max_k"] == 120
+
+
+def test_update_retrieval_settings(client: TestClient) -> None:
+    """Test that retrieval settings can be updated."""
+    new_settings = {
+        "models": [],
+        "vector_db": {"type": "local"},
+        "embeddings": [],
+        "retrieval": {"default_k": 50, "max_k": 100},
+        "agent": {"force_tool_use": True},
+    }
+    updated = Settings(
+        models=[],
+        vector_db={"type": "local"},
+        embeddings=[],
+        retrieval={"default_k": 50, "max_k": 100},
+        agent={"force_tool_use": True},
+    )
+    with patch("src.api.settings.settings.get", return_value=MOCK_SETTINGS):
+        with patch("src.api.settings.settings.update", return_value=updated) as mock_update:
+            response = client.put("/api/settings", json=new_settings)
+            mock_update.assert_called_once()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["retrieval"]["default_k"] == 50
+    assert data["retrieval"]["max_k"] == 100
+
+
+def test_get_agent_settings(client: TestClient) -> None:
+    """Test that agent settings are returned correctly."""
+    with patch("src.api.settings.settings.get", return_value=MOCK_SETTINGS):
+        response = client.get("/api/settings")
+    assert response.status_code == 200
+    data = response.json()
+    assert "agent" in data
+    assert "force_tool_use" in data["agent"]
+
+
+def test_update_agent_settings(client: TestClient) -> None:
+    """Test that agent settings can be updated."""
+    new_settings = {
+        "models": [],
+        "vector_db": {"type": "local"},
+        "embeddings": [],
+        "retrieval": {"default_k": 80, "max_k": 120},
+        "agent": {"force_tool_use": False},
+    }
+    updated = Settings(
+        models=[],
+        vector_db={"type": "local"},
+        embeddings=[],
+        retrieval={"default_k": 80, "max_k": 120},
+        agent={"force_tool_use": False},
+    )
+    with patch("src.api.settings.settings.get", return_value=MOCK_SETTINGS):
+        with patch("src.api.settings.settings.update", return_value=updated) as mock_update:
+            response = client.put("/api/settings", json=new_settings)
+            mock_update.assert_called_once()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["agent"]["force_tool_use"] is False

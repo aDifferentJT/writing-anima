@@ -57,6 +57,17 @@ class EmbeddingConfig(BaseModel):
     max_length: int = 512
 
 
+class AgentSettings(BaseModel):
+    """Agent configuration"""
+    force_tool_use: bool = True
+
+
+class RetrievalSettings(BaseModel):
+    """Retrieval configuration"""
+    default_k: int = 80
+    max_k: int = 120
+
+
 class Settings(BaseModel):
     """Pickled app settings persisted on disk."""
 
@@ -64,6 +75,8 @@ class Settings(BaseModel):
     vector_db: VectorDBConfig = Field(default_factory=LocalQdrantConfig)
     embeddings: list[EmbeddingConfig] = Field(default_factory=list)
     preferred_model_id: Optional[str] = None
+    agent: AgentSettings = Field(default_factory=AgentSettings)
+    retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
 
     def get_embedding(self, embedding_id: str) -> EmbeddingConfig:
         for emb in self.embeddings:

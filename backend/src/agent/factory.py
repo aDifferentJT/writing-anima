@@ -2,7 +2,6 @@
 
 import logging
 
-from ..config import Config
 from ..database.settings import Model
 from .base import BaseAgent
 from .openai_agent import OpenAIAgent
@@ -13,7 +12,6 @@ logger = logging.getLogger(__name__)
 def create_agent(
     model: Model,
     anima_id: str,
-    config: Config,
     use_json_mode: bool,
     prompt_file: str,
 ) -> BaseAgent:
@@ -22,7 +20,6 @@ def create_agent(
         logger.info("Creating OpenAIAgent for anima: %s", anima_id)
         return OpenAIAgent(
             anima_id=anima_id,
-            config=config,
             model=model,
             use_json_mode=use_json_mode,
             prompt_file=prompt_file,

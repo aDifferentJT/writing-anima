@@ -17,7 +17,7 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from openai.types.shared_params import ResponseFormatJSONSchema
 
-from ..config import Config
+from ..database import settings
 from ..database.settings import Model
 from .base import BaseAgent, ToolCall, ToolUse
 
@@ -29,7 +29,6 @@ class OpenAIAgent(BaseAgent):
     def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         anima_id: str,
-        config: Config,
         model: Model,
         use_json_mode: bool,
         prompt_file: str,
@@ -39,14 +38,12 @@ class OpenAIAgent(BaseAgent):
 
         Args:
             anima_id: Anima identifier (e.g., "jules", "heidegger")
-            config: Optional configuration object
             model: OpenAI model identifier (gpt-4, gpt-4-turbo-preview, gpt-3.5-turbo)
             use_json_mode: Whether to use JSON response format
             prompt_file: Which prompt template to use
         """
         super().__init__(
             anima_id,
-            config,
             use_json_mode=use_json_mode,
         )
 
@@ -449,7 +446,7 @@ Start with [ and end with ].
 
                 # Require tools on first iteration if no tools called yet
                 tool_choice: Literal["auto", "required"]
-                if self.config.agent.force_tool_use and tools_called_count == 0:
+                if settings.get().agent.force_tool_use and tools_called_count == 0:
                     tool_choice = "required"
                 else:
                     tool_choice = "auto"

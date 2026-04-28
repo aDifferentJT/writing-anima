@@ -33,7 +33,6 @@ from qdrant_client.models import (
 )
 
 from ... import global_init, resources
-from ...config import Config
 from ..settings import CloudQdrantConfig, LocalQdrantConfig, VectorDBConfig
 from .schema import CorpusDocument, CorpusDocumentMetadata, SearchFilters, SearchResult, SourceType
 
@@ -547,14 +546,13 @@ class VectorDatabase:
     qdrant_manager: Optional[QdrantManager]
     client: AsyncQdrantClient
 
-    def __init__(self, config: Config, vector_db_config: VectorDBConfig) -> None:
+    def __init__(self, vector_db_config: VectorDBConfig) -> None:
         """
         Initialize vector database connection.
 
         Args:
-            config: Configuration object
+            vector_db_config: Vector database configuration
         """
-        self.config = config
         self.qdrant_manager = None
 
         # Initialize Qdrant client
@@ -632,9 +630,8 @@ def get_vector_db() -> VectorDatabase:
 def _init_vector_database() -> None:
     """Initialize the global VectorDatabase instance."""
     global _vector_db  # pylint: disable=global-statement
-    from ...config import get_config
     from ..settings import get as get_settings
-    _vector_db = VectorDatabase(get_config(), get_settings().vector_db)
+    _vector_db = VectorDatabase(get_settings().vector_db)
 
 
 global_init.add(_init_vector_database)
