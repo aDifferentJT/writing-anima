@@ -39,6 +39,7 @@ export interface AppSettings {
   models: Model[];
   vector_db: VectorDBConfig;
   embeddings: EmbeddingConfig[];
+  preferred_model_id?: string;
 }
 
 export async function getSettings(): Promise<AppSettings> {
@@ -47,7 +48,7 @@ export async function getSettings(): Promise<AppSettings> {
   return res.json();
 }
 
-export async function saveSettings(data: AppSettings): Promise<AppSettings> {
+export async function saveSettings(data: Partial<AppSettings>): Promise<AppSettings> {
   const res = await fetch(`${API_URL}/api/settings`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

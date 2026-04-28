@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, Send, MessageCircle } from "lucide-react";
 import animaService from "../../services/animaService";
+import { getSettings, saveSettings } from "../../services/settingsService";
+import type { AppSettings } from "../../services/settingsService";
 import type { ChatMessage, ModelInfo, Anima } from "../../types";
 
 interface AnimaChatProps {
@@ -31,7 +33,6 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
     setStreamingContent("");
     setInput("");
     setError(null);
-    setSelectedModel(null);
   }
 
   // Load available models once
@@ -45,6 +46,21 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
       });
   }, []);
 
+  // Load preferred model from settings
+  useEffect(() => {
+    getSettings()
+      .then((settings: AppSettings) => {
+        if (settings.preferred_model_id && availableModels.length > 0) {
+          const model = availableModels.find(m => m.id === settings.preferred_model_id);
+          if (model) {
+            setSelectedModel(settings.preferred_model_id);
+          }
+        }
+      })
+      .catch((err: unknown) => {
+        console.error("Failed to load preferred model:", err);
+      });
+  }, [availableModels]);
 
   // Focus input when opened
   useEffect(() => {
@@ -136,6 +152,14 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
     }
   };
 
+  const handleModelChange = (modelId: string) => {
+    setSelectedModel(modelId);
+    saveSettings({ preferred_model_id: modelId })
+      .catch((err: unknown) => {
+        console.error("Failed to save model preference:", err);
+      });
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -167,7 +191,7 @@ const AnimaChat: React.FC<AnimaChatProps> = ({ isOpen, onClose, anima }) => {
           </div>
           <select
             value={selectedModel || ""}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModel(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleModelChange(e.target.value)}
             className="select select-bordered select-sm text-xs max-w-[200px]"
             disabled={loading || availableModels.length === 0}
           >

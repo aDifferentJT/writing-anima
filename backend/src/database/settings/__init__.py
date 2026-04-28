@@ -63,6 +63,7 @@ class Settings(BaseModel):
     models: list[Model] = Field(default_factory=list)
     vector_db: VectorDBConfig = Field(default_factory=LocalQdrantConfig)
     embeddings: list[EmbeddingConfig] = Field(default_factory=list)
+    preferred_model_id: Optional[str] = None
 
     def get_embedding(self, embedding_id: str) -> EmbeddingConfig:
         for emb in self.embeddings:
