@@ -14,8 +14,11 @@ Output: backend/dist/Writing Anima.app
 
 import hashlib
 import json
+import os
+import shutil
 import subprocess
 import sys
+import sysconfig
 import tarfile
 import urllib.request
 from collections.abc import Mapping
@@ -50,7 +53,6 @@ OPTIONS: dict[str, object] = {
         "huggingface_hub",
         "mlx_embeddings",
         "anyio",
-        "aiofiles",
         "h11",
         "httpx",
         "httpcore",
@@ -94,8 +96,13 @@ def _download_qdrant(build_dir: Path) -> None:
     build_dir.mkdir(parents=True, exist_ok=True)
 
     print("Fetching latest qdrant release...")
+    req = urllib.request.Request("https://api.github.com/repos/qdrant/qdrant/releases/latest")
+    # Authenticate when running in CI to avoid the 60/hour anonymous rate limit
+    # on shared runner IPs.
+    if token := os.environ.get("GITHUB_TOKEN"):
+        req.add_header("Authorization", f"Bearer {token}")
     try:
-        with urllib.request.urlopen("https://api.github.com/repos/qdrant/qdrant/releases/latest") as resp:
+        with urllib.request.urlopen(req) as resp:
             release_data = json.loads(resp.read().decode())
     except Exception as e:
         raise RuntimeError(f"Failed to fetch qdrant release info: {e}")
@@ -216,6 +223,35 @@ class Py2AppIgnoringDependencies(py2app):  # type: ignore[misc]
             print("Assets compiled successfully")
 
         super().run()
+
+        # mlx is a PEP 420 namespace package, so py2app's static analysis only
+        # picks up the core.so extension and misses the rest of the package
+        # (pure-python submodules like _reprlib_fix and the lib/ directory with
+        # libmlx.dylib + mlx.metallib that core.so loads via @loader_path/lib).
+        # Mirror the whole mlx/ tree into the bundle next to core.so.
+        import mlx.core as _mlx_core  # noqa: PLC0415
+        src_mlx = Path(_mlx_core.__file__).parent  # site-packages/mlx
+        app_root = HERE / "dist" / "Writing Anima.app" / "Contents" / "Resources"
+        # Find where py2app placed mlx/core.so so we copy alongside it.
+        candidates = list(app_root.rglob("mlx/core.cpython-*.so")) + list(app_root.rglob("mlx/core*.so"))
+        if not candidates:
+            raise RuntimeError(f"Could not find mlx/core.so under {app_root} after py2app build")
+        dst_mlx = candidates[0].parent
+        # Skip in --alias mode: dst_mlx is a symlink back to site-packages,
+        # so the package is already reachable and copying would clobber the venv.
+        if not dst_mlx.is_symlink():
+            print(f"Copying mlx package {src_mlx} -> {dst_mlx}")
+            shutil.copytree(src_mlx, dst_mlx, dirs_exist_ok=True)
+            print(f"  copied {len(list(dst_mlx.rglob('*')))} entries; libmlx.dylib present: {(dst_mlx / 'lib' / 'libmlx.dylib').exists()}")
+
+            # py2app writes a synthesized mlx/__init__.pyc into python312.zip,
+            # which makes mlx a regular package pinned to the zip and hides our
+            # lib-dynload/mlx/ copy. Strip mlx/* from the zip so Python resolves
+            # it as a PEP 420 namespace package and finds the full tree above.
+            stdlib_zip = app_root / "lib" / f"python{sys.version_info.major}{sys.version_info.minor}.zip"
+            if stdlib_zip.is_file():
+                print(f"Stripping mlx/* from {stdlib_zip}")
+                subprocess.run(["zip", "-d", str(stdlib_zip), "mlx/*"], check=True)
 
 setup(
     name="Writing Anima",

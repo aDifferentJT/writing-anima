@@ -26,6 +26,8 @@ jobs:
       - name: Build macOS app
         run: uv run python setup.py py2app
         working-directory: backend
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create DMG with app and Applications alias
         run: |
